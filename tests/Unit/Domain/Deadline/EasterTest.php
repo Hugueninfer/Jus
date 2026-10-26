@@ -21,6 +21,7 @@ final class EasterTest extends TestCase
         yield 'Easter 2026' => [2026, '2026-04-05'];
         yield 'Easter 2027' => [2027, '2027-03-28'];
         yield 'Easter 2038, latest possible date' => [2038, '2038-04-25'];
+        yield 'Easter 2049, exercises the m correction term' => [2049, '2049-04-18'];
     }
 
     #[DataProvider('easterSundays')]

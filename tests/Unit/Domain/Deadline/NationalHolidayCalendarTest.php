@@ -26,6 +26,8 @@ final class NationalHolidayCalendarTest extends TestCase
         yield 'Christmas' => ['2026-12-25'];
         yield 'Carnival Monday 2026' => ['2026-02-16'];
         yield 'Carnival Tuesday 2026' => ['2026-02-17'];
+        yield 'Carnival Monday 2024 (leap year)' => ['2024-02-12'];
+        yield 'Carnival Tuesday 2024 (leap year)' => ['2024-02-13'];
         yield 'Good Friday 2026' => ['2026-04-03'];
         yield 'Corpus Christi 2026' => ['2026-06-04'];
         yield 'Corpus Christi 2027' => ['2027-05-27'];

@@ -16,6 +16,9 @@ final readonly class DeadlineCalculator
     {
     }
 
+    /**
+     * Works on calendar dates: the time of day of $start is ignored and the result is a midnight date in $start's timezone.
+     */
     public function dueDate(\DateTimeImmutable $start, int $businessDays): \DateTimeImmutable
     {
         if ($businessDays < 1) {
@@ -34,10 +37,14 @@ final readonly class DeadlineCalculator
         return $day;
     }
 
+    /**
+     * Works on calendar dates: the time of day is ignored, and the calendar date of $today is taken in its own
+     * timezone and then compared in the timezone of $start.
+     */
     public function assess(\DateTimeImmutable $start, int $businessDays, \DateTimeImmutable $today, bool $fulfilled): DeadlineAssessment
     {
         $dueDate = $this->dueDate($start, $businessDays);
-        $today = $today->setTime(0, 0);
+        $today = new \DateTimeImmutable($today->format('Y-m-d'), $dueDate->getTimezone());
         $daysLeft = $this->businessDaysBetween($today, $dueDate);
 
         $todayKey = $today->format('Y-m-d');

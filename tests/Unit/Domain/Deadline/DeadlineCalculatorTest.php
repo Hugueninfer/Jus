@@ -32,6 +32,7 @@ final class DeadlineCalculatorTest extends TestCase
         yield 'Good Friday' => ['2026-04-02', 1, '2026-04-06'];
         yield 'Corpus Christi' => ['2026-06-03', 1, '2026-06-05'];
         yield 'court recess, Dec 20 to Jan 20' => ['2026-12-18', 1, '2027-01-21'];
+        yield 'court recess starts on Dec 20' => ['2027-12-17', 1, '2028-01-21'];
         yield 'counting resumes after the recess' => ['2026-12-14', 5, '2027-01-21'];
     }
 
@@ -71,6 +72,7 @@ final class DeadlineCalculatorTest extends TestCase
         yield 'today is a Saturday' => ['2026-03-07', false, 1, Urgency::Warning];
         yield 'due today' => ['2026-03-09', false, 0, Urgency::DueToday];
         yield 'overdue' => ['2026-03-10', false, 0, Urgency::Overdue];
+        yield 'fulfilled before the due date' => ['2026-03-04', true, 3, Urgency::Fulfilled];
         yield 'fulfilled wins over overdue' => ['2026-03-10', true, 0, Urgency::Fulfilled];
     }
 
@@ -86,8 +88,30 @@ final class DeadlineCalculatorTest extends TestCase
 
     public function testAssessIgnoresTimeOfDayOfToday(): void
     {
-        $assessment = $this->calculator->assess(new \DateTimeImmutable('2026-03-02'), 5, new \DateTimeImmutable('2026-03-09 23:59'), false);
+        $assessment = $this->calculator->assess(new \DateTimeImmutable('2026-03-02'), 5, new \DateTimeImmutable('2026-03-06 15:00'), false);
 
-        self::assertSame(Urgency::DueToday, $assessment->urgency);
+        self::assertSame(1, $assessment->businessDaysLeft);
+        self::assertSame(Urgency::Warning, $assessment->urgency);
+    }
+
+    public function testAssessComparesCalendarDatesAcrossTimezones(): void
+    {
+        $start = new \DateTimeImmutable('2026-03-02', new \DateTimeZone('UTC'));
+        $today = new \DateTimeImmutable('2026-03-06 10:00', new \DateTimeZone('America/Sao_Paulo'));
+
+        $assessment = $this->calculator->assess($start, 5, $today, false);
+
+        self::assertSame('2026-03-09', $assessment->dueDate->format('Y-m-d'));
+        self::assertSame(1, $assessment->businessDaysLeft);
+        self::assertSame(Urgency::Warning, $assessment->urgency);
+    }
+
+    public function testAssessCountsBusinessDaysLeftAcrossTheCourtRecess(): void
+    {
+        $assessment = $this->calculator->assess(new \DateTimeImmutable('2026-12-18'), 1, new \DateTimeImmutable('2026-12-28'), false);
+
+        self::assertSame('2027-01-21', $assessment->dueDate->format('Y-m-d'));
+        self::assertSame(1, $assessment->businessDaysLeft);
+        self::assertSame(Urgency::Warning, $assessment->urgency);
     }
 }
