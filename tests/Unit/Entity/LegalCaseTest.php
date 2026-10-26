@@ -7,6 +7,7 @@ namespace App\Tests\Unit\Entity;
 use App\Domain\CnjNumber;
 use App\Domain\LegalCase\CaseStatus;
 use App\Domain\LegalCase\EventType;
+use App\Domain\LegalCase\FilingType;
 use App\Domain\LegalCase\PartySide;
 use App\Entity\LegalCase;
 use App\Entity\User;
@@ -60,6 +61,37 @@ final class LegalCaseTest extends TestCase
         self::assertSame($case, $older->getLegalCase());
         self::assertSame($clerk, $older->getCreatedBy());
         self::assertNull($newer->getCreatedBy());
+        self::assertNull($older->getFilingType());
+    }
+
+    public function testFilesOnBehalfOfARepresentedParty(): void
+    {
+        $case = self::legalCase();
+        $lawyer = User::lawyer('ana@jus.test', 'Ana Ribeiro', 'SP 123.456');
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($lawyer);
+        $at = new \DateTimeImmutable('2024-03-15 16:00');
+
+        $filing = $case->file(FilingType::Statement, 'Manifestação.', $at, $lawyer);
+
+        self::assertSame(EventType::Filing, $filing->getType());
+        self::assertSame(FilingType::Statement, $filing->getFilingType());
+        self::assertSame('Manifestação.', $filing->getDescription());
+        self::assertSame($at, $filing->getOccurredAt());
+        self::assertSame($lawyer, $filing->getCreatedBy());
+        self::assertSame($case, $filing->getLegalCase());
+        self::assertSame([$filing], $case->getEvents());
+    }
+
+    public function testOnlyCounselOfAPartyCanFile(): void
+    {
+        $case = self::legalCase();
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)
+            ->addLawyer(User::lawyer('ana@jus.test', 'Ana Ribeiro', 'SP 123.456'));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('"carla@jus.test" does not represent any party in case 0000001-39.2024.8.26.0100.');
+
+        $case->file(FilingType::Statement, 'Manifestação.', new \DateTimeImmutable('2024-03-15 16:00'), User::lawyer('carla@jus.test', 'Carla Mendes', 'SP 654.321'));
     }
 
     private static function legalCase(CaseStatus $status = CaseStatus::Active, bool $confidential = false): LegalCase

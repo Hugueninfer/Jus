@@ -51,6 +51,23 @@ final class DeadlineCalculatorTest extends TestCase
         self::assertSame('2026-03-09 00:00', $due->format('Y-m-d H:i'));
     }
 
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function days(): iterable
+    {
+        yield 'a Wednesday, whatever the time of day' => ['2026-03-04 15:00', true];
+        yield 'a Saturday' => ['2026-03-07', false];
+        yield 'a holiday (Tiradentes)' => ['2026-04-21', false];
+        yield 'the court recess' => ['2026-12-22', false];
+    }
+
+    #[DataProvider('days')]
+    public function testIsBusinessDay(string $day, bool $expected): void
+    {
+        self::assertSame($expected, $this->calculator->isBusinessDay(new \DateTimeImmutable($day)));
+    }
+
     public function testRejectsNonPositiveBusinessDays(): void
     {
         $this->expectException(\InvalidArgumentException::class);

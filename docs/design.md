@@ -77,7 +77,7 @@ src/
     Deadline/              # DeadlineCalculator, HolidayCalendar, NationalHolidayCalendar, Easter
   Entity/                  # entidades Doctrine: LegalCase, Party, CaseEvent, Document, Deadline, User
   Doctrine/Type/           # CnjNumberDoctrineType (tipo Doctrine `cnj_number`)
-  Form/                    # CnjNumberType (form type), FilingType, SearchType, transformers
+  Form/                    # CnjNumberType (form type), FilingFormType, SearchType, transformers
   Repository/
   Security/                # LegalCaseVoter
   Service/                 # FilingService, DocumentStorage
@@ -139,7 +139,7 @@ Request → Controller → Voter → Repository / Domain → template Twig
 | `User` | email, name, password (hash), roles, oabNumber (nullable) |
 | `LegalCase` | number (`CnjNumber`, único), caseClass, subject, court, status (`CaseStatus`), confidential (bool), claimValueInCents (int), filedAt, parties, events |
 | `Party` | legalCase, name, taxId (fictício), side (`PartySide`), lawyers (ManyToMany `User`) |
-| `CaseEvent` | legalCase, type (`EventType`), description, occurredAt, createdBy (nullable), documents |
+| `CaseEvent` | legalCase, type (`EventType`), description, occurredAt, createdBy (nullable), filingType (`FilingType`, nullable; só nas juntadas de petição), documents |
 | `Document` | event, title, originalFilename, storedFilename (UUID + `.pdf`), sizeInBytes, uploadedBy, uploadedAt |
 | `Deadline` | party, summons (`CaseEvent` do tipo intimação), startDate, businessDays, fulfilledAt (nullable) |
 
@@ -151,12 +151,14 @@ User ──(advogado de)──► Party ◄── LegalCase ──► CaseEvent 
 
 As entidades Doctrine (`User`, `LegalCase`, `Party`, `CaseEvent`, `Document` e `Deadline`) ficam em `src/Entity/`, seguindo a convenção do Symfony. Assim `src/Domain/` continua PHP puro, sem Doctrine, e pode manter 100% de cobertura de linhas.
 
+As petições são registradas com `LegalCase::file()`, que exige um advogado que represente alguma parte do processo e grava o tipo da petição no `CaseEvent`; as demais movimentações usam `LegalCase::record()`.
+
 ### 5.2 Enums
 
 - `CaseStatus`: `ACTIVE` (em andamento), `SUSPENDED` (suspenso), `ARCHIVED` (arquivado).
 - `PartySide`: `PLAINTIFF` (polo ativo), `DEFENDANT` (polo passivo).
 - `EventType`: `DECISION` (decisão), `ORDER` (despacho), `FILING` (juntada de petição), `SUMMONS` (intimação), `HEARING` (audiência).
-- `FilingType`: `STATEMENT` (manifestação), `ANSWER` (contestação), `APPEAL` (recurso), `EXHIBITS` (juntada de documentos).
+- `FilingType`: `INITIAL_PETITION` (petição inicial — usada na distribuição, nunca oferecida no formulário de peticionamento), `STATEMENT` (manifestação), `ANSWER` (contestação), `APPEAL` (recurso), `EXHIBITS` (juntada de documentos).
 
 Os enums são PHP puro e ficam em `src/Domain/LegalCase/`; as entidades de `src/Entity/` os referenciam.
 
@@ -246,7 +248,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
   - `brl`: centavos → `R$ 1.234,56` via `NumberFormatter` (`pt_BR`).
 - Form theme `form/jus_theme.html.twig`, estendendo `bootstrap_5_layout.html.twig`, configurado globalmente. Campos com erro recebem `aria-invalid="true"` e `aria-describedby` apontando para a mensagem.
 - `CnjNumberType` (form type): DataTransformer `string ↔ CnjNumber`; o bloco do tema renderiza `<jus-numero-processo>` com o input nativo de fallback dentro.
-- `FilingType`: tipo (`EnumType` de `FilingType`), descrição (até 2000 caracteres), arquivos (`FileType` múltiplo; cada arquivo `application/pdf` até 10 MB; de 1 a 5 arquivos), renderizado com `<jus-upload>`.
+- `FilingFormType` (formulário de peticionamento): tipo (`EnumType` de `FilingType`, sem a petição inicial), descrição (até 2000 caracteres), arquivos (`FileType` múltiplo; cada arquivo `application/pdf` até 10 MB; de 1 a 5 arquivos), renderizado com `<jus-upload>`.
 
 ### 6.5 Web Components
 
@@ -309,12 +311,15 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 - Botão "Peticionar" visível apenas com permissão `FILE`.
 
 **Peticionamento (`/processos/{numero}/peticionar`)**
-- Formulário `FilingType`. Em caso de sucesso: `FilingService`, mensagem flash de sucesso e redirect para `case_show` (padrão PRG).
+- Formulário `FilingFormType`. Em caso de sucesso: `FilingService`, mensagem flash de sucesso e redirect para `case_show` (padrão PRG).
 
 **Dados fictícios (fixtures)**
-- 2 usuários de teste: `advogado@jus.test` (`ROLE_LAWYER`) e `servidor@jus.test` (`ROLE_CLERK`); senhas definidas nas fixtures e documentadas no README.
-- ~30 processos com todos os status, alguns sigilosos, com partes, movimentações e documentos (usando `tests/fixtures/sample.pdf`).
-- Prazos gerados **relativos à data atual**, para que a demo mostre os vários estados de urgência.
+- 4 usuários de teste, todos com a senha `jus-demo`: os advogados (`ROLE_LAWYER`) `advogado@jus.test` (Ana Ribeiro), `advogada2@jus.test` (Carla Mendes) e `advogado3@jus.test` (Bruno Teixeira), e o servidor (`ROLE_CLERK`) `servidor@jus.test` (João Almeida).
+- 30 processos com todos os status, 3 deles sigilosos, com partes, movimentações e documentos (usando `tests/fixtures/sample.pdf`).
+- Toda parte tem advogado: o polo ativo é representado por Ana, exceto em um a cada três processos (Bruno), e o polo passivo por Carla. Assim Ana não atua em todos os processos e não vê os sigilosos em que não atua.
+- Petições e documentos vêm sempre do advogado de uma das partes.
+- As datas caem em dias úteis forenses (sem fins de semana, feriados nem recesso) e seguem a ordem do processo: distribuição, despacho, decisão e, depois, intimação.
+- Prazos gerados **relativos à data atual** e só em processos em andamento (`ACTIVE`), para que a demo mostre todos os estados de urgência que o calendário permite; "vence hoje" só aparece quando a data atual é dia útil.
 
 ## 8. Tratamento de erros
 

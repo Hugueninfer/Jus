@@ -35,6 +35,20 @@ final class DeadlineScenarioTest extends TestCase
         self::assertNotNull($start);
         self::assertSame($expected, $start->format('Y-m-d H:i'));
         self::assertSame($wanted, $calculator->assess($start, 5, $today, false)->urgency);
+        self::assertTrue($calculator->isBusinessDay($start));
+    }
+
+    public function testStartsOnABusinessDay(): void
+    {
+        $calculator = new DeadlineCalculator(new NationalHolidayCalendar());
+        $today = new \DateTimeImmutable('2026-10-26 09:00'); // a Monday: the latest overdue start used to be Sunday 10-18
+
+        $overdue = (new DeadlineScenario($calculator))->startDateFor(Urgency::Overdue, 5, $today);
+
+        self::assertNotNull($overdue);
+        self::assertSame('2026-10-16 00:00', $overdue->format('Y-m-d H:i'));
+        self::assertTrue($calculator->isBusinessDay($overdue));
+        self::assertSame(Urgency::Overdue, $calculator->assess($overdue, 5, $today, false)->urgency);
     }
 
     public function testNothingIsDueOnAWeekend(): void
@@ -55,7 +69,8 @@ final class DeadlineScenarioTest extends TestCase
 
         self::assertNull($dueToday);
         self::assertNotNull($overdue);
-        self::assertSame('2026-12-13 00:00', $overdue->format('Y-m-d H:i'));
+        self::assertSame('2026-12-11 00:00', $overdue->format('Y-m-d H:i'));
+        self::assertTrue($calculator->isBusinessDay($overdue));
         self::assertSame(Urgency::Overdue, $calculator->assess($overdue, 5, $today, false)->urgency);
     }
 

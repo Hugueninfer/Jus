@@ -7,19 +7,15 @@ namespace DoctrineMigrations;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
-/**
- * Auto-generated Migration: Please modify to your needs!
- */
 final class Version20261026195547 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Initial schema: users, legal cases, parties, events, documents and deadlines.';
     }
 
     public function up(Schema $schema): void
     {
-        // this up() migration is auto-generated, please modify it to your needs
         $this->addSql('CREATE TABLE app_user (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, password VARCHAR(255) NOT NULL, email VARCHAR(180) NOT NULL, name VARCHAR(120) NOT NULL, roles CLOB NOT NULL, oab_number VARCHAR(20) DEFAULT NULL)');
         $this->addSql('CREATE UNIQUE INDEX UNIQ_88BDF3E9E7927C74 ON app_user (email)');
         $this->addSql('CREATE TABLE case_event (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, type VARCHAR(20) NOT NULL, description CLOB NOT NULL, occurred_at DATETIME NOT NULL, legal_case_id INTEGER NOT NULL, created_by_id INTEGER DEFAULT NULL, CONSTRAINT FK_6947F04B82B4A9B FOREIGN KEY (legal_case_id) REFERENCES legal_case (id) NOT DEFERRABLE INITIALLY IMMEDIATE, CONSTRAINT FK_6947F04BB03A8386 FOREIGN KEY (created_by_id) REFERENCES app_user (id) NOT DEFERRABLE INITIALLY IMMEDIATE)');
@@ -43,13 +39,12 @@ final class Version20261026195547 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('DROP TABLE app_user');
-        $this->addSql('DROP TABLE case_event');
+        $this->addSql('DROP TABLE party_lawyer');
         $this->addSql('DROP TABLE deadline');
         $this->addSql('DROP TABLE document');
-        $this->addSql('DROP TABLE legal_case');
+        $this->addSql('DROP TABLE case_event');
         $this->addSql('DROP TABLE party');
-        $this->addSql('DROP TABLE party_lawyer');
+        $this->addSql('DROP TABLE legal_case');
+        $this->addSql('DROP TABLE app_user');
     }
 }

@@ -19,8 +19,9 @@ final readonly class DeadlineScenario
     }
 
     /**
-     * Latest start date (counting back from today) whose deadline has the wanted urgency,
-     * or null when the calendar makes it impossible today (e.g. "due today" on a weekend).
+     * Latest business-day start date (counting back from today; summonses are issued on court working days)
+     * whose deadline has the wanted urgency, or null when the calendar makes it impossible today
+     * (e.g. "due today" on a weekend).
      */
     public function startDateFor(Urgency $wanted, int $businessDays, \DateTimeImmutable $today): ?\DateTimeImmutable
     {
@@ -31,6 +32,10 @@ final readonly class DeadlineScenario
         $midnight = $today->setTime(0, 0);
         for ($daysBack = 0; $daysBack <= self::MAX_DAYS_BACK; ++$daysBack) {
             $start = $midnight->sub(new \DateInterval(\sprintf('P%dD', $daysBack)));
+            if (!$this->calculator->isBusinessDay($start)) {
+                continue;
+            }
+
             if ($wanted === $this->calculator->assess($start, $businessDays, $today, false)->urgency) {
                 return $start;
             }

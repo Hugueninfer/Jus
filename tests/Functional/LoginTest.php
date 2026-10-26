@@ -62,10 +62,13 @@ final class LoginTest extends WebTestCase
      * @param array<string, string> $csrfFields
      */
     #[DataProvider('provideMissingOrInvalidCsrfTokens')]
-    public function testLoginIsRejectedWithoutAValidCsrfToken(array $csrfFields): void
+    public function testLoginIsRejectedWithoutAValidCsrfToken(array $csrfFields, bool $visitTheLoginPageFirst): void
     {
         $client = self::createClient();
         $this->createUser(User::clerk('joao@jus.test', 'João Almeida'), 'senha-correta');
+        if ($visitTheLoginPageFirst) {
+            $client->request('GET', '/login'); // stores a real token in the session, so a bogus one is a mismatch
+        }
 
         $client->request('POST', '/login', ['_username' => 'joao@jus.test', '_password' => 'senha-correta'] + $csrfFields);
 
@@ -78,12 +81,12 @@ final class LoginTest extends WebTestCase
     }
 
     /**
-     * @return iterable<string, array{array<string, string>}>
+     * @return iterable<string, array{array<string, string>, bool}>
      */
     public static function provideMissingOrInvalidCsrfTokens(): iterable
     {
-        yield 'no token' => [[]];
-        yield 'bogus token' => [['_csrf_token' => 'bogus']];
+        yield 'no token' => [[], false];
+        yield 'bogus token' => [['_csrf_token' => 'bogus'], true];
     }
 
     public function testLogoutEndsTheSession(): void

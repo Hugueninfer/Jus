@@ -9,6 +9,7 @@
         "php": ">=8.4",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "ext-pdo_sqlite": "*",
         "doctrine/doctrine-bundle": "^3.3",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.7",
@@ -80,9 +81,9 @@
             "@auto-scripts"
         ],
         "setup": [
-            "@php bin/console doctrine:database:drop --force",
-            "@php bin/console doctrine:migrations:migrate --no-interaction",
-            "@php bin/console doctrine:fixtures:load --no-interaction"
+            "@php bin/console doctrine:database:drop --force --env=dev",
+            "@php bin/console doctrine:migrations:migrate --no-interaction --env=dev",
+            "@php bin/console doctrine:fixtures:load --no-interaction --env=dev"
         ],
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
@@ -99,7 +100,7 @@
         "test": "phpunit",
         "test:coverage": "php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover var/coverage/clover.xml",
         "coverage:domain": "php bin/check-domain-coverage.php var/coverage/clover.xml",
-        "qa": ["@cs", "@stan", "@test"],
+        "qa": ["@cs", "@lint", "@stan", "@test"],
         "ci": ["@composer validate --strict", "@cs", "@lint", "@stan", "@test:coverage", "@coverage:domain"]
     },
     "scripts-descriptions": {
@@ -107,7 +108,7 @@
         "lint": "Symfony container, YAML and Doctrine mapping checks.",
         "test:coverage": "Runs PHPUnit with a Clover coverage report (Xdebug locally, PCOV in CI).",
         "coverage:domain": "Fails unless every file in src/Domain/ is 100% covered.",
-        "qa": "Code style, static analysis and tests.",
+        "qa": "Code style, lint, static analysis and tests.",
         "ci": "Runs exactly what the Azure pipeline runs."
     },
     "conflict": {
