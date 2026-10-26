@@ -23,6 +23,8 @@ stages:
             displayName: composer validate
           - script: composer cs
             displayName: PHP-CS-Fixer
+          - script: composer lint
+            displayName: Symfony and Doctrine lints
           - script: composer stan
             displayName: PHPStan
 

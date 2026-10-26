@@ -4,3 +4,7 @@ parameters:
         - src/
         - tests/
     tmpDir: var/cache/phpstan
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    doctrine:
+        objectManagerLoader: tools/phpstan/object-manager.php
