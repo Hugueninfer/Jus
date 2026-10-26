@@ -62,6 +62,16 @@ final readonly class DeadlineCalculator
     }
 
     /**
+     * Ignores the time of day: weekends, holidays and the court recess are not business days.
+     */
+    public function isBusinessDay(\DateTimeImmutable $day): bool
+    {
+        return (int) $day->format('N') <= 5
+            && !self::isCourtRecess($day)
+            && !$this->holidays->isHoliday($day);
+    }
+
+    /**
      * Business days after $from up to and including $to; zero when $to is not after $from.
      */
     private function businessDaysBetween(\DateTimeImmutable $from, \DateTimeImmutable $to): int
@@ -74,13 +84,6 @@ final readonly class DeadlineCalculator
         }
 
         return $count;
-    }
-
-    private function isBusinessDay(\DateTimeImmutable $day): bool
-    {
-        return (int) $day->format('N') <= 5
-            && !self::isCourtRecess($day)
-            && !$this->holidays->isHoliday($day);
     }
 
     private static function isCourtRecess(\DateTimeImmutable $day): bool
