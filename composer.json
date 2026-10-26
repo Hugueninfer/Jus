@@ -9,6 +9,9 @@
         "php": ">=8.4",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "doctrine/doctrine-bundle": "^3.3",
+        "doctrine/doctrine-migrations-bundle": "^4.0",
+        "doctrine/orm": "^3.7",
         "symfony/console": "7.4.*",
         "symfony/dotenv": "7.4.*",
         "symfony/flex": "^2",
@@ -20,7 +23,9 @@
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.3",
+        "phpstan/phpstan-doctrine": "^2.0",
         "phpstan/phpstan-phpunit": "^2.1",
+        "phpstan/phpstan-symfony": "^2.1",
         "phpunit/phpunit": "^13.4",
         "symfony/browser-kit": "7.4.*",
         "symfony/css-selector": "7.4.*"
@@ -68,14 +73,23 @@
         ],
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
-        "stan": "phpstan analyse --memory-limit=1G --no-progress",
+        "stan": [
+            "@php bin/console cache:warmup --env=dev --quiet",
+            "phpstan analyse --memory-limit=1G --no-progress"
+        ],
+        "lint": [
+            "@php bin/console lint:container",
+            "@php bin/console lint:yaml config --parse-tags",
+            "@php bin/console doctrine:schema:validate --skip-sync"
+        ],
         "test": "phpunit",
         "test:coverage": "php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover var/coverage/clover.xml",
         "coverage:domain": "php bin/check-domain-coverage.php var/coverage/clover.xml",
         "qa": ["@cs", "@stan", "@test"],
-        "ci": ["@composer validate --strict", "@cs", "@stan", "@test:coverage", "@coverage:domain"]
+        "ci": ["@composer validate --strict", "@cs", "@lint", "@stan", "@test:coverage", "@coverage:domain"]
     },
     "scripts-descriptions": {
+        "lint": "Symfony container, YAML and Doctrine mapping checks.",
         "test:coverage": "Runs PHPUnit with a Clover coverage report (Xdebug locally, PCOV in CI).",
         "coverage:domain": "Fails unless every file in src/Domain/ is 100% covered.",
         "qa": "Code style, static analysis and tests.",
