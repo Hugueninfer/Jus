@@ -10,6 +10,8 @@ namespace App\Domain\Deadline;
  */
 final readonly class DeadlineCalculator
 {
+    private const int WARNING_THRESHOLD = 3;
+
     public function __construct(private HolidayCalendar $holidays)
     {
     }
@@ -30,6 +32,41 @@ final readonly class DeadlineCalculator
         }
 
         return $day;
+    }
+
+    public function assess(\DateTimeImmutable $start, int $businessDays, \DateTimeImmutable $today, bool $fulfilled): DeadlineAssessment
+    {
+        $dueDate = $this->dueDate($start, $businessDays);
+        $today = $today->setTime(0, 0);
+        $daysLeft = $this->businessDaysBetween($today, $dueDate);
+
+        $todayKey = $today->format('Y-m-d');
+        $dueKey = $dueDate->format('Y-m-d');
+
+        $urgency = match (true) {
+            $fulfilled => Urgency::Fulfilled,
+            $todayKey > $dueKey => Urgency::Overdue,
+            $todayKey === $dueKey => Urgency::DueToday,
+            $daysLeft <= self::WARNING_THRESHOLD => Urgency::Warning,
+            default => Urgency::OnTrack,
+        };
+
+        return new DeadlineAssessment($dueDate, $daysLeft, $urgency);
+    }
+
+    /**
+     * Business days after $from up to and including $to; zero when $to is not after $from.
+     */
+    private function businessDaysBetween(\DateTimeImmutable $from, \DateTimeImmutable $to): int
+    {
+        $count = 0;
+        for ($day = self::nextDay($from); $day <= $to; $day = self::nextDay($day)) {
+            if ($this->isBusinessDay($day)) {
+                ++$count;
+            }
+        }
+
+        return $count;
     }
 
     private function isBusinessDay(\DateTimeImmutable $day): bool
