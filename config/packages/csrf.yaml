@@ -1,0 +1,3 @@
+# Session-based CSRF tokens: the login form posts a classic hidden token.
+framework:
+    csrf_protection: true
