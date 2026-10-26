@@ -19,6 +19,11 @@ services:
     App\:
         resource: '../src/'
 
+    # SQLite only enforces foreign keys when asked to on every connection. The priority is above
+    # DAMA's middleware (100) so the PRAGMA runs before the test transaction is opened.
+    Doctrine\DBAL\Driver\AbstractSQLiteDriver\Middleware\EnableForeignKeys:
+        tags: [{ name: doctrine.middleware, priority: 200 }]
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
