@@ -33,7 +33,7 @@ stages:
         displayName: PHPUnit
         steps:
           - template: .azure/steps/setup-php.yml
-          - script: php vendor/bin/phpunit --coverage-clover var/coverage/clover.xml
+          - script: composer test:coverage
             displayName: PHPUnit with coverage
-          - script: php bin/check-domain-coverage.php var/coverage/clover.xml
+          - script: composer coverage:domain
             displayName: Domain coverage must be 100%

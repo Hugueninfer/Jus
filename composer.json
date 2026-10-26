@@ -70,7 +70,16 @@
         "cs:fix": "php-cs-fixer fix",
         "stan": "phpstan analyse --memory-limit=1G --no-progress",
         "test": "phpunit",
-        "qa": ["@cs", "@stan", "@test"]
+        "test:coverage": "php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover var/coverage/clover.xml",
+        "coverage:domain": "php bin/check-domain-coverage.php var/coverage/clover.xml",
+        "qa": ["@cs", "@stan", "@test"],
+        "ci": ["@composer validate --strict", "@cs", "@stan", "@test:coverage", "@coverage:domain"]
+    },
+    "scripts-descriptions": {
+        "test:coverage": "Runs PHPUnit with a Clover coverage report (Xdebug locally, PCOV in CI).",
+        "coverage:domain": "Fails unless every file in src/Domain/ is 100% covered.",
+        "qa": "Code style, static analysis and tests.",
+        "ci": "Runs exactly what the Azure pipeline runs."
     },
     "conflict": {
         "symfony/symfony": "*"
