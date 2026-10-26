@@ -17,7 +17,10 @@
         "symfony/flex": "^2",
         "symfony/framework-bundle": "7.4.*",
         "symfony/runtime": "7.4.*",
+        "symfony/security-bundle": "7.4.*",
         "symfony/security-core": "7.4.*",
+        "symfony/security-csrf": "7.4.*",
+        "symfony/twig-bundle": "7.4.*",
         "symfony/yaml": "7.4.*"
     },
     "require-dev": {
@@ -86,6 +89,7 @@
         "lint": [
             "@php bin/console lint:container",
             "@php bin/console lint:yaml config --parse-tags",
+            "@php bin/console lint:twig templates",
             "@php bin/console doctrine:schema:validate --skip-sync"
         ],
         "test": "phpunit",
