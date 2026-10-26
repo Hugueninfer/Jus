@@ -1,0 +1,39 @@
+trigger:
+  branches:
+    include: [main]
+
+pr:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  COMPOSER_CACHE_DIR: $(Pipeline.Workspace)/.composer
+
+stages:
+  - stage: Quality
+    jobs:
+      - job: php_quality
+        displayName: PHP quality
+        steps:
+          - template: .azure/steps/setup-php.yml
+          - script: composer validate --strict
+            displayName: composer validate
+          - script: composer cs
+            displayName: PHP-CS-Fixer
+          - script: composer stan
+            displayName: PHPStan
+
+  - stage: Test
+    dependsOn: Quality
+    jobs:
+      - job: phpunit
+        displayName: PHPUnit
+        steps:
+          - template: .azure/steps/setup-php.yml
+          - script: php vendor/bin/phpunit --coverage-clover var/coverage/clover.xml
+            displayName: PHPUnit with coverage
+          - script: php bin/check-domain-coverage.php var/coverage/clover.xml
+            displayName: Domain coverage must be 100%
