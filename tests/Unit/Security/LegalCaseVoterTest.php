@@ -38,6 +38,10 @@ final class LegalCaseVoterTest extends TestCase
         yield 'other lawyer views a public case' => ['other', false, false, LegalCaseVoter::VIEW, $granted];
         yield 'other lawyer cannot view a confidential case' => ['other', true, false, LegalCaseVoter::VIEW, $denied];
         yield 'other lawyer cannot file' => ['other', false, false, LegalCaseVoter::FILE, $denied];
+        yield 'representing lawyer views a confidential archived case' => ['representing', true, true, LegalCaseVoter::VIEW, $granted];
+        yield 'other lawyer cannot view a confidential archived case' => ['other', true, true, LegalCaseVoter::VIEW, $denied];
+        yield 'clerk views an archived case' => ['clerk', false, true, LegalCaseVoter::VIEW, $granted];
+        yield 'representing lawyer cannot file in a confidential archived case' => ['representing', true, true, LegalCaseVoter::FILE, $denied];
     }
 
     #[DataProvider('decisions')]
@@ -71,6 +75,7 @@ final class LegalCaseVoterTest extends TestCase
     public function testDeniesAnonymousVisitors(): void
     {
         self::assertSame(VoterInterface::ACCESS_DENIED, (new LegalCaseVoter())->vote(new NullToken(), self::legalCase(false, false), [LegalCaseVoter::VIEW]));
+        self::assertSame(VoterInterface::ACCESS_DENIED, (new LegalCaseVoter())->vote(new NullToken(), self::legalCase(false, false), [LegalCaseVoter::FILE]));
     }
 
     private static function legalCase(bool $confidential, bool $archived): LegalCase
