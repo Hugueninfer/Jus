@@ -12,6 +12,7 @@
         "doctrine/doctrine-bundle": "^3.3",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.7",
+        "symfony/clock": "7.4.*",
         "symfony/console": "7.4.*",
         "symfony/dotenv": "7.4.*",
         "symfony/flex": "^2",
@@ -25,6 +26,8 @@
     },
     "require-dev": {
         "dama/doctrine-test-bundle": "^8.7",
+        "doctrine/doctrine-fixtures-bundle": "^4.3",
+        "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.3",
@@ -78,7 +81,8 @@
         ],
         "setup": [
             "@php bin/console doctrine:database:drop --force",
-            "@php bin/console doctrine:migrations:migrate --no-interaction"
+            "@php bin/console doctrine:migrations:migrate --no-interaction",
+            "@php bin/console doctrine:fixtures:load --no-interaction"
         ],
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
@@ -99,7 +103,7 @@
         "ci": ["@composer validate --strict", "@cs", "@lint", "@stan", "@test:coverage", "@coverage:domain"]
     },
     "scripts-descriptions": {
-        "setup": "Recreates the local SQLite database.",
+        "setup": "Recreates the local SQLite database with demo data.",
         "lint": "Symfony container, YAML and Doctrine mapping checks.",
         "test:coverage": "Runs PHPUnit with a Clover coverage report (Xdebug locally, PCOV in CI).",
         "coverage:domain": "Fails unless every file in src/Domain/ is 100% covered.",
