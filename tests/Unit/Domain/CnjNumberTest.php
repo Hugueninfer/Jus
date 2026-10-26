@@ -55,18 +55,46 @@ final class CnjNumberTest extends TestCase
         CnjNumber::fromString($input);
     }
 
+    public function testRejectsInvalidUtf8(): void
+    {
+        $input = "\xFF0000001-39.2024.8.26.0100";
+
+        self::assertNull(CnjNumber::tryFromString($input));
+
+        $this->expectException(InvalidCnjNumber::class);
+        $this->expectExceptionMessage('is not in the CNJ format');
+
+        CnjNumber::fromString($input);
+    }
+
     public function testComposeCalculatesCheckDigits(): void
     {
         self::assertSame('0000001-39.2024.8.26.0100', CnjNumber::compose('0000001', '2024', '8', '26', '0100')->formatted());
         self::assertSame('0000003-09.2024.8.26.0100', CnjNumber::compose('0000003', '2024', '8', '26', '0100')->formatted());
         self::assertSame('1234567-44.2023.4.04.7100', CnjNumber::compose('1234567', '2023', '4', '04', '7100')->formatted());
+        self::assertSame('0000010-98.2024.8.26.0100', CnjNumber::compose('0000010', '2024', '8', '26', '0100')->formatted());
+        self::assertSame('0000094-02.2024.8.26.0100', CnjNumber::compose('0000094', '2024', '8', '26', '0100')->formatted());
     }
 
-    public function testComposeRejectsMalformedParts(): void
+    /**
+     * @return iterable<string, array{string, string, string, string, string}>
+     */
+    public static function malformedParts(): iterable
+    {
+        yield 'sequential too short' => ['123', '2024', '8', '26', '0100'];
+        yield 'leading space in sequential' => [' 000001', '2024', '8', '26', '0100'];
+        yield 'trailing space in origin' => ['0000001', '2024', '8', '26', '0100 '];
+        yield 'letter in court' => ['0000001', '2024', '8', '2A', '0100'];
+        yield 'trailing newline in origin' => ['0000001', '2024', '8', '26', "0100\n"];
+    }
+
+    #[DataProvider('malformedParts')]
+    public function testComposeRejectsMalformedParts(string $sequential, string $year, string $segment, string $court, string $origin): void
     {
         $this->expectException(InvalidCnjNumber::class);
+        $this->expectExceptionMessage('is not in the CNJ format');
 
-        CnjNumber::compose('123', '2024', '8', '26', '0100');
+        CnjNumber::compose($sequential, $year, $segment, $court, $origin);
     }
 
     public function testEqualsComparesDigits(): void

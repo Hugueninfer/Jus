@@ -4,7 +4,11 @@
     { "name": "masked, federal court", "input": "1234567-44.2023.4.04.7100", "digits": "12345674420234047100", "formatted": "1234567-44.2023.4.04.7100" },
     { "name": "check digits with leading zero", "input": "0000003-09.2024.8.26.0100", "digits": "00000030920248260100", "formatted": "0000003-09.2024.8.26.0100" },
     { "name": "digits only", "input": "12345674420234047100", "digits": "12345674420234047100", "formatted": "1234567-44.2023.4.04.7100" },
-    { "name": "surrounding whitespace", "input": "  0000001-39.2024.8.26.0100  ", "digits": "00000013920248260100", "formatted": "0000001-39.2024.8.26.0100" }
+    { "name": "surrounding whitespace", "input": "  0000001-39.2024.8.26.0100  ", "digits": "00000013920248260100", "formatted": "0000001-39.2024.8.26.0100" },
+    { "name": "check digits 98 (upper boundary)", "input": "0000010-98.2024.8.26.0100", "digits": "00000109820248260100", "formatted": "0000010-98.2024.8.26.0100" },
+    { "name": "check digits 02 (lower boundary)", "input": "0000094-02.2024.8.26.0100", "digits": "00000940220248260100", "formatted": "0000094-02.2024.8.26.0100" },
+    { "name": "leading no-break space", "input": "\u00a00000001-39.2024.8.26.0100", "digits": "00000013920248260100", "formatted": "0000001-39.2024.8.26.0100" },
+    { "name": "trailing byte order mark", "input": "0000001-39.2024.8.26.0100\ufeff", "digits": "00000013920248260100", "formatted": "0000001-39.2024.8.26.0100" }
   ],
   "invalid": [
     { "name": "wrong check digits", "input": "0000001-40.2024.8.26.0100", "reason": "check_digits" },
@@ -13,6 +17,12 @@
     { "name": "too short", "input": "0000001-39.2024.8.26.010", "reason": "format" },
     { "name": "too long", "input": "000000139202482601000", "reason": "format" },
     { "name": "letter", "input": "000000A-39.2024.8.26.0100", "reason": "format" },
-    { "name": "partial mask", "input": "0000001-3920248260100", "reason": "format" }
+    { "name": "partial mask", "input": "0000001-3920248260100", "reason": "format" },
+    { "name": "non-canonical check digits 00 (alias of 97)", "input": "0000023-00.2024.8.26.0100", "reason": "check_digits" },
+    { "name": "non-canonical check digits 01 (alias of 98)", "input": "0000010-01.2024.8.26.0100", "reason": "check_digits" },
+    { "name": "non-canonical check digits 99 (alias of 02)", "input": "0000094-99.2024.8.26.0100", "reason": "check_digits" },
+    { "name": "too short, digits only", "input": "0000001392024826010", "reason": "format" },
+    { "name": "leading NUL character", "input": "\u00000000001-39.2024.8.26.0100", "reason": "format" },
+    { "name": "leading next line character (not JavaScript whitespace)", "input": "\u00850000001-39.2024.8.26.0100", "reason": "format" }
   ]
 }
