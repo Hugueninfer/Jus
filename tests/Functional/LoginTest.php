@@ -6,6 +6,7 @@ namespace App\Tests\Functional;
 
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -57,10 +58,41 @@ final class LoginTest extends WebTestCase
         self::assertInputValueSame('_username', 'joao@jus.test');
     }
 
+    /**
+     * @param array<string, string> $csrfFields
+     */
+    #[DataProvider('provideMissingOrInvalidCsrfTokens')]
+    public function testLoginIsRejectedWithoutAValidCsrfToken(array $csrfFields): void
+    {
+        $client = self::createClient();
+        $this->createUser(User::clerk('joao@jus.test', 'João Almeida'), 'senha-correta');
+
+        $client->request('POST', '/login', ['_username' => 'joao@jus.test', '_password' => 'senha-correta'] + $csrfFields);
+
+        self::assertResponseRedirects('/login');
+        $client->followRedirect();
+        self::assertSelectorTextContains('[role="alert"]', 'E-mail ou senha inválidos.');
+
+        $client->request('GET', '/');
+        self::assertResponseRedirects('/login');
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>}>
+     */
+    public static function provideMissingOrInvalidCsrfTokens(): iterable
+    {
+        yield 'no token' => [[]];
+        yield 'bogus token' => [['_csrf_token' => 'bogus']];
+    }
+
     public function testLogoutEndsTheSession(): void
     {
         $client = self::createClient();
         $client->loginUser($this->createUser(User::clerk('joao@jus.test', 'João Almeida'), 'senha-correta'));
+
+        $client->request('GET', '/');
+        self::assertResponseIsSuccessful();
 
         $client->request('GET', '/logout');
         self::assertResponseRedirects('/login');
