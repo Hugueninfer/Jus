@@ -26,22 +26,33 @@ final class LegalCaseVoterTest extends TestCase
         $granted = VoterInterface::ACCESS_GRANTED;
         $denied = VoterInterface::ACCESS_DENIED;
 
+        // Every combination: viewer × confidential × archived × attribute.
         // viewer, confidential, archived, attribute, expected
         yield 'clerk views a public case' => ['clerk', false, false, LegalCaseVoter::VIEW, $granted];
-        yield 'clerk views a confidential case' => ['clerk', true, false, LegalCaseVoter::VIEW, $granted];
-        yield 'clerk cannot file' => ['clerk', false, false, LegalCaseVoter::FILE, $denied];
-        yield 'representing lawyer views a confidential case' => ['representing', true, false, LegalCaseVoter::VIEW, $granted];
-        yield 'representing lawyer views an archived case' => ['representing', false, true, LegalCaseVoter::VIEW, $granted];
-        yield 'representing lawyer files' => ['representing', false, false, LegalCaseVoter::FILE, $granted];
-        yield 'representing lawyer files in a confidential case' => ['representing', true, false, LegalCaseVoter::FILE, $granted];
-        yield 'representing lawyer cannot file in an archived case' => ['representing', false, true, LegalCaseVoter::FILE, $denied];
-        yield 'other lawyer views a public case' => ['other', false, false, LegalCaseVoter::VIEW, $granted];
-        yield 'other lawyer cannot view a confidential case' => ['other', true, false, LegalCaseVoter::VIEW, $denied];
-        yield 'other lawyer cannot file' => ['other', false, false, LegalCaseVoter::FILE, $denied];
-        yield 'representing lawyer views a confidential archived case' => ['representing', true, true, LegalCaseVoter::VIEW, $granted];
-        yield 'other lawyer cannot view a confidential archived case' => ['other', true, true, LegalCaseVoter::VIEW, $denied];
         yield 'clerk views an archived case' => ['clerk', false, true, LegalCaseVoter::VIEW, $granted];
+        yield 'clerk views a confidential case' => ['clerk', true, false, LegalCaseVoter::VIEW, $granted];
+        yield 'clerk views a confidential archived case' => ['clerk', true, true, LegalCaseVoter::VIEW, $granted];
+        yield 'representing lawyer views a public case' => ['representing', false, false, LegalCaseVoter::VIEW, $granted];
+        yield 'representing lawyer views an archived case' => ['representing', false, true, LegalCaseVoter::VIEW, $granted];
+        yield 'representing lawyer views a confidential case' => ['representing', true, false, LegalCaseVoter::VIEW, $granted];
+        yield 'representing lawyer views a confidential archived case' => ['representing', true, true, LegalCaseVoter::VIEW, $granted];
+        yield 'other lawyer views a public case' => ['other', false, false, LegalCaseVoter::VIEW, $granted];
+        yield 'other lawyer views an archived case' => ['other', false, true, LegalCaseVoter::VIEW, $granted];
+        yield 'other lawyer cannot view a confidential case' => ['other', true, false, LegalCaseVoter::VIEW, $denied];
+        yield 'other lawyer cannot view a confidential archived case' => ['other', true, true, LegalCaseVoter::VIEW, $denied];
+
+        yield 'clerk cannot file in a public case' => ['clerk', false, false, LegalCaseVoter::FILE, $denied];
+        yield 'clerk cannot file in an archived case' => ['clerk', false, true, LegalCaseVoter::FILE, $denied];
+        yield 'clerk cannot file in a confidential case' => ['clerk', true, false, LegalCaseVoter::FILE, $denied];
+        yield 'clerk cannot file in a confidential archived case' => ['clerk', true, true, LegalCaseVoter::FILE, $denied];
+        yield 'representing lawyer files in a public case' => ['representing', false, false, LegalCaseVoter::FILE, $granted];
+        yield 'representing lawyer cannot file in an archived case' => ['representing', false, true, LegalCaseVoter::FILE, $denied];
+        yield 'representing lawyer files in a confidential case' => ['representing', true, false, LegalCaseVoter::FILE, $granted];
         yield 'representing lawyer cannot file in a confidential archived case' => ['representing', true, true, LegalCaseVoter::FILE, $denied];
+        yield 'other lawyer cannot file in a public case' => ['other', false, false, LegalCaseVoter::FILE, $denied];
+        yield 'other lawyer cannot file in an archived case' => ['other', false, true, LegalCaseVoter::FILE, $denied];
+        yield 'other lawyer cannot file in a confidential case' => ['other', true, false, LegalCaseVoter::FILE, $denied];
+        yield 'other lawyer cannot file in a confidential archived case' => ['other', true, true, LegalCaseVoter::FILE, $denied];
     }
 
     #[DataProvider('decisions')]

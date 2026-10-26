@@ -113,6 +113,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->password = $hashedPassword;
     }
 
+    /**
+     * Keeps the password hash out of the session; Symfony only needs a checksum to detect a changed password.
+     *
+     * @return array<mixed>
+     */
+    public function __serialize(): array
+    {
+        $data = (array) $this;
+        $data["\0".self::class."\0password"] = hash('crc32c', $this->password);
+
+        return $data;
+    }
+
     #[\Deprecated]
     public function eraseCredentials(): void
     {
