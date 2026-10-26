@@ -20,8 +20,14 @@ final class ArchitectureTest extends TestCase
                 continue;
             }
 
+            $contents = file_get_contents($file->getPathname());
+            if (false === $contents) {
+                self::fail(\sprintf('Could not read %s.', $file->getPathname()));
+            }
+
             ++$checked;
-            if (1 === preg_match('/\b(?:Symfony|Doctrine)\\\\/', (string) file_get_contents($file->getPathname()))) {
+            // Case-insensitive, like PHP namespaces.
+            if (1 === preg_match('/\b(?:Symfony|Doctrine)\\\\/i', $contents)) {
                 $violations[] = substr($file->getPathname(), \strlen($domain) + 1);
             }
         }

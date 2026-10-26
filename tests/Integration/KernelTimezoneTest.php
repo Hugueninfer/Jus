@@ -8,6 +8,20 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class KernelTimezoneTest extends KernelTestCase
 {
+    private string $timezone;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->timezone = date_default_timezone_get();
+    }
+
+    protected function tearDown(): void
+    {
+        date_default_timezone_set($this->timezone); // even when the test fails, UTC must not leak into later tests
+        parent::tearDown();
+    }
+
     public function testTheApplicationRunsOnBrazilianTime(): void
     {
         date_default_timezone_set('UTC');
