@@ -36,7 +36,7 @@ class Party
         $this->lawyers = new ArrayCollection();
     }
 
-    public function addLawyer(User $lawyer): void
+    public function addLawyer(User $lawyer): self
     {
         if (!$lawyer->isLawyer()) {
             throw new \InvalidArgumentException(\sprintf('"%s" is not a lawyer.', $lawyer->getEmail()));
@@ -45,6 +45,8 @@ class Party
         if (!$this->isRepresentedBy($lawyer)) {
             $this->lawyers->add($lawyer);
         }
+
+        return $this;
     }
 
     public function isRepresentedBy(User $user): bool
