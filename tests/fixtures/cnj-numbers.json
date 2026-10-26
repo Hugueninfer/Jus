@@ -1,0 +1,18 @@
+{
+  "valid": [
+    { "name": "masked", "input": "0000001-39.2024.8.26.0100", "digits": "00000013920248260100", "formatted": "0000001-39.2024.8.26.0100" },
+    { "name": "masked, federal court", "input": "1234567-44.2023.4.04.7100", "digits": "12345674420234047100", "formatted": "1234567-44.2023.4.04.7100" },
+    { "name": "check digits with leading zero", "input": "0000003-09.2024.8.26.0100", "digits": "00000030920248260100", "formatted": "0000003-09.2024.8.26.0100" },
+    { "name": "digits only", "input": "12345674420234047100", "digits": "12345674420234047100", "formatted": "1234567-44.2023.4.04.7100" },
+    { "name": "surrounding whitespace", "input": "  0000001-39.2024.8.26.0100  ", "digits": "00000013920248260100", "formatted": "0000001-39.2024.8.26.0100" }
+  ],
+  "invalid": [
+    { "name": "wrong check digits", "input": "0000001-40.2024.8.26.0100", "reason": "check_digits" },
+    { "name": "wrong check digits, digits only", "input": "00000014020248260100", "reason": "check_digits" },
+    { "name": "empty", "input": "", "reason": "format" },
+    { "name": "too short", "input": "0000001-39.2024.8.26.010", "reason": "format" },
+    { "name": "too long", "input": "000000139202482601000", "reason": "format" },
+    { "name": "letter", "input": "000000A-39.2024.8.26.0100", "reason": "format" },
+    { "name": "partial mask", "input": "0000001-3920248260100", "reason": "format" }
+  ]
+}
