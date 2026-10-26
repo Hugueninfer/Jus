@@ -8,6 +8,7 @@ use App\Doctrine\Type\CnjNumberDoctrineType;
 use App\Domain\CnjNumber;
 use App\Domain\LegalCase\CaseStatus;
 use App\Domain\LegalCase\EventType;
+use App\Domain\LegalCase\FilingType;
 use App\Domain\LegalCase\PartySide;
 use App\Repository\LegalCaseRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -60,9 +61,27 @@ class LegalCase
         return $party;
     }
 
+    /**
+     * Records an event of the case. Filings go through file().
+     */
     public function record(EventType $type, string $description, \DateTimeImmutable $occurredAt, ?User $createdBy = null): CaseEvent
     {
         $event = new CaseEvent($this, $type, $description, $occurredAt, $createdBy);
+        $this->events->add($event);
+
+        return $event;
+    }
+
+    /**
+     * Records a filing made by a lawyer on behalf of a party they represent.
+     */
+    public function file(FilingType $filingType, string $description, \DateTimeImmutable $filedAt, User $lawyer): CaseEvent
+    {
+        if (!$this->isRepresentedBy($lawyer)) {
+            throw new \InvalidArgumentException(\sprintf('"%s" does not represent any party in case %s.', $lawyer->getEmail(), $this->number->formatted()));
+        }
+
+        $event = new CaseEvent($this, EventType::Filing, $description, $filedAt, $lawyer, $filingType);
         $this->events->add($event);
 
         return $event;

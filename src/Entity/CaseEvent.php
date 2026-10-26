@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Domain\LegalCase\EventType;
+use App\Domain\LegalCase\FilingType;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -34,7 +35,13 @@ class CaseEvent
         private \DateTimeImmutable $occurredAt,
         #[ORM\ManyToOne]
         private ?User $createdBy = null,
+        #[ORM\Column(length: 20, nullable: true, enumType: FilingType::class)]
+        private ?FilingType $filingType = null,
     ) {
+        if ((EventType::Filing === $type) !== (null !== $filingType)) {
+            throw new \InvalidArgumentException('Filing events, and only them, carry a filing type.');
+        }
+
         $this->documents = new ArrayCollection();
     }
 
@@ -74,6 +81,11 @@ class CaseEvent
     public function getCreatedBy(): ?User
     {
         return $this->createdBy;
+    }
+
+    public function getFilingType(): ?FilingType
+    {
+        return $this->filingType;
     }
 
     /**

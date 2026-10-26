@@ -8,6 +8,7 @@ use App\Domain\CnjNumber;
 use App\Domain\Deadline\Urgency;
 use App\Domain\LegalCase\CaseStatus;
 use App\Domain\LegalCase\EventType;
+use App\Domain\LegalCase\FilingType;
 use App\Domain\LegalCase\PartySide;
 use App\Entity\Deadline;
 use App\Entity\LegalCase;
@@ -75,14 +76,15 @@ final class AppFixtures extends Fixture
                 $plaintiff->addLawyer($lawyer); // the main demo lawyer acts in two out of three cases
             }
             $defendant->addLawyer($otherLawyer);
+            $counsel = 0 !== $i % 3 ? $lawyer : $otherLawyer; // filings need a lawyer who represents a party
 
-            $case->record(EventType::Filing, 'Petição inicial distribuída.', $filedAt, $lawyer)
+            $case->file(FilingType::InitialPetition, 'Petição inicial distribuída.', $filedAt, $counsel)
                 ->attach('Petição inicial', 'peticao-inicial.pdf', \sprintf('demo-%02d-peticao-inicial.pdf', $i), 184_320, $lawyer, $filedAt);
             $case->record(EventType::Order, 'Despacho: cite-se a parte ré.', $filedAt->add(new \DateInterval('P7D')), $clerk);
             $case->record(EventType::Decision, 'Decisão interlocutória: tutela de urgência indeferida.', $filedAt->add(new \DateInterval('P20D')), $clerk);
 
             if (CaseStatus::Archived !== $case->getStatus()) {
-                $this->openDeadline($manager, $case, $plaintiff, self::URGENCIES[$i % 5], $today, $lawyer);
+                $this->openDeadline($manager, $case, $plaintiff, self::URGENCIES[$i % 5], $today, $counsel);
             }
 
             $manager->persist($case);
@@ -103,7 +105,7 @@ final class AppFixtures extends Fixture
         $deadline = new Deadline($party, $summons, self::DEADLINE_DAYS);
         if ($fulfilled) {
             $answeredAt = $start->add(new \DateInterval('P2D'))->setTime(16, 0);
-            $case->record(EventType::Filing, 'Manifestação protocolada.', $answeredAt, $lawyer);
+            $case->file(FilingType::Statement, 'Manifestação protocolada.', $answeredAt, $lawyer);
             $deadline->fulfil($answeredAt);
         }
 
