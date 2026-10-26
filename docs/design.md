@@ -1,0 +1,411 @@
+# Jus — Design System e Painel de Processo Eletrônico
+
+- **Documento de design** (2026-10-26)
+- **Status:** em implementação
+- **Repositório:** [Hugueninfer/Jus](https://github.com/Hugueninfer/Jus)
+
+## 1. Objetivo
+
+Monolito **PHP + Symfony + Twig com foco em componentes de interface**: uma biblioteca de componentes reutilizáveis (Twig Components + Web Components) aplicada a um sistema jurídico **fictício** inspirado em processo eletrônico.
+
+Nenhum nome, marca ou identidade visual de sistema real é usado. Todos os dados são fictícios.
+
+## 2. Escopo
+
+### 2.1 MVP
+
+- Login com dois perfis (advogado e servidor).
+- 3 telas: consulta processual, página do processo e peticionamento.
+- 6 Twig Components, 3 Web Components, form theme e extensão Twig.
+- Catálogo público `/design-system`.
+- Páginas de erro 403, 404 e 500 com o Design System.
+- Testes, análise estática, pipeline no Azure DevOps e documentação.
+
+### 2.2 Fora do MVP
+
+Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i18n.
+
+## 3. Stack e ambiente
+
+### 3.1 Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Linguagem | PHP 8.4 (`declare(strict_types=1)` em todos os arquivos) |
+| Framework | Symfony 7.4 LTS |
+| Templates | Twig 3 + Symfony UX TwigComponent |
+| Persistência | Doctrine ORM + SQLite |
+| Front-end | Webpack Encore, TypeScript, Sass, Bootstrap 5.3 |
+| Testes | PHPUnit, Vitest 4 em modo browser (Playwright/Chromium), axe-core |
+| Qualidade | PHPStan (nível max + extensões Symfony/Doctrine), PHP-CS-Fixer (`@Symfony`), ESLint (typescript-eslint), Stylelint, `tsc --noEmit` |
+| Dados fictícios | DoctrineFixturesBundle + Faker (`pt_BR`) |
+
+### 3.2 Ambiente de desenvolvimento
+
+- PHP 8.4 (x64) com as extensões `intl`, `pdo_sqlite`, `sqlite3`, `fileinfo`, `mbstring`, `openssl`, `curl`, `zip`.
+- Composer 2, Git e Node.js 24 LTS.
+- Servidor de desenvolvimento: `php -S localhost:8000 -t public` (Symfony CLI é opcional).
+- Um `Dockerfile` não faz parte do MVP; o ambiente é reproduzível pelas instruções do README e pelo CI.
+
+### 3.3 Como rodar (meta do README)
+
+```bash
+composer install
+npm ci && npm run build
+composer setup        # cria o banco SQLite, roda migrations e carrega fixtures
+php -S localhost:8000 -t public
+```
+
+## 4. Arquitetura
+
+### 4.1 Abordagem híbrida
+
+- **Twig Components** cuidam da estrutura e do HTML renderizado no servidor.
+- **Web Components** entram apenas onde há comportamento no navegador.
+- Web Components são escritos em **Custom Elements puro** (sem Lit), sobre uma classe base própria (`JusElement`).
+- A página chega completa do servidor; o JavaScript só aprimora. Sem JS, tudo continua funcionando.
+
+### 4.2 Estrutura de pastas
+
+```
+src/
+  Controller/              # finos: request → domínio → template
+  Domain/                  # PHP puro (sem Symfony nem Doctrine), 100% coberto por testes unitários
+    LegalCase/             # enums do processo: CaseStatus, PartySide, EventType, FilingType
+    CnjNumber.php          # value object do número CNJ
+    InvalidCnjNumber.php
+    Deadline/              # DeadlineCalculator, HolidayCalendar, NationalHolidayCalendar, Easter
+  Entity/                  # entidades Doctrine: LegalCase, Party, CaseEvent, Document, Deadline, User
+  Doctrine/Type/           # CnjNumberDoctrineType (tipo Doctrine `cnj_number`)
+  Form/                    # CnjNumberType (form type), FilingType, SearchType, transformers
+  Repository/
+  Security/                # LegalCaseVoter
+  Service/                 # FilingService, DocumentStorage
+  Twig/
+    Components/            # classes dos Twig Components
+    Extension/             # filtros cnj e brl
+  ValueResolver/           # CnjNumberValueResolver
+  DataFixtures/
+templates/
+  base.html.twig
+  components/              # templates dos Twig Components (inclui anônimos)
+  form/jus_theme.html.twig
+  design_system/           # catálogo + examples/<componente>/<exemplo>.html.twig
+  search/ case/ filing/ security/
+  bundles/TwigBundle/Exception/   # error403, error404, error
+assets/
+  app.ts                   # entrada do Encore: estilos + registro dos Web Components
+  styles/
+    tokens/                # _tokens.scss, _bootstrap-config.scss, _custom-properties.scss
+    app.scss
+  web-components/
+    jus-element.ts         # classe base
+    jus-numero-processo.ts (+ .test.ts)
+    jus-upload.ts          (+ .test.ts)
+    jus-filtro-timeline.ts (+ .test.ts)
+    index.ts               # customElements.define de todos
+  shared/cnj.ts (+ .test.ts)
+tests/
+  Unit/ Component/ Functional/
+  fixtures/cnj-numbers.json    # casos compartilhados entre PHPUnit e Vitest
+  fixtures/sample.pdf
+docs/
+  design.md                # este documento
+  adr/
+  diagrams/
+azure-pipelines.yml
+```
+
+### 4.3 Princípios
+
+- Regra de negócio (CNJ, prazo) vive em `Domain/`, em **PHP puro, sem depender do Symfony nem do Doctrine**, testável isoladamente.
+- Controllers só orquestram; não têm regra de negócio nem checagem de permissão inline (usam o Voter).
+- O servidor é a **fonte da verdade**. Validações no JS apenas antecipam feedback ao usuário.
+- O tempo é injetado via `Psr\Clock\ClockInterface` (Symfony Clock), para testes determinísticos.
+
+### 4.4 Fluxo de uma request
+
+```
+Request → Controller → Voter → Repository / Domain → template Twig
+        → Twig Components → HTML completo → navegador → Web Components aprimoram
+```
+
+## 5. Domínio
+
+### 5.1 Entidades
+
+| Entidade | Campos principais |
+|---|---|
+| `User` | email, name, password (hash), roles, oabNumber (nullable) |
+| `LegalCase` | number (`CnjNumber`, único), caseClass, subject, court, status (`CaseStatus`), confidential (bool), claimValueInCents (int), filedAt, parties, events |
+| `Party` | legalCase, name, taxId (fictício), side (`PartySide`), lawyers (ManyToMany `User`) |
+| `CaseEvent` | legalCase, type (`EventType`), description, occurredAt, createdBy (nullable), documents |
+| `Document` | event, title, originalFilename, storedFilename (UUID + `.pdf`), sizeInBytes, uploadedBy, uploadedAt |
+| `Deadline` | party, summons (`CaseEvent` do tipo intimação), startDate, businessDays, fulfilledAt (nullable) |
+
+```
+User ──(advogado de)──► Party ◄── LegalCase ──► CaseEvent ──► Document
+                          │
+                          └──► Deadline (gerado por uma intimação)
+```
+
+As entidades Doctrine (`User`, `LegalCase`, `Party`, `CaseEvent`, `Document` e `Deadline`) ficam em `src/Entity/`, seguindo a convenção do Symfony. Assim `src/Domain/` continua PHP puro, sem Doctrine, e pode manter 100% de cobertura de linhas.
+
+### 5.2 Enums
+
+- `CaseStatus`: `ACTIVE` (em andamento), `SUSPENDED` (suspenso), `ARCHIVED` (arquivado).
+- `PartySide`: `PLAINTIFF` (polo ativo), `DEFENDANT` (polo passivo).
+- `EventType`: `DECISION` (decisão), `ORDER` (despacho), `FILING` (juntada de petição), `SUMMONS` (intimação), `HEARING` (audiência).
+- `FilingType`: `STATEMENT` (manifestação), `ANSWER` (contestação), `APPEAL` (recurso), `EXHIBITS` (juntada de documentos).
+
+Os enums são PHP puro e ficam em `src/Domain/LegalCase/`; as entidades de `src/Entity/` os referenciam.
+
+O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
+
+### 5.3 Número CNJ (`CnjNumber`)
+
+- Formato: `NNNNNNN-DD.AAAA.J.TR.OOOO` (20 dígitos: sequencial, dígito verificador, ano, segmento, tribunal, origem).
+- Geração do DV (ISO 7064 Mod 97-10): `DD = 98 − (NNNNNNN AAAA J TR OOOO 00 mod 97)`, que sempre resulta em um valor de 02 a 98.
+- Validação: exige o DV **canônico**. O DV é recalculado a partir dos outros 18 dígitos pela fórmula acima e comparado com o informado. Testar apenas "resto 1 na divisão por 97" no número `NNNNNNN AAAA J TR OOOO DD` também aceitaria os DVs 00, 01 e 99 (apelidos de 97, 98 e 02), que passam nesse teste mas nunca são gerados pela fórmula; por isso são rejeitados.
+- O módulo é calculado **dígito a dígito** (`r = (r * 10 + d) % 97`), porque 20 dígitos estouram o inteiro de 64 bits do PHP e o `Number` do JavaScript.
+- Espaços nas pontas são removidos com o **mesmo conjunto de caracteres do `String.prototype.trim()` do JavaScript** (inclui o espaço sem quebra U+00A0 e o BOM U+FEFF; não inclui NUL nem U+0085), para que a implementação em TypeScript concorde em qualquer entrada. Texto que não seja UTF-8 válido é rejeitado como mal formatado.
+- API: `CnjNumber::fromString(string)` (aceita com ou sem máscara; lança `InvalidCnjNumber`), `CnjNumber::tryFromString(string): ?self`, `CnjNumber::compose(sequencial, ano, segmento, tribunal, origem)`, `digits()`, `formatted()`, `equals()`.
+- `compose()` monta um número válido calculando o DV e **valida cada parte** (7, 4, 1, 2 e 4 dígitos, sem espaços); qualquer parte malformada lança `InvalidCnjNumber`.
+- Persistido por um **tipo Doctrine customizado** (`cnj_number`) como string de 20 dígitos.
+- A mesma regra existe em `assets/shared/cnj.ts`. As duas implementações são testadas contra `tests/fixtures/cnj-numbers.json` (casos válidos, DV errado, tamanho errado, caracteres inválidos, com e sem máscara, DV nas bordas 02 e 98, DVs não canônicos 00, 01 e 99, espaço sem quebra e BOM nas pontas, e caracteres que o `trim()` do JavaScript não remove: NUL e U+0085).
+
+### 5.4 Cálculo de prazo (`DeadlineCalculator`)
+
+- Entrada: data de início (data da intimação) e quantidade de dias úteis.
+- O dia do começo é excluído (CPC, art. 224): a contagem começa no primeiro dia útil seguinte.
+- Dia útil = não é sábado nem domingo, não é feriado e não está no recesso forense.
+- **Recesso forense:** 20/12 a 20/01, inclusive (CPC, art. 220).
+- **Feriados:** interface `HolidayCalendar`; implementação `NationalHolidayCalendar` com:
+  - Fixos: 01/01, 21/04, 01/05, 07/09, 12/10, 02/11, 15/11, 20/11, 25/12.
+  - Móveis, a partir da Páscoa: Carnaval (segunda e terça, Páscoa − 48 e − 47), Sexta-feira Santa (Páscoa − 2), Corpus Christi (Páscoa + 60).
+  - Páscoa calculada pelo algoritmo gregoriano anônimo (Meeus/Jones/Butcher), sem depender da extensão `calendar`.
+- O calendário é **ilustrativo** (tribunais têm calendários próprios); isso fica explícito no README e no ADR. A interface permite trocar o calendário.
+- A data de vencimento é sempre **calculada**, nunca armazenada.
+- As datas são tratadas como datas de calendário: a hora do dia é ignorada, e o "hoje" é lido no próprio fuso e comparado no fuso da data de início.
+- Dias úteis restantes: contados de hoje (exclusive) até o vencimento (inclusive).
+- Estados de urgência:
+
+| Estado | Condição | Variante visual |
+|---|---|---|
+| `FULFILLED` | `fulfilledAt` preenchido | secondary |
+| `OVERDUE` | hoje > vencimento | danger |
+| `DUE_TODAY` | hoje = vencimento | danger |
+| `WARNING` | 1 a 3 dias úteis restantes | warning |
+| `ON_TRACK` | mais de 3 dias úteis restantes | success |
+
+### 5.5 Autorização (`LegalCaseVoter`)
+
+| Permissão | Regra |
+|---|---|
+| `VIEW` | Servidor (`ROLE_CLERK`): sempre. Advogado (`ROLE_LAWYER`): se o processo não for sigiloso **ou** se for advogado de alguma parte. |
+| `FILE` | Apenas advogado de alguma parte do processo, e o processo não pode estar `ARCHIVED`. |
+
+- O download de documento exige `VIEW` no processo do documento.
+- A busca também filtra os sigilosos **na consulta ao banco** (defesa em profundidade), não só no Voter.
+
+### 5.6 Peticionamento (`FilingService`)
+
+1. Grava cada PDF via `DocumentStorage` em `var/uploads/` (fora de `public/`).
+2. Em transação: cria o `CaseEvent` do tipo `FILING`, os `Document` e marca como cumpridos (`fulfilledAt = agora`) os prazos em aberto das partes que o advogado representa.
+3. Se a transação falhar: rollback, remove os arquivos gravados no passo 1 e relança a exceção.
+
+## 6. Design System
+
+### 6.1 Design tokens
+
+- `_tokens.scss`: mapas SCSS de cores, tipografia, espaçamento, bordas e sombras. É a única fonte dos valores.
+- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-base`, …) derivadas dos tokens.
+- `_custom-properties.scss`: emite os tokens como CSS custom properties em `:root` (`--jus-color-primary`, `--jus-space-3`, …).
+- Web Components só usam `var(--jus-*)`, que atravessa o Shadow DOM.
+- Estilos escritos mobile-first (`min-width` nos breakpoints).
+
+### 6.2 Layout base
+
+- `base.html.twig` com link "Pular para o conteúdo", navbar responsiva (offcanvas no celular), área de mensagens flash (`<twig:Alert>`) e `<main id="conteudo">`.
+
+### 6.3 Twig Components
+
+| Componente | Tipo | Props | Comportamento |
+|---|---|---|---|
+| `StatusBadge` | anônimo | `status: CaseStatus` | Mapeia o status para variante, ícone e rótulo; o rótulo é sempre texto (não só cor) |
+| `Alert` | anônimo | `type` (success, danger, warning, info), `dismissible` | Mensagem de feedback com `role="alert"` para erros |
+| `CaseCard` | classe | `case: LegalCase` | Número formatado, classe, partes, órgão, status e último evento |
+| `Timeline` | classe | `events: list<CaseEvent>` | `<ol>` agrupada por data; cada item tem `data-event-type` e ícone por tipo |
+| `DataTable` | classe | `columns`, `rows`, `sort`, `direction` | Ordenação no servidor por links com query string (colunas em whitelist). Cada `<td>` tem `data-label`; abaixo de `md` vira lista de cards só com CSS |
+| `DeadlineIndicator` | classe | `deadline: Deadline` | Usa `DeadlineCalculator` e `ClockInterface`; exibe "Vence em N dias úteis (dd/mm)" com a variante do estado |
+
+### 6.4 Extensão Twig e formulários
+
+- Extensão Twig com filtros registrados por atributo (`#[AsTwigFilter]`):
+  - `cnj`: formata um `CnjNumber` ou string de 20 dígitos.
+  - `brl`: centavos → `R$ 1.234,56` via `NumberFormatter` (`pt_BR`).
+- Form theme `form/jus_theme.html.twig`, estendendo `bootstrap_5_layout.html.twig`, configurado globalmente. Campos com erro recebem `aria-invalid="true"` e `aria-describedby` apontando para a mensagem.
+- `CnjNumberType` (form type): DataTransformer `string ↔ CnjNumber`; o bloco do tema renderiza `<jus-numero-processo>` com o input nativo de fallback dentro.
+- `FilingType`: tipo (`EnumType` de `FilingType`), descrição (até 2000 caracteres), arquivos (`FileType` múltiplo; cada arquivo `application/pdf` até 10 MB; de 1 a 5 arquivos), renderizado com `<jus-upload>`.
+
+### 6.5 Web Components
+
+**Classe base `JusElement`:** `attachShadow({ mode: 'open' })`, `adoptedStyleSheets` com uma folha base compartilhada (constructable stylesheet) + a folha do componente. Todos os componentes são registrados em `index.ts` com guarda `customElements.get(...)`.
+
+**`<jus-numero-processo>`**
+- Máscara do número CNJ enquanto digita e validação do DV (usando `shared/cnj.ts`).
+- **Form-associated** (`static formAssociated = true` + `ElementInternals`): envia o valor com `setFormValue` e participa da validação nativa com `setValidity` (mensagem "Dígito verificador inválido").
+- Fallback sem JS: o Twig renderiza um `<input>` nativo no light DOM. Ao ativar, o componente lê o valor desse input, o **desabilita** (para não ser enviado em duplicidade) e assume o campo pelo Shadow DOM.
+
+**`<jus-upload>`**
+- Envolve via `<slot>` um `<input type="file" multiple accept="application/pdf">` nativo, que continua sendo o campo enviado.
+- Adiciona área de arrastar e soltar, lista de arquivos (nome, tamanho, botão remover) e validação antecipada (atributos `max-size` e `max-files`).
+- Arquivos soltos ou removidos são aplicados ao input nativo via `DataTransfer`.
+
+**`<jus-filtro-timeline>`**
+- Envolve a `<twig:Timeline>` já renderizada (light DOM).
+- Lê os `data-event-type` existentes e cria botões de filtro (`aria-pressed`) no Shadow DOM.
+- Oculta itens com o atributo `hidden` e anuncia a quantidade visível numa região `aria-live="polite"`.
+
+### 6.6 Catálogo `/design-system`
+
+- Página **pública** (sem login), para que qualquer visitante veja os componentes direto.
+- Cada exemplo é um arquivo em `templates/design_system/examples/<componente>/<exemplo>.html.twig`.
+- A página renderiza o exemplo com `include()` e mostra o código-fonte do **mesmo arquivo** com `source()`, então a documentação não tem como divergir do código.
+- Cada componente tem: descrição, tabela de props/atributos, exemplos de cada variante e notas de acessibilidade.
+
+### 6.7 Acessibilidade
+
+- Status nunca depende só de cor (sempre há texto).
+- Timeline como lista ordenada; foco visível; tudo operável por teclado.
+- Erros de formulário ligados aos campos por `aria-describedby`.
+- Checagem com axe-core nos testes dos Web Components.
+
+## 7. Telas e rotas
+
+| Método | Rota | Nome | Acesso |
+|---|---|---|---|
+| GET, POST | `/login` | `app_login` | público |
+| GET | `/logout` | `app_logout` | autenticado |
+| GET | `/` | — | redireciona para `/processos` |
+| GET | `/processos` | `case_search` | autenticado |
+| GET | `/processos/{numero}` | `case_show` | `VIEW` |
+| GET, POST | `/processos/{numero}/peticionar` | `case_file` | `FILE` |
+| GET | `/documentos/{id}` | `document_download` | `VIEW` no processo |
+| GET | `/design-system` | `design_system` | público |
+
+- `{numero}` usa o formato mascarado como forma canônica; o `CnjNumberValueResolver` aceita com ou sem máscara e responde 404 se o número for inválido, antes de consultar o banco.
+
+**Consulta (`/processos`)**
+- Formulário GET com: número CNJ, nome da parte (busca parcial) e status.
+- Número válido que corresponde a um processo → redireciona direto para `case_show`.
+- Resultados em `<twig:CaseCard>`, ordenados por `filedAt` decrescente, 10 por página (Doctrine Paginator), com estado vazio quando não há resultados.
+
+**Processo (`/processos/{numero}`)**
+- Capa: número, classe, assunto, órgão, valor da causa (`|brl`) e `<twig:StatusBadge>`.
+- Partes por polo, com advogados.
+- Prazos com `<twig:DeadlineIndicator>`: os em aberto primeiro (por vencimento), depois os cumpridos.
+- Abas: Movimentações (`<jus-filtro-timeline>` + `<twig:Timeline>`) e Documentos (`<twig:DataTable>`, colunas título, tipo, data e tamanho, com download).
+- Botão "Peticionar" visível apenas com permissão `FILE`.
+
+**Peticionamento (`/processos/{numero}/peticionar`)**
+- Formulário `FilingType`. Em caso de sucesso: `FilingService`, mensagem flash de sucesso e redirect para `case_show` (padrão PRG).
+
+**Dados fictícios (fixtures)**
+- 2 usuários de teste: `advogado@jus.test` (`ROLE_LAWYER`) e `servidor@jus.test` (`ROLE_CLERK`); senhas definidas nas fixtures e documentadas no README.
+- ~30 processos com todos os status, alguns sigilosos, com partes, movimentações e documentos (usando `tests/fixtures/sample.pdf`).
+- Prazos gerados **relativos à data atual**, para que a demo mostre os vários estados de urgência.
+
+## 8. Tratamento de erros
+
+| Situação | Comportamento |
+|---|---|
+| Número CNJ inválido na URL | 404 pelo ValueResolver |
+| Número CNJ inválido na busca | Erro no campo do formulário, sem exceção |
+| Número válido não encontrado | Estado vazio "Nenhum processo encontrado" |
+| Sem permissão | 403 com página do Design System |
+| Não autenticado | Redirect para `/login` |
+| Upload inválido | Erros do formulário via form theme |
+| Falha ao gravar petição | Rollback + remoção dos arquivos (seção 5.6) |
+| JS não carrega ou falha | Elementos nativos continuam funcionando |
+| Erro inesperado | Página 500 com o Design System; detalhes só no log |
+
+## 9. Testes
+
+**PHPUnit — Unit (`tests/Unit/`)**
+- `CnjNumber` com `tests/fixtures/cnj-numbers.json`.
+- `DeadlineCalculator`: fim de semana, feriado fixo, feriados móveis, recesso, virada de ano, fusos diferentes.
+- `Easter`: anos de referência, incluindo os que exercitam a correção do algoritmo.
+- `LegalCaseVoter`: todas as combinações da tabela 5.5.
+- `FilingService`: rollback remove os arquivos gravados.
+
+**PHPUnit — Component (`tests/Component/`)**
+- Cada Twig Component com `InteractsWithTwigComponents`: variantes, HTML e atributos ARIA.
+- `DeadlineIndicator` com `MockClock` para cada estado de urgência.
+
+**PHPUnit — Functional (`tests/Functional/`, `WebTestCase`)**
+- Login e logout; busca (filtros, redirect por número exato, filtro de sigilosos); página do processo (200, 403, 404); peticionamento completo com upload; download com e sem permissão; catálogo público.
+
+**Vitest em modo browser (Chromium via Playwright)**
+- `shared/cnj.ts` com o mesmo JSON do PHPUnit.
+- Cada Web Component: comportamento, integração com `<form>`, fallback e checagem axe-core.
+- Motivo do modo browser: jsdom não implementa de forma confiável form-associated custom elements (ADR 0005).
+
+**Meta de cobertura:** 100% de linhas em `src/Domain/`; no restante, cobertura por fluxos.
+
+## 10. Qualidade e CI
+
+`azure-pipelines.yml`, executado em push e PR para `main`, agente `ubuntu-latest`:
+
+```
+Stage Quality: composer validate, composer install, php-cs-fixer --dry-run, phpstan,
+               lint:twig, lint:container, npm ci, eslint, stylelint, tsc --noEmit,
+               build de produção do Encore
+Stage Test:    phpunit (SQLite), playwright install chromium, vitest --browser
+```
+
+- PHPStan no nível max **sem baseline**.
+- O repositório fica no GitHub (público) com o Azure Pipelines conectado; o badge de status vai no README.
+
+## 11. Documentação e fluxo de Git
+
+- **README (pt-BR):** o que é, prints de desktop e celular, como rodar (seção 3.3), usuários de teste, destaques técnicos e links para ADRs e diagramas.
+- **Diagramas Mermaid (`docs/diagrams/`):** contexto e containers, entidades, sequência do peticionamento.
+- **Código e commits em inglês**; interface e documentação em português.
+- **Git:** Conventional Commits; uma branch e um PR por funcionalidade.
+
+## 12. Decisões a registrar (ADRs)
+
+| ADR | Decisão |
+|---|---|
+| 0001 | Abordagem híbrida: Twig Components + Web Components |
+| 0002 | Design tokens como CSS custom properties para atravessar o Shadow DOM |
+| 0003 | Webpack Encore em vez de AssetMapper |
+| 0004 | Servidor como fonte da verdade; regra CNJ duplicada com contrato de testes compartilhado; prazo só no servidor |
+| 0005 | Vitest em modo browser para Web Components |
+| 0006 | SQLite como banco padrão |
+| 0007 | Web Component form-associated com fallback nativo |
+
+## 13. Ordem de implementação
+
+1. Ambiente, esqueleto Symfony, ferramentas de qualidade e pipeline.
+2. Domínio com TDD: `CnjNumber`, `Easter`, `NationalHolidayCalendar`, `DeadlineCalculator`.
+3. Entidades, tipo Doctrine, migrations, fixtures, login e Voter.
+4. Encore, tokens, layout base, form theme, extensão Twig e catálogo `/design-system`.
+5. Twig Components.
+6. Telas de consulta e processo.
+7. Web Components (classe base + 3 componentes).
+8. Peticionamento (`FilingService`, `DocumentStorage`, download).
+9. Páginas de erro e revisão de acessibilidade.
+10. README, ADRs e diagramas.
+
+## 14. Critérios de aceite
+
+1. Clone limpo roda com os comandos da seção 3.3 (PHP 8.4 + Node 24).
+2. Login, 3 telas e catálogo funcionam em 375 px de largura sem rolagem horizontal e em desktop.
+3. Com JavaScript desativado, consulta, visualização e peticionamento continuam funcionando.
+4. Pipeline do Azure DevOps verde em todas as etapas.
+5. PHPStan nível max sem erros e sem baseline.
+6. 100% de cobertura de linhas em `src/Domain/`.
+7. Nenhuma violação do axe-core nos testes dos Web Components.
+8. README, 7 ADRs e 3 diagramas publicados.
