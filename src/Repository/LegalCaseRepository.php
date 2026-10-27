@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
+use App\Doctrine\Type\CnjNumberDoctrineType;
 use App\Domain\CnjNumber;
+use App\Domain\Text\SearchText;
 use App\Entity\LegalCase;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -22,5 +27,68 @@ class LegalCaseRepository extends ServiceEntityRepository
     public function findOneByNumber(CnjNumber $number): ?LegalCase
     {
         return $this->findOneBy(['number' => $number]);
+    }
+
+    public function search(CaseSearchCriteria $criteria, User $viewer, int $page, int $perPage = 10): CaseSearchResult
+    {
+        $page = max(1, $page);
+        $qb = $this->createQueryBuilder('c')
+            ->addSelect('p')
+            ->leftJoin('c.parties', 'p')
+            ->orderBy('c.filedAt', 'DESC')
+            ->addOrderBy('c.id', 'DESC');
+        $this->onlyVisibleTo($qb, $viewer);
+
+        if (null !== $criteria->number) {
+            $qb->andWhere('c.number = :number')->setParameter('number', $criteria->number, CnjNumberDoctrineType::NAME);
+        }
+        if (null !== $criteria->status) {
+            $qb->andWhere('c.status = :status')->setParameter('status', $criteria->status);
+        }
+        $name = SearchText::normalize($criteria->partyName ?? '');
+        if ('' !== $name) {
+            // A subquery keeps every party of the matching cases in the fetch join.
+            $qb->andWhere("EXISTS (SELECT 1 FROM App\\Entity\\Party sp WHERE sp.legalCase = c AND sp.searchName LIKE :party ESCAPE '!')")
+                ->setParameter('party', '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $name).'%');
+        }
+
+        $paginator = new Paginator($qb->getQuery()->setFirstResult(($page - 1) * $perPage)->setMaxResults($perPage), fetchJoinCollection: true);
+        $total = \count($paginator);
+
+        /** @var list<LegalCase> $cases */
+        $cases = iterator_to_array($paginator, false);
+
+        return new CaseSearchResult($cases, $total, $page, max(1, (int) ceil($total / $perPage)));
+    }
+
+    /**
+     * The case with this number, or null when it does not exist or the viewer may not see it.
+     */
+    public function findVisibleOneByNumber(CnjNumber $number, User $viewer): ?LegalCase
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->where('c.number = :number')
+            ->setParameter('number', $number, CnjNumberDoctrineType::NAME);
+        $this->onlyVisibleTo($qb, $viewer);
+
+        /** @var ?LegalCase $case */
+        $case = $qb->getQuery()->getOneOrNullResult();
+
+        return $case;
+    }
+
+    /**
+     * Same rule as LegalCaseVoter::VIEW, applied in the query (defence in depth).
+     */
+    private function onlyVisibleTo(QueryBuilder $qb, User $viewer): void
+    {
+        if ($viewer->isClerk()) {
+            return;
+        }
+
+        $qb->andWhere($qb->expr()->orX(
+            'c.confidential = false',
+            'EXISTS (SELECT 1 FROM App\\Entity\\Party vp JOIN vp.lawyers vl WHERE vp.legalCase = c AND vl = :viewer)',
+        ))->setParameter('viewer', $viewer);
     }
 }
