@@ -45,13 +45,15 @@ final readonly class FormattingExtension
 
         $value = $bytes / 1024;
         $unit = 0;
-        while ($value >= 1024 && $unit < \count(self::SIZE_UNITS) - 1) {
+        // Promote on the rounded value, so 1048575 B reads "1 MB" and not "1.024 KB".
+        while (round($value, 1) >= 1024 && $unit < \count(self::SIZE_UNITS) - 1) {
             $value /= 1024;
             ++$unit;
         }
 
         $formatter = new \NumberFormatter('pt_BR', \NumberFormatter::DECIMAL);
         $formatter->setAttribute(\NumberFormatter::MAX_FRACTION_DIGITS, 1);
+        $formatter->setAttribute(\NumberFormatter::ROUNDING_MODE, \NumberFormatter::ROUND_HALFUP);
 
         $formatted = $formatter->format($value);
         if (false === $formatted) {

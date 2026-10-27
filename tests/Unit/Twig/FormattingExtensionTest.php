@@ -43,6 +43,10 @@ final class FormattingExtensionTest extends TestCase
         yield 'kilobytes' => [184_320, '180 KB'];
         yield 'megabytes with a decimal' => [1_572_864, '1,5 MB'];
         yield 'whole megabytes' => [10_485_760, '10 MB'];
+        yield 'rounds half up' => [1_280, '1,3 KB'];
+        yield 'promotes when rounding reaches the next unit' => [1_048_575, '1 MB'];
+        yield 'promotes to gigabytes after rounding' => [1_073_741_823, '1 GB'];
+        yield 'gigabytes are the last unit' => [1_099_511_627_776, '1.024 GB'];
     }
 
     #[DataProvider('sizes')]
