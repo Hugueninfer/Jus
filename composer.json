@@ -23,6 +23,7 @@
         "symfony/security-core": "7.4.*",
         "symfony/security-csrf": "7.4.*",
         "symfony/twig-bundle": "7.4.*",
+        "symfony/webpack-encore-bundle": "^2.4",
         "symfony/yaml": "7.4.*"
     },
     "require-dev": {
@@ -101,7 +102,7 @@
         "test:coverage": "php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover var/coverage/clover.xml",
         "coverage:domain": "php bin/check-domain-coverage.php var/coverage/clover.xml",
         "qa": ["@cs", "@lint", "@stan", "@test"],
-        "ci": ["@composer validate --strict", "@cs", "@lint", "@stan", "@test:coverage", "@coverage:domain"]
+        "ci": ["@composer validate --strict", "@cs", "@lint", "@stan", "@test:coverage", "@coverage:domain", "npm run ci"]
     },
     "scripts-descriptions": {
         "setup": "Recreates the local SQLite database with demo data.",
@@ -109,7 +110,7 @@
         "test:coverage": "Runs PHPUnit with a Clover coverage report (Xdebug locally, PCOV in CI).",
         "coverage:domain": "Fails unless every file in src/Domain/ is 100% covered.",
         "qa": "Code style, lint, static analysis and tests.",
-        "ci": "Runs exactly what the Azure pipeline runs."
+        "ci": "Runs exactly what the Azure pipeline runs (PHP and front-end)."
     },
     "conflict": {
         "symfony/symfony": "*"

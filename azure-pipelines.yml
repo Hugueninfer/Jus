@@ -28,6 +28,18 @@ stages:
           - script: composer stan
             displayName: PHPStan
 
+      - job: frontend_quality
+        displayName: Front-end quality
+        steps:
+          - task: NodeTool@0
+            displayName: Install Node.js 24
+            inputs:
+              versionSpec: '24.x'
+          - script: npm ci
+            displayName: npm ci
+          - script: npm run ci
+            displayName: ESLint, Stylelint, tsc and production build
+
   - stage: Test
     dependsOn: Quality
     jobs:
