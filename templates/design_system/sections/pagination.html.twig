@@ -1,0 +1,26 @@
+<p>Links de página para listas longas, com a navegação feita no servidor pela query string (<code>src/Twig/Components/Pagination.php</code>). Não mostra nada quando há uma página só.</p>
+
+<h3 class="h6">Propriedades</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Propriedades do componente Pagination',
+    headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['page', 'int', '1', 'Página atual, contada a partir de 1.'],
+        ['pages', 'int', '1', 'Total de páginas. Com 1 ou menos, o componente não renderiza nada.'],
+        ['parameter', 'string', 'pagina', 'Nome do parâmetro da query string que guarda o número da página.'],
+        ['label', 'string', 'Paginação', 'Nome acessível da navegação. Use um nome que a distinga de outras navegações da página.'],
+        ['anchor', 'string', 'null', 'Id do elemento para onde a página volta depois de trocar de página (#anchor no fim dos links).'],
+    ],
+    monospace: [1, 2],
+}) }}
+<p class="small text-body-secondary">Até 7 páginas, todas aparecem. Acima disso, aparecem a primeira, a atual com a anterior e a seguinte, e a última, com reticências entre os saltos. Os links preservam os demais parâmetros da URL e trocam só o da página; a página 1 também usa o parâmetro, para o resultado não depender do estado anterior. "Anterior" e "Próxima" só aparecem quando existe essa página.</p>
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li>É uma navegação (<code>nav</code>) com nome acessível, para que quem usa leitor de tela a encontre entre os marcos da página; a lista de páginas é uma lista de verdade.</li>
+    <li>A página atual não é um link: é um <code>span</code> com <code>aria-current="page"</code>, e o leitor de tela a anuncia como a página atual; visualmente ela aparece com o fundo preenchido.</li>
+    <li>As reticências são decorativas (<code>aria-hidden="true"</code>) e não recebem foco; "Anterior" e "Próxima" têm texto visível, e os ícones ao lado são ocultos dos leitores de tela.</li>
+    <li>Funciona sem JavaScript: cada página é um link comum, alcançável pelo teclado.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/pagination/default.html.twig', label: 'doze páginas, na sexta'}) }}
