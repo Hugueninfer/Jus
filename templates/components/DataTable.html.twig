@@ -1,0 +1,52 @@
+<table {{ attributes.defaults({class: 'table align-middle jus-data-table'}) }}>
+    {% if caption %}
+        <caption>{{ caption }}</caption>
+    {% endif %}
+    <thead>
+        <tr>
+            {% for column in columns %}
+                {% if column.sortable ?? false %}
+                    <th scope="col" aria-sort="{{ this.ariaSort(column.key) }}">
+                        <a href="{{ this.sortHref(column.key) }}">
+                            {{ column.label }}
+                            {% if this.activeSort == column.key %}
+                                <i class="bi bi-caret-{{ this.activeDirection == 'asc' ? 'up' : 'down' }}-fill" aria-hidden="true"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                {% else %}
+                    <th scope="col">{{ column.label }}</th>
+                {% endif %}
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in this.sortedRows %}
+            <tr>
+                {% for column in columns %}
+                    {% set value = row[column.key] ?? null %}
+                    {% set format = column.format ?? null %}
+                    <td data-label="{{ column.label }}">
+                        {%- if value is null -%}
+                            —
+                        {%- elseif format == 'date' -%}
+                            {{ value|date('d/m/Y') }}
+                        {%- elseif format == 'datetime' -%}
+                            {{ value|date('d/m/Y H:i') }}
+                        {%- elseif format == 'bytes' -%}
+                            {{ value|bytes }}
+                        {%- elseif format == 'brl' -%}
+                            {{ value|brl }}
+                        {%- else -%}
+                            {{ value }}
+                        {%- endif -%}
+                    </td>
+                {% endfor %}
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="{{ columns|length }}" class="text-body-secondary">{{ emptyMessage }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

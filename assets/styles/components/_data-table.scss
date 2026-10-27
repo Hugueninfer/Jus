@@ -1,0 +1,46 @@
+// Each row is a card on small screens, labelled cell by cell; from md up it is a regular table.
+.jus-data-table {
+  thead {
+    display: none;
+  }
+
+  tr {
+    display: block;
+    margin-block-end: var(--jus-space-3);
+    border: 1px solid var(--jus-color-border);
+    border-radius: var(--jus-radius-base);
+  }
+
+  td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--jus-space-3);
+    border-block-end-width: 0;
+
+    &::before {
+      content: attr(data-label);
+      font-weight: 600;
+    }
+  }
+
+  @include media-breakpoint-up(md) {
+    thead {
+      display: table-header-group;
+    }
+
+    tr {
+      display: table-row;
+      margin-block-end: 0;
+      border-width: 0;
+    }
+
+    td {
+      display: table-cell;
+      border-block-end-width: var(--bs-border-width);
+
+      &::before {
+        content: none;
+      }
+    }
+  }
+}
