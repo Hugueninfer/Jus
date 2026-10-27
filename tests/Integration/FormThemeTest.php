@@ -25,12 +25,13 @@ final class FormThemeTest extends KernelTestCase
         $numero = $crawler->filter('jus-numero-processo > input#busca_numero');
         self::assertCount(1, $numero);
         self::assertSame('true', $numero->attr('aria-invalid'));
-        self::assertSame('busca_numero_errors', $numero->attr('aria-describedby'));
-        self::assertStringContainsString('Informe um número de processo válido', $crawler->filter('#busca_numero_errors')->text());
+        self::assertSame('busca_numero_error1', $numero->attr('aria-describedby'));
+        self::assertStringContainsString('Informe um número de processo válido', $crawler->filter('#busca_numero_error1')->text());
 
         $parte = $crawler->filter('input#busca_parte');
-        self::assertSame('busca_parte_help busca_parte_errors', $parte->attr('aria-describedby'));
-        self::assertStringContainsString('Informe o nome da parte.', $crawler->filter('#busca_parte_errors')->text());
+        self::assertSame('true', $parte->attr('aria-invalid'));
+        self::assertSame('busca_parte_help busca_parte_error1', $parte->attr('aria-describedby'));
+        self::assertStringContainsString('Informe o nome da parte.', $crawler->filter('#busca_parte_error1')->text());
     }
 
     public function testValidFieldsAreNotMarkedInvalid(): void
@@ -38,12 +39,34 @@ final class FormThemeTest extends KernelTestCase
         $form = $this->searchForm();
         $form->submit(['numero' => '0000001-39.2024.8.26.0100', 'parte' => 'Maria']);
 
-        $numero = $this->render($form)->filter('input#busca_numero');
+        $crawler = $this->render($form);
 
+        $numero = $crawler->filter('input#busca_numero');
         self::assertNull($numero->attr('aria-invalid'));
         self::assertSame('numeric', $numero->attr('inputmode'));
+        self::assertSame('off', $numero->attr('autocomplete'));
+        self::assertNull($numero->attr('maxlength'));
         self::assertSame('0000000-00.0000.0.00.0000', $numero->attr('placeholder'));
         self::assertSame('0000001-39.2024.8.26.0100', $numero->attr('value'));
+
+        $parte = $crawler->filter('input#busca_parte');
+        self::assertNull($parte->attr('aria-invalid'));
+        self::assertSame('busca_parte_help', $parte->attr('aria-describedby'));
+    }
+
+    public function testPerFieldAttributesOverrideTheCnjDefaults(): void
+    {
+        self::bootKernel();
+        $form = self::getContainer()->get(FormFactoryInterface::class)
+            ->createNamedBuilder('busca', options: ['csrf_protection' => false])
+            ->add('numero', CnjNumberType::class, ['attr' => ['placeholder' => 'Ex.: 0000001-39.2024.8.26.0100', 'autocomplete' => 'on']])
+            ->getForm();
+
+        $numero = $this->render($form)->filter('input#busca_numero');
+
+        self::assertSame('Ex.: 0000001-39.2024.8.26.0100', $numero->attr('placeholder'));
+        self::assertSame('on', $numero->attr('autocomplete'));
+        self::assertSame('numeric', $numero->attr('inputmode'));
     }
 
     /**

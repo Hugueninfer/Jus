@@ -9,13 +9,23 @@ use Symfony\Component\Form\DataTransformerInterface;
 use Symfony\Component\Form\Exception\TransformationFailedException;
 
 /**
- * @implements DataTransformerInterface<CnjNumber, string>
+ * The model value is typed as mixed because transform() validates what the form hands it.
+ *
+ * @implements DataTransformerInterface<mixed, string>
  */
 final class CnjNumberToStringTransformer implements DataTransformerInterface
 {
     public function transform(mixed $value): string
     {
-        return $value instanceof CnjNumber ? $value->formatted() : '';
+        if (null === $value) {
+            return '';
+        }
+
+        if (!$value instanceof CnjNumber) {
+            throw new TransformationFailedException('Expected a CnjNumber.');
+        }
+
+        return $value->formatted();
     }
 
     public function reverseTransform(mixed $value): ?CnjNumber

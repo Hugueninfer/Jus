@@ -47,6 +47,16 @@ final class CnjNumberTypeTest extends TypeTestCase
         self::assertNull($form->getData());
     }
 
+    public function testClearingAPrefilledFieldMeansNoNumber(): void
+    {
+        $form = $this->factory->create(CnjNumberType::class, CnjNumber::fromString('00000013920248260100'));
+
+        $form->submit('');
+
+        self::assertTrue($form->isSynchronized());
+        self::assertNull($form->getData());
+    }
+
     public function testRejectsAnInvalidNumber(): void
     {
         $form = $this->factory->create(CnjNumberType::class);
