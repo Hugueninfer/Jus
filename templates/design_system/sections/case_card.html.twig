@@ -1,0 +1,22 @@
+<p>Resumo de um processo para listas e resultados de busca: número, situação, classe, assunto, vara, partes e a última movimentação (<code>src/Twig/Components/CaseCard.php</code>).</p>
+
+<h3 class="h6">Propriedades</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Propriedades do componente CaseCard',
+    headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['case', 'LegalCase', 'obrigatório', 'O processo exibido. O número sai formatado pelo filtro cnj e a situação pelo StatusBadge. Processos sigilosos ganham o selo "Sigiloso".'],
+        ['href', 'string', 'null', 'Quando informado, o número do processo vira um link que cobre o cartão inteiro (stretched-link). Sem ele, o cartão é só informativo.'],
+        ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (article.card).'],
+    ],
+    monospace: [1, 2],
+}) }}
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li>O número do processo é um título de nível 3: use o cartão sob um título de nível 2.</li>
+    <li>Com <code>href</code>, o cartão tem uma única parada de tabulação, e o texto do link é o número do processo.</li>
+    <li>O sigilo é dito em texto ("Sigiloso"); o ícone de cadeado é decorativo.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/case_card/default.html.twig'}) }}

@@ -26,6 +26,20 @@ final class LayoutTest extends WebTestCase
         self::assertSelectorTextContains('title', 'Entrar · Jus');
     }
 
+    public function testTheNavbarOffersTheCatalogAndSignInToVisitors(): void
+    {
+        $client = self::createClient();
+
+        $crawler = $client->request('GET', '/design-system');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Design System', trim($crawler->filter('header a[href="/design-system"]')->text()));
+        self::assertSame('page', $crawler->filter('header a[href="/design-system"]')->attr('aria-current'));
+        self::assertSame('Entrar', trim($crawler->filter('header a[href="/login"]')->text()));
+        self::assertCount(0, $crawler->selectLink('Sair'));
+        self::assertCount(1, $crawler->filter('header button[data-bs-target="#menu-principal"]'));
+    }
+
     public function testTheNavbarShowsTheSignedInUser(): void
     {
         $client = self::createClient();
@@ -39,6 +53,8 @@ final class LayoutTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('nav', 'João Almeida');
+        self::assertCount(1, $crawler->filter('header a[href="/design-system"]'));
+        self::assertCount(0, $crawler->filter('header a[href="/login"]'));
 
         $logoutUrl = (string) $crawler->selectLink('Sair')->attr('href');
         self::assertSame('/logout', parse_url($logoutUrl, \PHP_URL_PATH));

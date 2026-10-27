@@ -1,0 +1,25 @@
+<p>Campo de formulário para o número único de processo (padrão CNJ: <code>NNNNNNN-DD.AAAA.J.TR.OOOO</code>). O tipo <code>CnjNumberType</code> (<code>src/Form/CnjNumberType.php</code>) aceita o número com ou sem máscara e entrega um <code>CnjNumber</code> validado ao formulário.</p>
+
+<h3 class="h6">Tipo e atributos</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Tipo, opções e atributos do campo de número CNJ',
+    headers: ['Nome', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['CnjNumberType', 'TextType', '—', 'Valor do modelo: CnjNumber ou null. Aceita os 20 dígitos ou o número já mascarado e recusa formato inválido e dígitos verificadores incorretos.'],
+        ['invalid_message', 'string', 'Informe um número de processo válido (NNNNNNN-DD.AAAA.J.TR.OOOO).', 'Mensagem de erro quando o número é recusado. As demais opções do TextType (label, help, required...) valem normalmente.'],
+        ['inputmode', 'atributo do input', 'numeric', 'Mostra o teclado numérico em telas de toque.'],
+        ['autocomplete', 'atributo do input', 'off', 'Evita sugestões de números anteriores.'],
+        ['placeholder', 'atributo do input', '0000000-00.0000.0.00.0000', 'Mostra o formato esperado.'],
+    ],
+    monospace: [1, 2],
+}) }}
+<p class="small text-body-secondary">O input nativo fica dentro do elemento personalizado <code>jus-numero-processo</code>, ponto de extensão para o aprimoramento com JavaScript (máscara durante a digitação). Sem JavaScript, o campo continua funcionando, e o servidor sempre valida o número.</p>
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li>O rótulo é um <code>label</code> ligado ao input; a ajuda e os erros são ligados por <code>aria-describedby</code>, e o input recebe <code>aria-invalid</code> quando há erro (comportamento nativo do Symfony, sem código extra).</li>
+    <li>Os erros aparecem como texto junto ao campo, e não apenas pela cor da borda.</li>
+    <li>O formato esperado está no placeholder e na ajuda, e a máscara é opcional: quem digita só os números não é prejudicado.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/cnj_field/default.html.twig'}) }}

@@ -1,0 +1,22 @@
+<p>Linha do tempo das movimentações do processo, agrupadas por dia, com o dia e o evento mais recentes primeiro (<code>src/Twig/Components/Timeline.php</code>).</p>
+
+<h3 class="h6">Propriedades e atributos</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Propriedades e atributos do componente Timeline',
+    headers: ['Nome', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['events', 'list<CaseEvent>', '[]', 'Movimentações a exibir, em qualquer ordem. Sem eventos, mostra "Nenhuma movimentação.".'],
+        ['data-event-type', 'atributo', 'decision, order, filing, summons ou hearing', 'Valor de EventType em cada item da lista. É o ponto de ligação para o filtro por tipo de movimentação.'],
+        ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (ol.jus-timeline).'],
+    ],
+    monospace: [1, 2],
+}) }}
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li>É uma lista ordenada aninhada (dia, depois eventos) com <code>role="list"</code>, para que a semântica de lista sobreviva ao <code>list-style: none</code> em leitores de tela.</li>
+    <li>Cada dia tem um título de nível 3 com <code>time datetime</code>; o horário de cada evento também usa <code>time</code>.</li>
+    <li>O tipo do evento é texto ("Decisão", "Despacho"...); os ícones são decorativos.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/timeline/default.html.twig'}) }}
