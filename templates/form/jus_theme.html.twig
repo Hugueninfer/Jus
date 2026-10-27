@@ -1,0 +1,45 @@
+{% extends 'bootstrap_5_layout.html.twig' %}
+
+{#
+    Invalid fields point to their messages, so assistive technology reads them together with the help text.
+    Symfony 7.4 computes aria-describedby/aria-invalid in form_row (one id per message: "<id>_error1", ...);
+    this theme replaces that with the single "<id>_errors" block rendered by form_errors below.
+#}
+{%- block form_row -%}
+    {%- set attr = {} -%}
+    {%- set aria_describedby = [] -%}
+    {%- if help -%}
+        {%- set aria_describedby = aria_describedby|merge([id ~ '_help']) -%}
+    {%- endif -%}
+    {%- if errors|length > 0 -%}
+        {%- set aria_describedby = aria_describedby|merge([id ~ '_errors']) -%}
+        {%- set attr = attr|merge({'aria-invalid': 'true'}) -%}
+    {%- endif -%}
+    {%- if aria_describedby|length > 0 -%}
+        {%- set attr = attr|merge({'aria-describedby': aria_describedby|join(' ')}) -%}
+    {%- endif -%}
+    {%- set widget_attr = {attr: attr} -%}
+    {{- block('form_row_render') -}}
+{%- endblock form_row -%}
+
+{%- block form_errors -%}
+    {%- if errors|length > 0 -%}
+        <div id="{{ id }}_errors" class="{{ form is not rootform ? 'invalid-feedback d-block' : 'alert alert-danger' }}">
+            {%- for error in errors -%}
+                <span class="d-block">{{ error.message }}</span>
+            {%- endfor -%}
+        </div>
+    {%- endif -%}
+{%- endblock form_errors -%}
+
+{# Native input inside the custom element: works without JavaScript; the Web Component enhances it later. #}
+{%- block cnj_number_widget -%}
+    {%- set type = 'text' -%}
+    {%- set attr = attr|merge({
+        inputmode: 'numeric',
+        autocomplete: 'off',
+        maxlength: 25,
+        placeholder: attr.placeholder ?? '0000000-00.0000.0.00.0000',
+    }) -%}
+    <jus-numero-processo>{{- block('form_widget_simple') -}}</jus-numero-processo>
+{%- endblock cnj_number_widget -%}
