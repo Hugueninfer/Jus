@@ -1,4 +1,5 @@
 {% props type = 'info', dismissible = false %}
+{% set type = type == 'error' ? 'danger' : type %}
 {% set type = type in ['success', 'danger', 'warning', 'info'] ? type : 'info' %}
 <div {{ attributes.defaults({
     class: 'alert alert-' ~ type ~ (dismissible ? ' alert-dismissible fade show' : ''),

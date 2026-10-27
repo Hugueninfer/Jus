@@ -21,6 +21,22 @@ final class AlertTest extends KernelTestCase
         self::assertCount(0, $alert->filter('button'));
     }
 
+    public function testTheConventionalErrorFlashTypeIsShownAsDanger(): void
+    {
+        $alert = $this->renderTwigComponent('Alert', ['type' => 'error'], 'Falhou.')->crawler()->filter('div.alert');
+
+        self::assertStringContainsString('alert-danger', (string) $alert->attr('class'));
+        self::assertSame('alert', $alert->attr('role'));
+    }
+
+    public function testWarningsAreAnnouncedAsAlerts(): void
+    {
+        $alert = $this->renderTwigComponent('Alert', ['type' => 'warning'], 'Atenção.')->crawler()->filter('div.alert');
+
+        self::assertStringContainsString('alert-warning', (string) $alert->attr('class'));
+        self::assertSame('alert', $alert->attr('role'));
+    }
+
     public function testSuccessIsAPoliteStatus(): void
     {
         $alert = $this->renderTwigComponent('Alert', ['type' => 'success'], 'Salvo.')->crawler()->filter('div.alert');

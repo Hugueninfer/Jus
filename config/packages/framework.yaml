@@ -14,6 +14,6 @@ when@test:
         session:
             storage_factory_id: session.storage.factory.mock_file
         exceptions:
-            # A refused request (403) is an expected outcome that tests assert on, not an application error.
-            Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException:
+            # An HTTP error response (a refused or missing request) is an expected outcome that tests assert on, not an application error.
+            Symfony\Component\HttpKernel\Exception\HttpException:
                 log_level: info

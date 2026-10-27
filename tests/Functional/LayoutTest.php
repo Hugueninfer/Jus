@@ -20,6 +20,8 @@ final class LayoutTest extends WebTestCase
         self::assertSame('pt-BR', $crawler->filter('html')->attr('lang'));
         self::assertSame('Pular para o conteúdo', trim($crawler->filter('a[href="#conteudo"]')->text()));
         self::assertCount(1, $crawler->filter('main#conteudo'));
+        self::assertSame('-1', $crawler->filter('main#conteudo')->attr('tabindex'));
+        self::assertSame('Navegação principal', $crawler->filter('nav')->attr('aria-label'));
         self::assertSelectorExists('meta[name="viewport"]');
         self::assertSelectorTextContains('title', 'Entrar · Jus');
     }
@@ -37,6 +39,11 @@ final class LayoutTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('nav', 'João Almeida');
-        self::assertStringContainsString('/logout?_csrf_token=', (string) $crawler->selectLink('Sair')->attr('href'));
+
+        $logoutUrl = (string) $crawler->selectLink('Sair')->attr('href');
+        self::assertSame('/logout', parse_url($logoutUrl, \PHP_URL_PATH));
+        parse_str((string) parse_url($logoutUrl, \PHP_URL_QUERY), $query);
+        self::assertArrayHasKey('_csrf_token', $query);
+        self::assertNotSame('', $query['_csrf_token']);
     }
 }
