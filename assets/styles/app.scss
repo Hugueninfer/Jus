@@ -1,0 +1,4 @@
+// Bootstrap 5.3 still relies on @import, and its variables must be set before it is imported.
+@import 'tokens/bootstrap-config';
+@import 'bootstrap/scss/bootstrap';
+@import 'tokens/custom-properties';

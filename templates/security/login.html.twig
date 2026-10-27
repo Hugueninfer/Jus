@@ -1,23 +1,38 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Entrar{% endblock %}
+{% block title %}Entrar · Jus{% endblock %}
 
 {% block body %}
-    <h1>Entrar</h1>
+    <div class="row justify-content-center">
+        <div class="col-12 col-sm-10 col-md-7 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h3 mb-3">Entrar</h1>
 
-    {% if error %}
-        <div role="alert">E-mail ou senha inválidos.</div>
-    {% endif %}
+                    {% if error %}
+                        <twig:Alert type="danger">
+                            {{ error.messageKey == 'Invalid CSRF token.' ? 'Sua sessão expirou. Tente novamente.' : 'E-mail ou senha inválidos.' }}
+                        </twig:Alert>
+                    {% endif %}
 
-    <form method="post" action="{{ path('app_login') }}">
-        <label for="username">E-mail</label>
-        <input type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
+                    <form method="post" action="{{ path('app_login') }}">
+                        <div class="mb-3">
+                            <label class="form-label" for="username">E-mail</label>
+                            <input class="form-control" type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="password">Senha</label>
+                            <input class="form-control" type="password" id="password" name="_password" autocomplete="current-password" required>
+                        </div>
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+                        <button class="btn btn-primary w-100" type="submit">Entrar</button>
+                    </form>
 
-        <label for="password">Senha</label>
-        <input type="password" id="password" name="_password" autocomplete="current-password" required>
-
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-
-        <button type="submit">Entrar</button>
-    </form>
+                    <p class="small text-body-secondary mt-3 mb-0">
+                        Contas de demonstração: <code>advogado@jus.test</code> (advogada) ou <code>servidor@jus.test</code> (servidor), senha <code>jus-demo</code>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}

@@ -1,0 +1,25 @@
+@use 'sass:meta';
+@use 'tokens' as t;
+
+// The tokens as CSS custom properties: the only styling hook that crosses the Shadow DOM of the Web Components.
+:root {
+  @each $name, $value in t.$colors {
+    --jus-color-#{$name}: #{$value};
+  }
+
+  @each $name, $value in t.$font-families {
+    --jus-font-#{$name}: #{meta.inspect($value)};
+  }
+
+  @each $step, $value in t.$spaces {
+    --jus-space-#{$step}: #{$value};
+  }
+
+  @each $name, $value in t.$radii {
+    --jus-radius-#{$name}: #{$value};
+  }
+
+  @each $name, $value in t.$shadows {
+    --jus-shadow-#{$name}: #{$value};
+  }
+}

@@ -1,0 +1,32 @@
+@use 'sass:map';
+@use 'tokens' as t;
+
+// Bootstrap variables derived from the tokens. Imported before Bootstrap itself.
+$primary: map.get(t.$colors, 'primary');
+$secondary: map.get(t.$colors, 'secondary');
+$success: map.get(t.$colors, 'success');
+$warning: map.get(t.$colors, 'warning');
+$danger: map.get(t.$colors, 'danger');
+$info: map.get(t.$colors, 'info');
+$light: map.get(t.$colors, 'light');
+$dark: map.get(t.$colors, 'dark');
+$body-color: map.get(t.$colors, 'body');
+$body-bg: map.get(t.$colors, 'surface');
+$body-secondary-color: map.get(t.$colors, 'muted');
+$body-tertiary-bg: map.get(t.$colors, 'surface-alt');
+$border-color: map.get(t.$colors, 'border');
+$spacers: map.merge((0: 0), t.$spaces);
+$font-family-sans-serif: map.get(t.$font-families, 'base');
+$font-family-monospace: map.get(t.$font-families, 'mono');
+$border-radius-sm: map.get(t.$radii, 'sm');
+$border-radius: map.get(t.$radii, 'base');
+$border-radius-lg: map.get(t.$radii, 'lg');
+$box-shadow-sm: map.get(t.$shadows, 'sm');
+$box-shadow: map.get(t.$shadows, 'base');
+$min-contrast-ratio: 4.5;
+
+// The navbar sits on the primary colour: Bootstrap's translucent defaults (55 %) fall below WCAG AA there.
+// Literal values on purpose, because Bootstrap's own variables ($white) are not loaded yet at this point.
+$navbar-dark-color: rgb(255 255 255 / 85%);
+$navbar-dark-hover-color: #fff;
+$navbar-dark-active-color: #fff;

@@ -13,3 +13,7 @@ when@test:
         test: true
         session:
             storage_factory_id: session.storage.factory.mock_file
+        exceptions:
+            # An HTTP error response (a refused or missing request) is an expected outcome that tests assert on, not an application error.
+            Symfony\Component\HttpKernel\Exception\HttpException:
+                log_level: info
