@@ -57,7 +57,7 @@
     }
 
     // Table layout keeps short values (dates) whole: anywhere-wrapping would let the auto layout squeeze their column.
-    // A very long unbreakable value scrolls inside the wrapper (.table-responsive) instead.
+    // A very long unbreakable value scrolls inside the table's own .table-responsive box instead.
     td {
       display: table-cell;
       min-width: auto;

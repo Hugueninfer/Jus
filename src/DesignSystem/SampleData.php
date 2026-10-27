@@ -84,27 +84,29 @@ final readonly class SampleData
     }
 
     /**
-     * @return list<array{key: string, label: string, sortable?: bool, format?: string}>
+     * @return list<array{key: string, label: string, sortable?: bool, format?: string, href?: string}>
      */
     public function documentColumns(): array
     {
         return [
-            ['key' => 'title', 'label' => 'Título', 'sortable' => true],
-            ['key' => 'type', 'label' => 'Tipo'],
+            ['key' => 'title', 'label' => 'Título', 'sortable' => true, 'href' => 'url'],
+            ['key' => 'type', 'label' => 'Tipo', 'sortable' => true, 'format' => 'label'],
             ['key' => 'uploadedAt', 'label' => 'Data', 'sortable' => true, 'format' => 'date'],
             ['key' => 'size', 'label' => 'Tamanho', 'sortable' => true, 'format' => 'bytes'],
         ];
     }
 
     /**
+     * The links point back to the catalog section: there are no real documents behind the samples.
+     *
      * @return list<array<string, mixed>>
      */
     public function documentRows(): array
     {
         return [
-            ['title' => 'Petição inicial', 'type' => 'Petição inicial', 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:00'), 'size' => 184_320],
-            ['title' => 'Procuração', 'type' => 'Juntada de documentos', 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:02'), 'size' => 52_224],
-            ['title' => 'Contestação', 'type' => 'Contestação', 'uploadedAt' => new \DateTimeImmutable('2024-04-15 18:20'), 'size' => 1_572_864],
+            ['title' => 'Petição inicial', 'url' => '#data-table', 'type' => FilingType::InitialPetition, 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:00'), 'size' => 184_320],
+            ['title' => 'Procuração', 'url' => '#data-table', 'type' => FilingType::Exhibits, 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:02'), 'size' => 52_224],
+            ['title' => 'Contestação', 'url' => '#data-table', 'type' => FilingType::Answer, 'uploadedAt' => new \DateTimeImmutable('2024-04-15 18:20'), 'size' => 1_572_864],
         ];
     }
 }

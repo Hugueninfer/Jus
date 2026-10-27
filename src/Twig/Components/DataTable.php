@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Twig\Components;
 
+use App\Presentation\EnumLabels;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
 
@@ -13,7 +14,7 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
 #[AsTwigComponent]
 final class DataTable
 {
-    /** @var list<array{key: string, label: string, sortable?: bool, format?: string}> */
+    /** @var list<array{key: string, label: string, sortable?: bool, format?: string, href?: string}> */
     public array $columns = [];
 
     /** @var list<array<string, mixed>> */
@@ -29,19 +30,15 @@ final class DataTable
 
     public string $emptyMessage = 'Nenhum registro.';
 
-    public function __construct(private readonly RequestStack $requestStack)
-    {
+    public function __construct(
+        private readonly RequestStack $requestStack,
+        private readonly EnumLabels $labels,
+    ) {
     }
 
     public function activeSort(): ?string
     {
-        foreach ($this->columns as $column) {
-            if ($column['key'] === $this->sort && ($column['sortable'] ?? false)) {
-                return $this->sort;
-            }
-        }
-
-        return null;
+        return $this->activeColumn()['key'] ?? null;
     }
 
     public function activeDirection(): string
@@ -54,16 +51,26 @@ final class DataTable
      */
     public function sortedRows(): array
     {
-        $key = $this->activeSort();
-        if (null === $key) {
+        $column = $this->activeColumn();
+        if (null === $column) {
             return $this->rows;
         }
 
+        $key = $column['key'];
+        $byLabel = 'label' === ($column['format'] ?? null);
         $collator = new \Collator('pt_BR');
+        // "Anexo 2" before "Anexo 10": digit runs compare by their numeric value.
+        $collator->setAttribute(\Collator::NUMERIC_COLLATION, \Collator::ON);
         $sign = 'desc' === $this->activeDirection() ? -1 : 1;
+        $sortValue = function (array $row) use ($key, $byLabel): mixed {
+            $value = $row[$key] ?? null;
+
+            // An enum shown by its label sorts by that label, the text the reader sees.
+            return $byLabel && $value instanceof \BackedEnum ? $this->labels->label($value) : $value;
+        };
         $rows = $this->rows;
         // Negating the comparison (instead of reversing the result) keeps tied rows in their input order either way.
-        usort($rows, static fn (array $a, array $b): int => $sign * self::compare($a[$key] ?? null, $b[$key] ?? null, $collator));
+        usort($rows, static fn (array $a, array $b): int => $sign * self::compare($sortValue($a), $sortValue($b), $collator));
 
         return $rows;
     }
@@ -95,6 +102,20 @@ final class DataTable
         $query = [...($this->requestStack->getCurrentRequest()?->query->all() ?? []), 'sort' => $key, 'direction' => $direction];
 
         return '?'.http_build_query($query).(null !== $this->anchor ? '#'.$this->anchor : '');
+    }
+
+    /**
+     * @return array{key: string, label: string, sortable?: bool, format?: string, href?: string}|null
+     */
+    private function activeColumn(): ?array
+    {
+        foreach ($this->columns as $column) {
+            if ($column['key'] === $this->sort && ($column['sortable'] ?? false)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     private static function compare(mixed $a, mixed $b, \Collator $collator): int

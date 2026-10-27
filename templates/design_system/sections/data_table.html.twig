@@ -5,7 +5,7 @@
     caption: 'Propriedades do componente DataTable',
     headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
     rows: [
-        ['columns', 'list', '[]', 'Colunas: key (chave na linha), label (título), sortable (opcional, habilita a ordenação) e format (opcional: date, datetime, bytes ou brl; sem format, o valor sai como texto).'],
+        ['columns', 'list', '[]', 'Colunas: key (chave na linha), label (título), sortable (opcional, habilita a ordenação), format (opcional: date, datetime, bytes, brl ou label, que mostra um enum pelo rótulo em português; sem format, o valor sai como texto) e href (opcional: chave da linha com a URL; a célula vira um link com o valor como texto).'],
         ['rows', 'list', '[]', 'Linhas: arrays indexados pela key das colunas. Um valor ausente ou nulo aparece como "—".'],
         ['sort', 'string', 'null', 'Key da coluna ordenada. Só colunas marcadas com sortable valem; qualquer outro valor é ignorado e as linhas ficam na ordem original.'],
         ['direction', 'string', 'asc', 'asc ou desc; qualquer outro valor vale asc.'],
@@ -15,13 +15,14 @@
     ],
     monospace: [1, 2],
 }) }}
-<p class="small text-body-secondary">A ordenação usa o agrupamento alfabético do português (<code>Collator</code> <code>pt_BR</code>), compara números e datas pelo valor e mantém a ordem original entre linhas empatadas. Clicar na coluna ativa inverte a direção; os links preservam os demais parâmetros da URL.</p>
+<p class="small text-body-secondary">A ordenação usa o agrupamento alfabético do português (<code>Collator</code> <code>pt_BR</code>), com os números dentro do texto comparados pelo valor ("Anexo 2" vem antes de "Anexo 10"); compara números e datas pelo valor, enums com <code>format: label</code> pelo rótulo exibido e colunas com <code>href</code> pelo texto do link, e mantém a ordem original entre linhas empatadas. Clicar na coluna ativa inverte a direção; os links preservam os demais parâmetros da URL.</p>
 
 <h3 class="h6">Acessibilidade</h3>
 <ul>
     <li>Tem <code>caption</code>, cabeçalhos <code>th scope="col"</code> e <code>aria-sort</code> na coluna ordenada; os links de ordenação são alcançáveis pelo teclado e dizem, só para leitores de tela, a ordem atual ou a ação.</li>
     <li>Abaixo de 768 px o cabeçalho some e cada célula ganha seu rótulo; por isso os links de ordenação se repetem numa navegação "Ordenar por" acima da tabela, com <code>aria-current</code> no critério ativo.</li>
-    <li>Valores longos e sem quebra rolam dentro do contêiner da tabela em vez de alargar a página.</li>
+    <li>Valores longos e sem quebra rolam dentro do contêiner da tabela em vez de alargar a página; a navegação "Ordenar por" fica fora desse contêiner, para que o anel de foco dos links não seja cortado.</li>
+    <li>Numa coluna com <code>href</code>, o texto do link é o próprio valor da célula (o título do documento, por exemplo), e não um genérico "abrir".</li>
 </ul>
 
 {{ include('design_system/_example.html.twig', {example: 'design_system/examples/data_table/documents.html.twig'}) }}

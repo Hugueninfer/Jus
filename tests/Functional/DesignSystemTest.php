@@ -39,5 +39,8 @@ final class DesignSystemTest extends WebTestCase
         self::assertCount(5, $crawler->filter('section#deadline-indicator [data-urgency]'));
         self::assertCount(1, $crawler->filter('section#cnj-field jus-numero-processo input'));
         self::assertCount(1, $crawler->filter('section#data-table table.jus-data-table'));
+        $firstDocument = $crawler->filter('section#data-table table.jus-data-table tbody tr')->first();
+        self::assertSame('#data-table', $firstDocument->filter('td')->eq(0)->filter('a')->attr('href'));
+        self::assertSame('Petição inicial', trim($firstDocument->filter('td')->eq(1)->text()));
     }
 }
