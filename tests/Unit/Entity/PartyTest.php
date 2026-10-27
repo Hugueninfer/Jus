@@ -25,6 +25,13 @@ final class PartyTest extends TestCase
         self::assertSame([], $party->getLawyers());
     }
 
+    public function testKeepsANormalizedNameForSearching(): void
+    {
+        $party = self::party();
+
+        self::assertSame('maria oliveira', $party->getSearchName());
+    }
+
     public function testDoesNotAddTheSameLawyerTwice(): void
     {
         $party = self::party();

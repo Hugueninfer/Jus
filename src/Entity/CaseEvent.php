@@ -21,6 +21,7 @@ class CaseEvent
 
     /** @var Collection<int, Document> */
     #[ORM\OneToMany(targetEntity: Document::class, mappedBy: 'event', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $documents;
 
     public function __construct(

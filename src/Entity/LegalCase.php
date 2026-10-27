@@ -25,10 +25,12 @@ class LegalCase
 
     /** @var Collection<int, Party> */
     #[ORM\OneToMany(targetEntity: Party::class, mappedBy: 'legalCase', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $parties;
 
     /** @var Collection<int, CaseEvent> */
     #[ORM\OneToMany(targetEntity: CaseEvent::class, mappedBy: 'legalCase', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['occurredAt' => 'DESC', 'id' => 'DESC'])]
     private Collection $events;
 
     public function __construct(
@@ -156,8 +158,17 @@ class LegalCase
     public function getEvents(): array
     {
         $events = array_values($this->events->toArray());
-        usort($events, static fn (CaseEvent $a, CaseEvent $b): int => $b->getOccurredAt() <=> $a->getOccurredAt());
+        // New entities have no id yet (0): ties keep the recording order, as usort is stable.
+        usort($events, static fn (CaseEvent $a, CaseEvent $b): int => [$b->getOccurredAt(), $b->getId() ?? 0] <=> [$a->getOccurredAt(), $a->getId() ?? 0]);
 
         return $events;
+    }
+
+    /**
+     * @return list<Document> documents of every event, newest event first
+     */
+    public function getDocuments(): array
+    {
+        return array_merge(...array_map(static fn (CaseEvent $event): array => $event->getDocuments(), $this->getEvents()));
     }
 }
