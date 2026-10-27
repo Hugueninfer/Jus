@@ -1,0 +1,37 @@
+// Single source of the design values. Bootstrap variables and the --jus-* custom properties derive from it.
+
+$colors: (
+  'primary': #1f4e79,
+  'secondary': #4b5563,
+  'success': #1e7a46,
+  'warning': #b45309,
+  'danger': #b42318,
+  'info': #0e7490,
+  'light': #f3f4f6,
+  'dark': #111827,
+  'body': #1f2937,
+  'muted': #6b7280,
+  'border': #d1d5db,
+  'surface': #fff,
+  'surface-alt': #f9fafb,
+);
+$font-families: (
+  'base': (system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif),
+  'mono': (ui-monospace, sfmono-regular, menlo, consolas, monospace),
+);
+$spaces: (
+  1: 0.25rem,
+  2: 0.5rem,
+  3: 1rem,
+  4: 1.5rem,
+  5: 3rem,
+);
+$radii: (
+  'sm': 0.25rem,
+  'base': 0.375rem,
+  'lg': 0.5rem,
+);
+$shadows: (
+  'sm': 0 1px 2px rgb(17 24 39 / 8%),
+  'base': 0 2px 6px rgb(17 24 39 / 12%),
+);

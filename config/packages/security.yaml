@@ -23,6 +23,7 @@ security:
             logout:
                 path: app_logout
                 target: app_login
+                enable_csrf: true
 
     access_control:
         - { path: ^/login$, roles: PUBLIC_ACCESS }

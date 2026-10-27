@@ -1,0 +1,23 @@
+@use 'sass:map';
+@use 'tokens' as t;
+
+// Bootstrap variables derived from the tokens. Imported before Bootstrap itself.
+$primary: map.get(t.$colors, 'primary');
+$secondary: map.get(t.$colors, 'secondary');
+$success: map.get(t.$colors, 'success');
+$warning: map.get(t.$colors, 'warning');
+$danger: map.get(t.$colors, 'danger');
+$info: map.get(t.$colors, 'info');
+$light: map.get(t.$colors, 'light');
+$dark: map.get(t.$colors, 'dark');
+$body-color: map.get(t.$colors, 'body');
+$body-secondary-color: map.get(t.$colors, 'muted');
+$border-color: map.get(t.$colors, 'border');
+$font-family-sans-serif: map.get(t.$font-families, 'base');
+$font-family-monospace: map.get(t.$font-families, 'mono');
+$border-radius-sm: map.get(t.$radii, 'sm');
+$border-radius: map.get(t.$radii, 'base');
+$border-radius-lg: map.get(t.$radii, 'lg');
+$box-shadow-sm: map.get(t.$shadows, 'sm');
+$box-shadow: map.get(t.$shadows, 'base');
+$min-contrast-ratio: 4.5;

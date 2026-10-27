@@ -74,7 +74,7 @@ final class LoginTest extends WebTestCase
 
         self::assertResponseRedirects('/login');
         $client->followRedirect();
-        self::assertSelectorTextContains('[role="alert"]', 'E-mail ou senha inválidos.');
+        self::assertSelectorTextContains('[role="alert"]', 'Sua sessão expirou. Tente novamente.');
 
         $client->request('GET', '/');
         self::assertResponseRedirects('/login');
@@ -97,11 +97,33 @@ final class LoginTest extends WebTestCase
         $client->request('GET', '/');
         self::assertResponseIsSuccessful();
 
-        $client->request('GET', '/logout');
+        $client->clickLink('Sair');
         self::assertResponseRedirects('/login');
 
         $client->request('GET', '/');
         self::assertResponseRedirects('/login');
+    }
+
+    public function testLogoutWithoutATokenIsRefused(): void
+    {
+        $client = self::createClient();
+        $client->loginUser($this->createUser(User::clerk('joao@jus.test', 'João Almeida'), 'senha-correta'));
+
+        $client->request('GET', '/logout');
+        self::assertResponseStatusCodeSame(403);
+
+        $client->request('GET', '/');
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testSignedInUsersAreSentHomeFromTheLoginPage(): void
+    {
+        $client = self::createClient();
+        $client->loginUser($this->createUser(User::clerk('joao@jus.test', 'João Almeida'), 'senha-correta'));
+
+        $client->request('GET', '/login');
+
+        self::assertResponseRedirects('/');
     }
 
     private function createUser(User $user, string $plainPassword): User

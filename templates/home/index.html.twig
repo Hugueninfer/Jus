@@ -1,9 +1,8 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Início{% endblock %}
+{% block title %}Início · Jus{% endblock %}
 
 {% block body %}
-    <h1>Olá, {{ app.user.name }}</h1>
-    <p>Perfil: {{ app.user.isLawyer ? 'advogado(a)' : 'servidor(a)' }}</p>
-    <a href="{{ path('app_logout') }}">Sair</a>
+    <h1 class="h2">Olá, {{ app.user.name }}</h1>
+    <p class="lead">Perfil: {{ app.user.isLawyer ? 'advogado(a)' : 'servidor(a)' }}</p>
 {% endblock %}

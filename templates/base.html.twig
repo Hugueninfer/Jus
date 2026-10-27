@@ -2,24 +2,61 @@
 <html lang="pt-BR">
     <head>
         <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="Design System e painel de processo eletrônico fictício.">
+        <title>{% block title %}Jus{% endblock %}</title>
+        <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4e79'/%3E%3Ctext x='16' y='23' font-size='20' font-family='sans-serif' text-anchor='middle' fill='%23fff'%3EJ%3C/text%3E%3C/svg%3E">
         {% block stylesheets %}
             {{ encore_entry_link_tags('app') }}
         {% endblock %}
-
         {% block javascripts %}
             {{ encore_entry_script_tags('app') }}
         {% endblock %}
-
-        {% set frankenphp_hot_reload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
-        {% if frankenphp_hot_reload %}
-        <meta name="frankenphp-hot-reload:url" content="{{ frankenphp_hot_reload }}">
-        <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
-        <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
-        {% endif %}
     </head>
-    <body>
-        {% block body %}{% endblock %}
+    <body class="d-flex flex-column min-vh-100">
+        <a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 p-2 bg-body rounded shadow" href="#conteudo">Pular para o conteúdo</a>
+
+        <header>
+            <nav class="navbar navbar-expand-md navbar-dark bg-primary" aria-label="Navegação principal">
+                <div class="container">
+                    <a class="navbar-brand fw-semibold" href="{{ path('app_home') }}">Jus</a>
+                    {% if app.user %}
+                        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#menu-principal" aria-controls="menu-principal" aria-label="Abrir menu">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="offcanvas offcanvas-end text-bg-primary" tabindex="-1" id="menu-principal" aria-labelledby="menu-principal-titulo">
+                            <div class="offcanvas-header">
+                                <h2 class="offcanvas-title h5" id="menu-principal-titulo">Menu</h2>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar menu"></button>
+                            </div>
+                            <div class="offcanvas-body">
+                                <ul class="navbar-nav ms-auto align-items-md-center gap-md-3">
+                                    <li class="nav-item">
+                                        <span class="navbar-text text-white"><i class="bi bi-person-circle" aria-hidden="true"></i> {{ app.user.name }}</span>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ logout_path('main') }}">Sair</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </nav>
+        </header>
+
+        <main id="conteudo" class="container flex-grow-1 py-4" tabindex="-1">
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <twig:Alert :type="type" dismissible>{{ message }}</twig:Alert>
+                {% endfor %}
+            {% endfor %}
+
+            {% block body %}{% endblock %}
+        </main>
+
+        <footer class="border-top py-3 small text-body-secondary">
+            <div class="container">Projeto de demonstração — todos os dados são fictícios.</div>
+        </footer>
     </body>
 </html>

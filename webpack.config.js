@@ -18,7 +18,7 @@ Encore
         // Bootstrap 5.3 still relies on @import; keep the build output free of its deprecation noise.
         options.sassOptions = {
             quietDeps: true,
-            silenceDeprecations: ['import', 'global-builtin', 'color-functions'],
+            silenceDeprecations: ['import'],
         };
     });
 
