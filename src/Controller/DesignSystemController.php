@@ -23,6 +23,7 @@ final class DesignSystemController extends AbstractController
         return $this->render('design_system/index.html.twig', [
             'samples' => [
                 'case' => $samples->legalCase(),
+                'confidentialCase' => $samples->confidentialCase(),
                 'deadlines' => $samples->deadlines(),
                 'columns' => $samples->documentColumns(),
                 'rows' => $samples->documentRows(),

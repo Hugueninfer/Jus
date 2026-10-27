@@ -5,10 +5,11 @@
       rows      - list of rows, each a list of cells (the first cell is the name being documented)
       monospace - optional list of column indexes shown as code (default: the first two)
 
-    On narrow screens the last column keeps a readable width and the table scrolls sideways inside its wrapper.
+    On narrow screens the last column keeps a readable width and the table scrolls sideways inside its wrapper: a focusable
+    region named after the caption, so keyboard users can scroll it and screen readers announce which table it holds.
 #}
 {% set monospace = monospace ?? [0, 1] %}
-<div class="table-responsive mb-3">
+<div class="table-responsive mb-3" role="region" tabindex="0" aria-label="{{ caption }}">
     <table class="table table-sm align-middle mb-0">
         <caption class="visually-hidden">{{ caption }}</caption>
         <thead>

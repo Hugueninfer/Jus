@@ -1,8 +1,14 @@
+{#
+    One example of the catalog. Receives:
+      example - path of the example template, rendered and then shown as source
+      label   - short name of the example, which tells the figure and its code apart from the others
+#}
 <figure class="border rounded p-3 mb-2 bg-body">
+    <figcaption class="visually-hidden">Exemplo: {{ label }}</figcaption>
     {{ include(example) }}
 </figure>
 <details class="mb-4">
-    <summary class="small">Código do exemplo</summary>
+    <summary class="small">Código do exemplo: {{ label }}</summary>
     {# source() is not escaped by Twig, and the example is shown as text, not rendered again. #}
     <pre class="bg-body-tertiary p-3 rounded small mb-0"><code>{{ source(example)|e }}</code></pre>
 </details>

@@ -55,6 +55,29 @@ final readonly class SampleData
     }
 
     /**
+     * A family case under seal, suspended, with a single event.
+     */
+    public function confidentialCase(): LegalCase
+    {
+        $bruno = User::lawyer('bruno@jus.test', 'Bruno Teixeira', 'SP 234.567');
+        $case = new LegalCase(
+            CnjNumber::compose('0005678', '2024', '8', '26', '0100'),
+            'Divórcio Litigioso',
+            'Dissolução de casamento',
+            '2ª Vara de Família e Sucessões',
+            CaseStatus::Suspended,
+            true,
+            5_000_000,
+            new \DateTimeImmutable('2024-05-06 09:00'),
+        );
+        $case->addParty('Paula Santos', '321.654.987-00', PartySide::Plaintiff)->addLawyer($bruno);
+        $case->addParty('Ricardo Santos', '789.123.456-00', PartySide::Defendant);
+        $case->file(FilingType::InitialPetition, 'Petição inicial distribuída.', new \DateTimeImmutable('2024-05-06 09:00'), $bruno);
+
+        return $case;
+    }
+
+    /**
      * One deadline per urgency state the calendar allows today, keyed by the urgency value.
      *
      * @return array<string, Deadline>
