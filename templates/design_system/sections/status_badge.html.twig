@@ -1,0 +1,21 @@
+<p>Selo com a situação do processo. Cada <code>CaseStatus</code> tem rótulo em português, ícone e cor próprios (<code>templates/components/StatusBadge.html.twig</code>).</p>
+
+<h3 class="h6">Propriedades</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Propriedades do componente StatusBadge',
+    headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['status', 'CaseStatus', 'obrigatório', 'Situação do processo: Active (verde, "Em andamento"), Suspended (âmbar, "Suspenso") ou Archived (cinza, "Arquivado"). O texto vem do filtro label.'],
+        ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (span.badge).'],
+    ],
+    monospace: [1, 2],
+}) }}
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li>A situação aparece como texto; ícone e cor apenas reforçam o significado.</li>
+    <li>O ícone é decorativo e fica oculto dos leitores de tela (<code>aria-hidden="true"</code>).</li>
+    <li>As combinações de cor e texto do selo respeitam o contraste mínimo de 4,5:1.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/status_badge/all.html.twig'}) }}

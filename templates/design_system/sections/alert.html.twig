@@ -1,0 +1,25 @@
+<p>Mensagem de feedback ao usuário: confirmação, erro, aviso ou informação. É um componente anônimo (<code>templates/components/Alert.html.twig</code>) e o layout o usa para exibir as mensagens flash.</p>
+
+<h3 class="h6">Propriedades</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Propriedades do componente Alert',
+    headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['type', 'string', 'info', 'Variante: success, danger, warning ou info. O valor error vira danger e qualquer valor desconhecido vira info.'],
+        ['dismissible', 'bool', 'false', 'Mostra o botão "Fechar", que remove o alerta sem recarregar a página.'],
+        ['(conteúdo)', 'bloco', '—', 'O texto da mensagem, escrito entre as tags do componente.'],
+        ['(atributos)', 'HTML', '—', 'Atributos adicionais (id, class, data-*) são mesclados ao elemento raiz.'],
+    ],
+    monospace: [1, 2],
+}) }}
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li><code>danger</code> e <code>warning</code> usam <code>role="alert"</code> e são anunciados de imediato; <code>success</code> e <code>info</code> usam <code>role="status"</code> e são anunciados quando o leitor de tela estiver livre.</li>
+    <li>O botão de fechar tem o nome acessível "Fechar" e é alcançável pelo teclado.</li>
+    <li>Escreva a mensagem de forma que faça sentido sem a cor: o significado vem do texto, não da variante.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/success.html.twig'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/danger.html.twig'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/dismissible.html.twig'}) }}

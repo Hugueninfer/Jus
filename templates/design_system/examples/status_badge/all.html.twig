@@ -1,0 +1,5 @@
+<div class="d-flex flex-wrap gap-2">
+    {% for status in enum_cases('App\\Domain\\LegalCase\\CaseStatus') %}
+        <twig:StatusBadge :status="status" />
+    {% endfor %}
+</div>

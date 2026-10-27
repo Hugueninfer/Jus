@@ -1,0 +1,36 @@
+<p>Situação de um prazo processual. O vencimento nunca é gravado: o componente o calcula em dias úteis, com os feriados nacionais e o recesso forense (de 20/12 a 20/01), a cada renderização (<code>src/Twig/Components/DeadlineIndicator.php</code>).</p>
+
+<h3 class="h6">Propriedades</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Propriedades do componente DeadlineIndicator',
+    headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['deadline', 'Deadline', 'obrigatório', 'O prazo avaliado, com data de início, dias úteis e, se houver, a data de cumprimento.'],
+        ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (span.badge).'],
+    ],
+    monospace: [1, 2],
+}) }}
+
+<h3 class="h6">Estados</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Estados do componente DeadlineIndicator',
+    headers: ['data-urgency', 'Cor', 'Quando', 'Texto'],
+    rows: [
+        ['on_track', 'verde', 'faltam mais de 3 dias úteis', 'Vence em N dias úteis (dd/mm)'],
+        ['warning', 'âmbar', 'faltam de 1 a 3 dias úteis', 'Vence em N dias úteis (dd/mm)'],
+        ['due_today', 'vermelho', 'vence hoje', 'Vence hoje (dd/mm)'],
+        ['overdue', 'vermelho', 'venceu e não foi cumprido', 'Venceu em dd/mm/aaaa'],
+        ['fulfilled', 'cinza', 'foi cumprido', 'Cumprido em dd/mm/aaaa'],
+    ],
+    monospace: [],
+}) }}
+<p class="small text-body-secondary">Os exemplos abaixo mostram os estados que o calendário permite na data de hoje: num fim de semana, por exemplo, não existe prazo que vença "hoje".</p>
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li>O prazo é dito em texto, com a data; ícone e cor apenas reforçam a urgência.</li>
+    <li>Os ícones são decorativos (<code>aria-hidden="true"</code>).</li>
+    <li>"Hoje" é o dia do calendário no fuso do prazo, e não o do servidor.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/deadline_indicator/states.html.twig'}) }}

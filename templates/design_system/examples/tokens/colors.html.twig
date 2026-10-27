@@ -1,0 +1,8 @@
+<ul class="row row-cols-2 row-cols-sm-3 row-cols-xl-4 g-3 list-unstyled mb-0">
+    {% for name in ['primary', 'secondary', 'success', 'warning', 'danger', 'info', 'light', 'dark', 'body', 'muted', 'border', 'surface', 'surface-alt'] %}
+        <li class="col">
+            <div class="border rounded mb-1" style="background: var(--jus-color-{{ name }}); height: 3rem" aria-hidden="true"></div>
+            <code class="small text-break">--jus-color-{{ name }}</code>
+        </li>
+    {% endfor %}
+</ul>

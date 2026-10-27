@@ -20,27 +20,34 @@
             <nav class="navbar navbar-expand-md navbar-dark bg-primary" aria-label="Navegação principal">
                 <div class="container">
                     <a class="navbar-brand fw-semibold" href="{{ path('app_home') }}">Jus</a>
-                    {% if app.user %}
-                        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#menu-principal" aria-controls="menu-principal" aria-label="Abrir menu">
-                            <span class="navbar-toggler-icon"></span>
-                        </button>
-                        <div class="offcanvas offcanvas-end text-bg-primary" tabindex="-1" id="menu-principal" aria-labelledby="menu-principal-titulo">
-                            <div class="offcanvas-header">
-                                <h2 class="offcanvas-title h5" id="menu-principal-titulo">Menu</h2>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar menu"></button>
-                            </div>
-                            <div class="offcanvas-body">
-                                <ul class="navbar-nav ms-auto align-items-md-center gap-md-3">
+                    <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#menu-principal" aria-controls="menu-principal" aria-label="Abrir menu">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="offcanvas offcanvas-end text-bg-primary" tabindex="-1" id="menu-principal" aria-labelledby="menu-principal-titulo">
+                        <div class="offcanvas-header">
+                            <h2 class="offcanvas-title h5" id="menu-principal-titulo">Menu</h2>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar menu"></button>
+                        </div>
+                        <div class="offcanvas-body">
+                            <ul class="navbar-nav ms-auto align-items-md-center gap-md-3">
+                                <li class="nav-item">
+                                    <a class="nav-link{{ app.current_route == 'design_system' ? ' active' }}" href="{{ path('design_system') }}"{% if app.current_route == 'design_system' %} aria-current="page"{% endif %}>Design System</a>
+                                </li>
+                                {% if app.user %}
                                     <li class="nav-item">
                                         <span class="navbar-text text-white"><i class="bi bi-person-circle" aria-hidden="true"></i> {{ app.user.name }}</span>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ logout_path('main') }}">Sair</a>
                                     </li>
-                                </ul>
-                            </div>
+                                {% else %}
+                                    <li class="nav-item">
+                                        <a class="nav-link{{ app.current_route == 'app_login' ? ' active' }}" href="{{ path('app_login') }}"{% if app.current_route == 'app_login' %} aria-current="page"{% endif %}>Entrar</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
                         </div>
-                    {% endif %}
+                    </div>
                 </div>
             </nav>
         </header>

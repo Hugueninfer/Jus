@@ -1,0 +1,6 @@
+{% props status %}
+{% set variant = {active: 'success', suspended: 'warning', archived: 'secondary'}[status.value] %}
+{% set icon = {active: 'bi-play-circle', suspended: 'bi-pause-circle', archived: 'bi-archive'}[status.value] %}
+<span {{ attributes.defaults({class: 'badge text-bg-' ~ variant}) }}>
+    <i class="bi {{ icon }}" aria-hidden="true"></i> {{ status|label }}
+</span>

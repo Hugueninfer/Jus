@@ -1,0 +1,8 @@
+<figure class="border rounded p-3 mb-2 bg-body">
+    {{ include(example) }}
+</figure>
+<details class="mb-4">
+    <summary class="small">Código do exemplo</summary>
+    {# source() is not escaped by Twig, and the example is shown as text, not rendered again. #}
+    <pre class="bg-body-tertiary p-3 rounded small mb-0"><code>{{ source(example)|e }}</code></pre>
+</details>
