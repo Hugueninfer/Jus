@@ -1,0 +1,14 @@
+{% extends 'bootstrap_5_layout.html.twig' %}
+
+{# Accessibility wiring (aria-invalid, aria-describedby to the help text and each error) is native in Symfony 7.4. #}
+
+{# Native input inside the custom element: works without JavaScript; the Web Component enhances it later. #}
+{%- block cnj_number_widget -%}
+    {%- set type = 'text' -%}
+    {%- set attr = {
+        inputmode: 'numeric',
+        autocomplete: 'off',
+        placeholder: '0000000-00.0000.0.00.0000',
+    }|merge(attr) -%}
+    <jus-numero-processo>{{- block('form_widget_simple') -}}</jus-numero-processo>
+{%- endblock cnj_number_widget -%}
