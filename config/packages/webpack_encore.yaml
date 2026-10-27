@@ -44,3 +44,7 @@ when@test:
     webpack_encore:
         # Functional tests run without a front-end build.
         strict_mode: false
+    framework:
+        assets:
+            # Neither does asset(): plain paths, whether public/build is fresh, stale, half-written or missing.
+            json_manifest_path: ~

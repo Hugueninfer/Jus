@@ -78,12 +78,14 @@ src/
   Entity/                  # entidades Doctrine: LegalCase, Party, CaseEvent, Document, Deadline, User
   Doctrine/Type/           # CnjNumberDoctrineType (tipo Doctrine `cnj_number`)
   Form/                    # CnjNumberType (form type), FilingFormType, SearchType, transformers
+  Presentation/            # EnumLabels: rótulos em português dos enums do processo
+  DesignSystem/            # SampleData: entidades em memória para o catálogo /design-system
   Repository/
   Security/                # LegalCaseVoter
   Service/                 # FilingService, DocumentStorage
   Twig/
     Components/            # classes dos Twig Components
-    Extension/             # filtros cnj e brl
+    Extension/             # filtros cnj, brl, bytes e label
   ValueResolver/           # CnjNumberValueResolver
   DataFixtures/
 templates/
@@ -97,6 +99,8 @@ assets/
   app.ts                   # entrada do Encore: estilos + registro dos Web Components
   styles/
     tokens/                # _tokens.scss, _bootstrap-config.scss, _custom-properties.scss
+    base/                  # _focus.scss: anel de foco do teclado
+    components/            # estilos próprios dos componentes (_timeline.scss, _data-table.scss)
     app.scss
   web-components/
     jus-element.ts         # classe base
@@ -106,7 +110,10 @@ assets/
     index.ts               # customElements.define de todos
   shared/cnj.ts (+ .test.ts)
 tests/
-  Unit/ Component/ Functional/
+  Unit/                    # domínio, entidades, voter, form types e extensão Twig, sem kernel
+  Component/               # Twig Components renderizados (InteractsWithTwigComponents)
+  Integration/             # kernel e banco: persistência, fixtures, form theme, filtros, mensagens em pt-BR
+  Functional/              # requests HTTP: login, layout, catálogo
   fixtures/cnj-numbers.json    # casos compartilhados entre PHPUnit e Vitest
   fixtures/sample.pdf
 docs/
@@ -220,9 +227,10 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 
 ### 6.1 Design tokens
 
-- `_tokens.scss`: mapas SCSS de cores, tipografia, espaçamento, bordas e sombras. É a única fonte dos valores.
-- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-base`, …) derivadas dos tokens.
+- `_tokens.scss`: mapas SCSS de cores, tipografia, espaçamento, bordas, sombras e foco. É a única fonte dos valores.
+- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-base`, …) derivadas dos tokens, inclusive o anel de foco (sólido, em vez do primário a 25 % do Bootstrap).
 - `_custom-properties.scss`: emite os tokens como CSS custom properties em `:root` (`--jus-color-primary`, `--jus-space-3`, …).
+- Tokens de foco (`--jus-focus-width`, `--jus-focus-offset`, `--jus-focus-color`, `--jus-focus-color-inverse`): o anel do teclado tem pelo menos 3:1 com as cores ao redor, na cor primária sobre superfícies claras e em branco sobre as escuras (navbar e menu lateral). `base/_focus.scss` aplica o anel ao que o Bootstrap deixa para o navegador (links, `<summary>`) e aos botões.
 - Web Components só usam `var(--jus-*)`, que atravessa o Shadow DOM.
 - Estilos escritos mobile-first (`min-width` nos breakpoints).
 
@@ -235,10 +243,10 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 | Componente | Tipo | Props | Comportamento |
 |---|---|---|---|
 | `StatusBadge` | anônimo | `status: CaseStatus` | Mapeia o status para variante, ícone e rótulo; o rótulo é sempre texto (não só cor) |
-| `Alert` | anônimo | `type` (success, danger, warning, info), `dismissible` | Mensagem de feedback com `role="alert"` para erros |
-| `CaseCard` | classe | `case: LegalCase` | Número formatado, classe, partes, órgão, status e último evento |
-| `Timeline` | classe | `events: list<CaseEvent>` | `<ol>` agrupada por data; cada item tem `data-event-type` e ícone por tipo |
-| `DataTable` | classe | `columns`, `rows`, `sort`, `direction` | Ordenação no servidor por links com query string (colunas em whitelist). Cada `<td>` tem `data-label`; abaixo de `md` vira lista de cards só com CSS |
+| `Alert` | anônimo | `type` (success, danger, warning, info; `error` vira danger), `dismissible` | Mensagem de feedback: `role="alert"` para danger e warning, `role="status"` para as demais. A gravidade não depende só da cor: ícone decorativo e prefixo oculto para leitores de tela ("Erro:", "Atenção:", "Sucesso:", "Informação:") |
+| `CaseCard` | classe | `case: LegalCase`, `href` (opcional) | Número formatado, classe, partes por polo (rótulos do `PartySide`, uma linha por parte, "—" no polo vazio), órgão, status e último evento. Com `href`, o número vira um link que cobre o cartão |
+| `Timeline` | classe | `events: list<CaseEvent>`, `emptyMessage` | `<ol>` agrupada por data; cada item tem `data-event-type`, `data-event-label` (rótulo em português, usado pelo filtro) e ícone por tipo |
+| `DataTable` | classe | `columns`, `rows`, `sort`, `direction`, `caption`, `anchor`, `emptyMessage` | Ordenação no servidor por links com query string (só colunas com `sortable`), com `Collator` `pt_BR` e números no texto pelo valor. Opções de coluna: `sortable`, `format` (`date`, `datetime`, `bytes`, `brl`, `label`) e `href` (chave da linha com a URL; a célula vira link). Cada `<td>` tem `data-label`; abaixo de `md` vira lista de cards só com CSS, e uma navegação "Ordenar por" repete os links de ordenação que o cabeçalho escondido levava |
 | `DeadlineIndicator` | classe | `deadline: Deadline` | Usa `DeadlineCalculator` e `ClockInterface`; exibe "Vence em N dias úteis (dd/mm)" com a variante do estado |
 
 ### 6.4 Extensão Twig e formulários
@@ -246,7 +254,10 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 - Extensão Twig com filtros registrados por atributo (`#[AsTwigFilter]`):
   - `cnj`: formata um `CnjNumber` ou string de 20 dígitos.
   - `brl`: centavos → `R$ 1.234,56` via `NumberFormatter` (`pt_BR`).
-- Form theme `form/jus_theme.html.twig`, estendendo `bootstrap_5_layout.html.twig`, configurado globalmente. Campos com erro recebem `aria-invalid="true"` e `aria-describedby` apontando para a mensagem.
+  - `bytes`: tamanho de arquivo → `180 KB`, `1,5 MB` (uma casa decimal, `pt_BR`).
+  - `label`: rótulo em português de um enum do processo (`EnumLabels`).
+- Form theme `form/jus_theme.html.twig`, estendendo `bootstrap_5_layout.html.twig`, configurado globalmente. A ligação de acessibilidade é a nativa do Symfony: campos com erro recebem `aria-invalid="true"`, e `aria-describedby` aponta para a ajuda e para cada mensagem de erro.
+- As mensagens da interface são em português: os textos da aplicação são escritos em pt-BR, e as mensagens do próprio Symfony (restrições de validação sem mensagem própria, CSRF) vêm do tradutor, com `pt_BR` como locale padrão e de fallback.
 - `CnjNumberType` (form type): DataTransformer `string ↔ CnjNumber`; o bloco do tema renderiza `<jus-numero-processo>` com o input nativo de fallback dentro.
 - `FilingFormType` (formulário de peticionamento): tipo (`EnumType` de `FilingType`, sem a petição inicial), descrição (até 2000 caracteres), arquivos (`FileType` múltiplo; cada arquivo `application/pdf` até 10 MB; de 1 a 5 arquivos), renderizado com `<jus-upload>`.
 
@@ -288,7 +299,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 | Método | Rota | Nome | Acesso |
 |---|---|---|---|
 | GET, POST | `/login` | `app_login` | público |
-| GET | `/logout` | `app_logout` | autenticado |
+| GET | `/logout` | `app_logout` | autenticado, com token CSRF |
 | GET | `/` | — | redireciona para `/processos` |
 | GET | `/processos` | `case_search` | autenticado |
 | GET | `/processos/{numero}` | `case_show` | `VIEW` |
@@ -296,6 +307,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 | GET | `/documentos/{id}` | `document_download` | `VIEW` no processo |
 | GET | `/design-system` | `design_system` | público |
 
+- O logout exige o token CSRF: o link "Sair" é gerado com `logout_path('main')`, e um `/logout` sem token responde 403 sem encerrar a sessão.
 - `{numero}` usa o formato mascarado como forma canônica; o `CnjNumberValueResolver` aceita com ou sem máscara e responde 404 se o número for inválido, antes de consultar o banco.
 
 **Consulta (`/processos`)**

@@ -14,8 +14,12 @@ indent_size = 2
 [*.{js,mjs,ts,scss,css}]
 indent_size = 2
 
-[{package.json,package-lock.json,tests/fixtures/*.json}]
+[*.json]
 indent_size = 2
+
+# Composer writes its own files with 4 spaces.
+[composer.json]
+indent_size = 4
 
 [*.md]
 trim_trailing_whitespace = false
