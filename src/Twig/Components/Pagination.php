@@ -30,24 +30,46 @@ final class Pagination
     }
 
     /**
-     * Page numbers to show; null marks a gap.
+     * The number of pages, never less than one.
+     */
+    public function totalPages(): int
+    {
+        return max(1, $this->pages);
+    }
+
+    /**
+     * The page shown as current, kept inside 1..totalPages so no link can point past the ends.
+     */
+    public function currentPage(): int
+    {
+        return max(1, min($this->page, $this->totalPages()));
+    }
+
+    /**
+     * Page numbers to show; null marks a gap of two or more hidden pages.
      *
      * @return list<?int>
      */
     public function items(): array
     {
-        if ($this->pages <= self::SHOW_ALL_UP_TO) {
-            return range(1, $this->pages);
+        $total = $this->totalPages();
+        $current = $this->currentPage();
+        if ($total <= self::SHOW_ALL_UP_TO) {
+            return range(1, $total);
         }
 
-        $pages = array_unique([1, $this->page - 1, $this->page, $this->page + 1, $this->pages]);
-        $pages = array_values(array_filter($pages, fn (int $page): bool => $page >= 1 && $page <= $this->pages));
+        $pages = array_unique([1, $current - 1, $current, $current + 1, $total]);
+        $pages = array_values(array_filter($pages, static fn (int $page): bool => $page >= 1 && $page <= $total));
         sort($pages);
 
         $items = [];
         foreach ($pages as $index => $page) {
-            if ($index > 0 && $page - $pages[$index - 1] > 1) {
+            $jump = $index > 0 ? $page - $pages[$index - 1] : 1;
+            if ($jump > 2) {
                 $items[] = null;
+            } elseif (2 === $jump) {
+                // A gap would hide a single page; showing that page takes the same room.
+                $items[] = $page - 1;
             }
             $items[] = $page;
         }
@@ -59,6 +81,6 @@ final class Pagination
     {
         $query = [...($this->requestStack->getCurrentRequest()?->query->all() ?? []), $this->parameter => $page];
 
-        return '?'.http_build_query($query).(null !== $this->anchor ? '#'.$this->anchor : '');
+        return '?'.http_build_query($query, '', '&', \PHP_QUERY_RFC3986).(null !== $this->anchor ? '#'.$this->anchor : '');
     }
 }

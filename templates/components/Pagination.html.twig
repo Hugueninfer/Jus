@@ -1,23 +1,24 @@
-{% if pages > 1 %}
+{% set current = this.currentPage %}
+{% if this.totalPages > 1 %}
     <nav {{ attributes.defaults({'aria-label': label}) }}>
         <ul class="pagination flex-wrap">
-            {% if page > 1 %}
+            {% if current > 1 %}
                 <li class="page-item jus-pagination-step">
-                    <a class="page-link" href="{{ this.pageHref(page - 1) }}"><i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior</a>
+                    <a class="page-link" href="{{ this.pageHref(current - 1) }}"><i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior</a>
                 </li>
             {% endif %}
             {% for item in this.items %}
                 {% if item is null %}
-                    <li class="page-item disabled"><span class="page-link" aria-hidden="true">…</span></li>
-                {% elseif item == page %}
+                    <li class="page-item disabled" aria-hidden="true"><span class="page-link" aria-hidden="true">…</span></li>
+                {% elseif item == current %}
                     <li class="page-item active"><span class="page-link" aria-current="page">{{ item }}</span></li>
                 {% else %}
                     <li class="page-item"><a class="page-link" href="{{ this.pageHref(item) }}">{{ item }}</a></li>
                 {% endif %}
             {% endfor %}
-            {% if page < pages %}
+            {% if current < this.totalPages %}
                 <li class="page-item jus-pagination-step">
-                    <a class="page-link" href="{{ this.pageHref(page + 1) }}">Próxima <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+                    <a class="page-link" href="{{ this.pageHref(current + 1) }}">Próxima <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
                 </li>
             {% endif %}
         </ul>
