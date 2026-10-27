@@ -1,5 +1,24 @@
+// Below md the header row is hidden, so the sort links are repeated above the cards (the nav carries Bootstrap's d-md-none).
+.jus-data-table-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--jus-space-2) var(--jus-space-3);
+  margin-block-end: var(--jus-space-3);
+
+  a[aria-current='true'] {
+    font-weight: 600;
+  }
+}
+
+.jus-data-table-sort-label {
+  color: var(--bs-secondary-color);
+}
+
 // Each row is a card on small screens, labelled cell by cell; from md up it is a regular table.
 .jus-data-table {
+  caption-side: top;
+
   thead {
     display: none;
   }
@@ -11,16 +30,23 @@
     border-radius: var(--jus-radius-base);
   }
 
+  // Let long unbreakable strings (file names, protocol numbers) wrap instead of widening the page.
   td {
     display: flex;
     justify-content: space-between;
     gap: var(--jus-space-3);
+    min-width: 0;
     border-block-end-width: 0;
+    overflow-wrap: anywhere;
+  }
 
-    &::before {
-      content: attr(data-label);
-      font-weight: 600;
-    }
+  // The empty-state cell has no label, so it gets no "label: value" pseudo-element either.
+  // The label never shrinks (it would break letter by letter next to a long value); the value takes the room left.
+  td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 50%;
+    font-weight: 600;
   }
 
   @include media-breakpoint-up(md) {
@@ -37,10 +63,10 @@
     td {
       display: table-cell;
       border-block-end-width: var(--bs-border-width);
+    }
 
-      &::before {
-        content: none;
-      }
+    td[data-label]::before {
+      content: none;
     }
   }
 }

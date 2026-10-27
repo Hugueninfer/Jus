@@ -21,7 +21,7 @@ final class DataTable
 
     public ?string $sort = null;
 
-    public string $direction = 'asc';
+    public ?string $direction = 'asc';
 
     public ?string $caption = null;
 
@@ -60,10 +60,12 @@ final class DataTable
         }
 
         $collator = new \Collator('pt_BR');
+        $sign = 'desc' === $this->activeDirection() ? -1 : 1;
         $rows = $this->rows;
-        usort($rows, static fn (array $a, array $b): int => self::compare($a[$key] ?? null, $b[$key] ?? null, $collator));
+        // Negating the comparison (instead of reversing the result) keeps tied rows in their input order either way.
+        usort($rows, static fn (array $a, array $b): int => $sign * self::compare($a[$key] ?? null, $b[$key] ?? null, $collator));
 
-        return 'desc' === $this->activeDirection() ? array_reverse($rows) : $rows;
+        return $rows;
     }
 
     public function ariaSort(string $key): string
@@ -73,6 +75,18 @@ final class DataTable
         }
 
         return 'desc' === $this->activeDirection() ? 'descending' : 'ascending';
+    }
+
+    /**
+     * Screen-reader hint appended to a sort link: the current order for the active column, the action for the others.
+     */
+    public function sortHint(string $key): string
+    {
+        if ($key !== $this->activeSort()) {
+            return ', ordenar';
+        }
+
+        return 'desc' === $this->activeDirection() ? ', ordenado em ordem decrescente' : ', ordenado em ordem crescente';
     }
 
     public function sortHref(string $key): string
