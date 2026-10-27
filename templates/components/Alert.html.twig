@@ -1,11 +1,22 @@
 {% props type = 'info', dismissible = false %}
 {% set type = type == 'error' ? 'danger' : type %}
 {% set type = type in ['success', 'danger', 'warning', 'info'] ? type : 'info' %}
+{# The severity is not told by colour alone: a decorative icon for sighted users, a hidden prefix for screen readers. #}
+{% set cue = {
+    danger: {icon: 'bi-x-octagon-fill', prefix: 'Erro:'},
+    warning: {icon: 'bi-exclamation-triangle-fill', prefix: 'Atenção:'},
+    success: {icon: 'bi-check-circle-fill', prefix: 'Sucesso:'},
+    info: {icon: 'bi-info-circle-fill', prefix: 'Informação:'},
+}[type] %}
 <div {{ attributes.defaults({
-    class: 'alert alert-' ~ type ~ (dismissible ? ' alert-dismissible fade show' : ''),
+    class: 'alert alert-' ~ type ~ ' d-flex gap-2' ~ (dismissible ? ' alert-dismissible fade show' : ''),
     role: type in ['danger', 'warning'] ? 'alert' : 'status',
 }) }}>
-    {% block content %}{% endblock %}
+    <i class="bi {{ cue.icon }} flex-shrink-0" aria-hidden="true"></i>
+    <div>
+        <span class="visually-hidden">{{ cue.prefix }}</span>
+        {% block content %}{% endblock %}
+    </div>
     {% if dismissible %}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     {% endif %}

@@ -18,19 +18,13 @@ final class CaseCard
     public ?string $href = null;
 
     /**
-     * @return list<Party>
+     * Every side of the case, plaintiffs first, with its parties (possibly none).
+     *
+     * @return list<array{side: PartySide, parties: list<Party>}>
      */
-    public function plaintiffs(): array
+    public function sides(): array
     {
-        return $this->partiesOn(PartySide::Plaintiff);
-    }
-
-    /**
-     * @return list<Party>
-     */
-    public function defendants(): array
-    {
-        return $this->partiesOn(PartySide::Defendant);
+        return array_map(fn (PartySide $side): array => ['side' => $side, 'parties' => $this->partiesOn($side)], PartySide::cases());
     }
 
     public function lastEvent(): ?CaseEvent

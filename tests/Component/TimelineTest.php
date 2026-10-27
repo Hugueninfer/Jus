@@ -44,7 +44,32 @@ final class TimelineTest extends KernelTestCase
     {
         $timeline = $this->renderTwigComponent('Timeline', ['events' => []])->crawler();
 
-        self::assertStringContainsString('Nenhuma movimentação.', $timeline->text());
+        self::assertSame(['Nenhuma movimentação.'], $timeline->filter('ol.jus-timeline > li')->each(static fn (Crawler $item): string => trim($item->text())));
+        self::assertCount(0, $timeline->filter('li.jus-timeline-event'));
+    }
+
+    public function testTheEmptyMessageCanBeChanged(): void
+    {
+        $timeline = $this->renderTwigComponent('Timeline', ['events' => [], 'emptyMessage' => 'Nenhuma movimentação neste período.'])->crawler();
+
+        self::assertSame('Nenhuma movimentação neste período.', trim($timeline->filter('ol.jus-timeline > li')->text()));
+    }
+
+    public function testExposesThePortugueseLabelOfEachEventType(): void
+    {
+        $case = Samples::legalCase();
+        $case->record(EventType::Summons, 'Intimação da parte ré.', new \DateTimeImmutable('2024-04-03 10:00'));
+
+        $timeline = $this->renderTwigComponent('Timeline', ['events' => $case->getEvents()])->crawler();
+
+        // A client-side filter can build its buttons from these, without repeating the labels in JavaScript.
+        self::assertSame(
+            ['summons' => 'Intimação', 'decision' => 'Decisão', 'filing' => 'Juntada de petição'],
+            array_column($timeline->filter('li.jus-timeline-event')->each(static fn (Crawler $event): array => [
+                (string) $event->attr('data-event-type'),
+                (string) $event->attr('data-event-label'),
+            ]), 1, 0),
+        );
     }
 
     /**

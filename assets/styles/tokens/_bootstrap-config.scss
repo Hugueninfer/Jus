@@ -25,6 +25,15 @@ $box-shadow-sm: map.get(t.$shadows, 'sm');
 $box-shadow: map.get(t.$shadows, 'base');
 $min-contrast-ratio: 4.5;
 
+// Keyboard focus: Bootstrap's default ring is the primary colour at 25 % (about 1.5:1 on white). Use the solid token ring.
+// Inputs, selects, checks and the close button take it from here; .btn and plain links are handled in base/_focus.scss.
+$focus-ring-width: map.get(t.$focus, 'width');
+$focus-ring-opacity: 1;
+$focus-ring-color: map.get(t.$focus, 'color');
+
+// Nav links draw the ring in their own text colour, so it shows on the light page and on the primary navbar alike.
+$nav-link-focus-box-shadow: 0 0 0 $focus-ring-width currentcolor;
+
 // The navbar sits on the primary colour: Bootstrap's translucent defaults (55 %) fall below WCAG AA there.
 // Literal values on purpose, because Bootstrap's own variables ($white) are not loaded yet at this point.
 $navbar-dark-color: rgb(255 255 255 / 85%);

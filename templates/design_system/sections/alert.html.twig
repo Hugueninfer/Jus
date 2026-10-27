@@ -16,10 +16,12 @@
 <h3 class="h6">Acessibilidade</h3>
 <ul>
     <li><code>danger</code> e <code>warning</code> usam <code>role="alert"</code> e são anunciados de imediato; <code>success</code> e <code>info</code> usam <code>role="status"</code> e são anunciados quando o leitor de tela estiver livre.</li>
+    <li>A gravidade não depende só da cor: cada variante tem um ícone decorativo (<code>aria-hidden="true"</code>) e um prefixo visível só para leitores de tela: "Erro:", "Atenção:", "Sucesso:" ou "Informação:".</li>
     <li>O botão de fechar tem o nome acessível "Fechar" e é alcançável pelo teclado.</li>
-    <li>Escreva a mensagem de forma que faça sentido sem a cor: o significado vem do texto, não da variante.</li>
+    <li>Escreva a mensagem de forma que faça sentido sozinha: o prefixo diz a gravidade, o texto diz o que aconteceu.</li>
 </ul>
 
-{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/success.html.twig'}) }}
-{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/danger.html.twig'}) }}
-{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/dismissible.html.twig'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/success.html.twig', label: 'sucesso'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/info.html.twig', label: 'informação'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/danger.html.twig', label: 'erro'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/alert/dismissible.html.twig', label: 'atenção, com botão de fechar'}) }}

@@ -5,7 +5,7 @@
     caption: 'Propriedades do componente CaseCard',
     headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
     rows: [
-        ['case', 'LegalCase', 'obrigatório', 'O processo exibido. O número sai formatado pelo filtro cnj e a situação pelo StatusBadge. Processos sigilosos ganham o selo "Sigiloso".'],
+        ['case', 'LegalCase', 'obrigatório', 'O processo exibido. O número sai formatado pelo filtro cnj e a situação pelo StatusBadge. Processos sigilosos ganham o selo "Sigiloso". Os polos levam o rótulo de PartySide, com uma linha por parte; um polo sem partes mostra "—". Sem movimentações, a linha "Última movimentação" não aparece.'],
         ['href', 'string', 'null', 'Quando informado, o número do processo vira um link que cobre o cartão inteiro (stretched-link). Sem ele, o cartão é só informativo.'],
         ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (article.card).'],
     ],
@@ -19,4 +19,5 @@
     <li>O sigilo é dito em texto ("Sigiloso"); o ícone de cadeado é decorativo.</li>
 </ul>
 
-{{ include('design_system/_example.html.twig', {example: 'design_system/examples/case_card/default.html.twig'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/case_card/default.html.twig', label: 'com link'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/case_card/confidential.html.twig', label: 'sigiloso, sem link'}) }}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Component;
 
+use App\Domain\LegalCase\FilingType;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
@@ -133,11 +134,68 @@ final class DataTableTest extends KernelTestCase
         $wrapper = $this->table(['class' => 'mb-4', 'id' => 'documentos'])->filter('div.jus-data-table-wrapper');
 
         self::assertCount(1, $wrapper);
-        // The wrapper scrolls horizontally on wide screens when a cell holds a very long unbreakable value.
-        self::assertStringContainsString('table-responsive', (string) $wrapper->attr('class'));
         self::assertNull($wrapper->attr('id'));
-        self::assertSame('table align-middle jus-data-table mb-4', $wrapper->children('table')->attr('class'));
-        self::assertSame('documentos', $wrapper->children('table')->attr('id'));
+        $table = $wrapper->children('div.table-responsive')->children('table');
+        self::assertSame('table align-middle jus-data-table mb-4', $table->attr('class'));
+        self::assertSame('documentos', $table->attr('id'));
+    }
+
+    public function testOnlyTheTableScrollsSideways(): void
+    {
+        $wrapper = $this->table(['sort' => 'title', 'direction' => 'asc'])->filter('div.jus-data-table-wrapper');
+
+        // A very long unbreakable value scrolls the table inside its own box; the sort nav stays outside that
+        // scroll container, which would otherwise clip the focus ring of its links.
+        self::assertStringNotContainsString('table-responsive', (string) $wrapper->attr('class'));
+        self::assertSame(['nav', 'div'], $wrapper->children()->each(static fn (Crawler $child): string => $child->nodeName()));
+        self::assertCount(1, $wrapper->children('div.table-responsive')->children('table.jus-data-table'));
+        self::assertCount(0, $wrapper->filter('div.table-responsive nav'));
+    }
+
+    public function testLinksACellToTheUrlInItsRow(): void
+    {
+        $columns = [['key' => 'title', 'label' => 'Título', 'sortable' => true, 'href' => 'url'], ['key' => 'pages', 'label' => 'Páginas']];
+        $rows = [
+            ['title' => 'Procuração', 'url' => '/documentos/2?baixar=1&formato="pdf"', 'pages' => 1],
+            ['title' => 'Contestação', 'url' => '/documentos/3', 'pages' => 12],
+            ['title' => 'Petição inicial', 'pages' => 30],
+        ];
+
+        $rendered = $this->renderTwigComponent('DataTable', ['columns' => $columns, 'rows' => $rows, 'sort' => 'title', 'direction' => 'asc']);
+        $table = $rendered->crawler();
+
+        // Sorted by the link text, each link following its own row.
+        self::assertSame(['Contestação', 'Petição inicial', 'Procuração'], $this->column($table, 0));
+        self::assertSame('/documentos/3', $table->filter('tbody tr')->eq(0)->filter('td')->eq(0)->filter('a')->attr('href'));
+        self::assertSame('Contestação', $table->filter('tbody tr')->eq(0)->filter('td a')->text());
+        self::assertSame('/documentos/2?baixar=1&formato="pdf"', $table->filter('tbody tr')->eq(2)->filter('td a')->attr('href'));
+        self::assertStringContainsString('href="/documentos/2?baixar=1&amp;formato=&quot;pdf&quot;"', $rendered->toString());
+        // A row without a URL shows the plain value, and a column without href never links.
+        self::assertCount(0, $table->filter('tbody tr')->eq(1)->filter('a'));
+        self::assertCount(0, $table->filter('tbody td:nth-child(2) a'));
+    }
+
+    public function testShowsEnumsByTheirPortugueseLabelAndSortsByIt(): void
+    {
+        $columns = [['key' => 'type', 'label' => 'Tipo', 'sortable' => true, 'format' => 'label']];
+        $rows = [['type' => FilingType::Statement], ['type' => FilingType::Answer], ['type' => FilingType::Appeal], ['type' => FilingType::Exhibits]];
+
+        $ascending = $this->table(['columns' => $columns, 'rows' => $rows, 'sort' => 'type', 'direction' => 'asc']);
+        $descending = $this->table(['columns' => $columns, 'rows' => $rows, 'sort' => 'type', 'direction' => 'desc']);
+
+        // By label, not by the enum value (answer, appeal, exhibits, statement).
+        self::assertSame(['Contestação', 'Juntada de documentos', 'Manifestação', 'Recurso'], $this->column($ascending, 0));
+        self::assertSame(['Recurso', 'Manifestação', 'Juntada de documentos', 'Contestação'], $this->column($descending, 0));
+    }
+
+    public function testSortsNumbersInsideTextByTheirValue(): void
+    {
+        $columns = [['key' => 'title', 'label' => 'Título', 'sortable' => true]];
+        $rows = [['title' => 'Anexo 10'], ['title' => 'Anexo 2'], ['title' => 'anexo 1'], ['title' => 'Anexo 1A']];
+
+        $table = $this->table(['columns' => $columns, 'rows' => $rows, 'sort' => 'title', 'direction' => 'asc']);
+
+        self::assertSame(['anexo 1', 'Anexo 1A', 'Anexo 2', 'Anexo 10'], $this->column($table, 0));
     }
 
     public function testOffersTheSortLinksBelowTheMdBreakpoint(): void
@@ -174,7 +232,7 @@ final class DataTableTest extends KernelTestCase
         $table = $this->table(['columns' => [['key' => 'title', 'label' => 'Título'], ['key' => 'size', 'label' => 'Tamanho']]]);
 
         self::assertCount(0, $table->filter('nav'));
-        self::assertCount(1, $table->filter('div.jus-data-table-wrapper > table'));
+        self::assertCount(1, $table->filter('div.jus-data-table-wrapper > div.table-responsive > table'));
     }
 
     public function testNamesTheMobileNavAfterTheCaptionWhenThereIsOne(): void

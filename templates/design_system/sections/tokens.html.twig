@@ -10,15 +10,17 @@
         ['Espaços', '--jus-space-<passo>', '1, 2, 3, 4, 5'],
         ['Raios de borda', '--jus-radius-<nome>', 'sm, base, lg'],
         ['Sombras', '--jus-shadow-<nome>', 'sm, base'],
+        ['Foco', '--jus-focus-<nome>', 'width, offset, color (superfícies claras), color-inverse (superfícies escuras)'],
     ],
     monospace: [1],
 }) }}
 
 <h3 class="h6">Acessibilidade</h3>
 <ul>
-    <li>As cores semânticas (<code>primary</code> a <code>info</code>) e o texto secundário (<code>muted</code>) têm contraste de pelo menos 4,5:1 (WCAG AA) com a superfície branca; o Bootstrap usa o mesmo mínimo para escolher a cor do texto sobre elas.</li>
+    <li>As cores semânticas (<code>primary</code> a <code>info</code>) têm contraste de pelo menos 4,5:1 (WCAG AA) com a superfície branca; o Bootstrap usa o mesmo mínimo para escolher a cor do texto sobre elas. O texto secundário (<code>muted</code>) também passa de 4,5:1 sobre <code>surface</code>, <code>light</code> e <code>surface-alt</code>.</li>
     <li>A cor nunca é o único sinal: status e prazos também aparecem como texto e ícone.</li>
+    <li>O foco do teclado é um anel sólido (<code>--jus-focus-*</code>) com contraste de pelo menos 3:1 com as cores ao redor: na cor primária sobre superfícies claras e em branco sobre a navbar e o menu lateral.</li>
     <li>Use sempre o token (<code>var(--jus-color-primary)</code>), nunca o valor literal, para que uma mudança no mapa chegue a todos os componentes.</li>
 </ul>
 
-{{ include('design_system/_example.html.twig', {example: 'design_system/examples/tokens/colors.html.twig'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/tokens/colors.html.twig', label: 'cores'}) }}

@@ -5,8 +5,10 @@
     caption: 'Propriedades e atributos do componente Timeline',
     headers: ['Nome', 'Tipo', 'Padrão', 'Descrição'],
     rows: [
-        ['events', 'list<CaseEvent>', '[]', 'Movimentações a exibir, em qualquer ordem. Sem eventos, mostra "Nenhuma movimentação.".'],
+        ['events', 'list<CaseEvent>', '[]', 'Movimentações a exibir, em qualquer ordem.'],
+        ['emptyMessage', 'string', 'Nenhuma movimentação.', 'Texto do item único mostrado quando não há movimentações.'],
         ['data-event-type', 'atributo', 'decision, order, filing, summons ou hearing', 'Valor de EventType em cada item da lista. É o ponto de ligação para o filtro por tipo de movimentação.'],
+        ['data-event-label', 'atributo', 'Decisão, Despacho...', 'Rótulo em português do tipo, no mesmo item: o filtro monta seus botões a partir dele, sem repetir os rótulos no JavaScript.'],
         ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (ol.jus-timeline).'],
     ],
     monospace: [1, 2],
@@ -19,4 +21,5 @@
     <li>O tipo do evento é texto ("Decisão", "Despacho"...); os ícones são decorativos.</li>
 </ul>
 
-{{ include('design_system/_example.html.twig', {example: 'design_system/examples/timeline/default.html.twig'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/timeline/default.html.twig', label: 'movimentações de um processo'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/timeline/empty.html.twig', label: 'sem movimentações'}) }}

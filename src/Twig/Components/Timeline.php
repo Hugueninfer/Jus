@@ -13,6 +13,8 @@ final class Timeline
     /** @var list<CaseEvent> */
     public array $events = [];
 
+    public string $emptyMessage = 'Nenhuma movimentação.';
+
     /**
      * Events grouped by calendar day (Y-m-d), newest day and newest event first.
      *

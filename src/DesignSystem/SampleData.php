@@ -55,6 +55,29 @@ final readonly class SampleData
     }
 
     /**
+     * A family case under seal, suspended, with a single event.
+     */
+    public function confidentialCase(): LegalCase
+    {
+        $bruno = User::lawyer('bruno@jus.test', 'Bruno Teixeira', 'SP 234.567');
+        $case = new LegalCase(
+            CnjNumber::compose('0005678', '2024', '8', '26', '0100'),
+            'Divórcio Litigioso',
+            'Dissolução de casamento',
+            '2ª Vara de Família e Sucessões',
+            CaseStatus::Suspended,
+            true,
+            5_000_000,
+            new \DateTimeImmutable('2024-05-06 09:00'),
+        );
+        $case->addParty('Paula Santos', '321.654.987-00', PartySide::Plaintiff)->addLawyer($bruno);
+        $case->addParty('Ricardo Santos', '789.123.456-00', PartySide::Defendant);
+        $case->file(FilingType::InitialPetition, 'Petição inicial distribuída.', new \DateTimeImmutable('2024-05-06 09:00'), $bruno);
+
+        return $case;
+    }
+
+    /**
      * One deadline per urgency state the calendar allows today, keyed by the urgency value.
      *
      * @return array<string, Deadline>
@@ -84,27 +107,29 @@ final readonly class SampleData
     }
 
     /**
-     * @return list<array{key: string, label: string, sortable?: bool, format?: string}>
+     * @return list<array{key: string, label: string, sortable?: bool, format?: string, href?: string}>
      */
     public function documentColumns(): array
     {
         return [
-            ['key' => 'title', 'label' => 'Título', 'sortable' => true],
-            ['key' => 'type', 'label' => 'Tipo'],
+            ['key' => 'title', 'label' => 'Título', 'sortable' => true, 'href' => 'url'],
+            ['key' => 'type', 'label' => 'Tipo', 'sortable' => true, 'format' => 'label'],
             ['key' => 'uploadedAt', 'label' => 'Data', 'sortable' => true, 'format' => 'date'],
             ['key' => 'size', 'label' => 'Tamanho', 'sortable' => true, 'format' => 'bytes'],
         ];
     }
 
     /**
+     * The links point back to the catalog section: there are no real documents behind the samples.
+     *
      * @return list<array<string, mixed>>
      */
     public function documentRows(): array
     {
         return [
-            ['title' => 'Petição inicial', 'type' => 'Petição inicial', 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:00'), 'size' => 184_320],
-            ['title' => 'Procuração', 'type' => 'Juntada de documentos', 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:02'), 'size' => 52_224],
-            ['title' => 'Contestação', 'type' => 'Contestação', 'uploadedAt' => new \DateTimeImmutable('2024-04-15 18:20'), 'size' => 1_572_864],
+            ['title' => 'Petição inicial', 'url' => '#data-table', 'type' => FilingType::InitialPetition, 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:00'), 'size' => 184_320],
+            ['title' => 'Procuração', 'url' => '#data-table', 'type' => FilingType::Exhibits, 'uploadedAt' => new \DateTimeImmutable('2024-03-04 10:02'), 'size' => 52_224],
+            ['title' => 'Contestação', 'url' => '#data-table', 'type' => FilingType::Answer, 'uploadedAt' => new \DateTimeImmutable('2024-04-15 18:20'), 'size' => 1_572_864],
         ];
     }
 }

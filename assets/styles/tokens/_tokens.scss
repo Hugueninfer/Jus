@@ -1,3 +1,5 @@
+@use 'sass:map';
+
 // Single source of the design values. Bootstrap variables and the --jus-* custom properties derive from it.
 
 $colors: (
@@ -10,7 +12,7 @@ $colors: (
   'light': #f3f4f6,
   'dark': #111827,
   'body': #1f2937,
-  'muted': #6b7280,
+  'muted': #646b78,
   'border': #d1d5db,
   'surface': #fff,
   'surface-alt': #f9fafb,
@@ -34,4 +36,13 @@ $radii: (
 $shadows: (
   'sm': 0 1px 2px rgb(17 24 39 / 8%),
   'base': 0 2px 6px rgb(17 24 39 / 12%),
+);
+
+// Keyboard focus ring: solid, so it keeps at least 3:1 against the surface around it (WCAG 1.4.11).
+// 'color' is for light surfaces, 'color-inverse' for dark ones (the primary navbar and its off-canvas menu).
+$focus: (
+  'width': 0.2rem,
+  'offset': 0.125rem,
+  'color': map.get($colors, 'primary'),
+  'color-inverse': map.get($colors, 'surface'),
 );
