@@ -11,6 +11,7 @@ use App\Entity\LegalCase;
 use App\Repository\CaseEventRepository;
 use App\Repository\CaseSearchCriteria;
 use App\Repository\LegalCaseRepository;
+use App\Tests\Support\QueryRecorder;
 use App\Tests\Support\TestCases;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -20,6 +21,7 @@ final class CaseSearchTest extends KernelTestCase
     private TestCases $data;
     private LegalCaseRepository $cases;
     private EntityManagerInterface $em;
+    private QueryRecorder $queries;
 
     protected function setUp(): void
     {
@@ -27,6 +29,7 @@ final class CaseSearchTest extends KernelTestCase
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
         $this->data = new TestCases($this->em);
         $this->cases = self::getContainer()->get(LegalCaseRepository::class);
+        $this->queries = QueryRecorder::instance();
     }
 
     public function testLawyersSeePublicCasesAndTheConfidentialOnesTheyActIn(): void
@@ -70,14 +73,36 @@ final class CaseSearchTest extends KernelTestCase
         $this->data->legalCase('0000001', $ana, plaintiff: 'João Álvaro Conceição');
         $this->data->legalCase('0000002', $ana, plaintiff: 'Maria Oliveira');
 
-        $this->em->clear(); // prove the fetch join, not the identity map, fills the parties
+        $this->em->clear(); // forget what was persisted above: the search must load everything it returns
 
         $criteria = new CaseSearchCriteria();
         $criteria->partyName = '  ALVARO conceicao ';
+        $this->queries->reset();
         $result = $this->cases->search($criteria, $ana, 1);
+        $queriesToSearch = \count($this->queries->selects());
 
         self::assertSame(['0000001'], $this->sequentials($result->cases));
         self::assertCount(2, $result->cases[0]->getParties(), 'the matching case still carries all its parties');
+        self::assertCount($queriesToSearch, $this->queries->selects(), 'the parties came with the search (fetch join), not from a lazy load');
+    }
+
+    public function testLoadsThePartiesOfEveryCaseWithoutExtraQueries(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        foreach (['0000001', '0000002', '0000003'] as $sequential) {
+            $this->data->legalCase($sequential, $ana);
+        }
+        $this->em->clear();
+
+        $this->queries->reset();
+        $result = $this->cases->search(new CaseSearchCriteria(), $ana, 1);
+        $queriesToSearch = \count($this->queries->selects());
+
+        self::assertCount(3, $result->cases);
+        foreach ($result->cases as $case) {
+            self::assertCount(2, $case->getParties());
+        }
+        self::assertCount($queriesToSearch, $this->queries->selects(), 'no query per case');
     }
 
     public function testTreatsLikeWildcardsAsText(): void
@@ -89,6 +114,24 @@ final class CaseSearchTest extends KernelTestCase
         $criteria->partyName = '%';
 
         self::assertSame(0, $this->cases->search($criteria, $ana, 1)->total);
+    }
+
+    public function testInputThatNormalizesToNothingMatchesNothing(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana);
+
+        foreach (["\xC3\x28", "\u{0301}"] as $meaningless) { // invalid UTF-8, a lone accent
+            $criteria = new CaseSearchCriteria();
+            $criteria->partyName = $meaningless;
+            self::assertSame(0, $this->cases->search($criteria, $ana, 1)->total);
+        }
+
+        foreach (['', '   ', "\u{00A0}", null] as $blank) { // nothing typed: no filter
+            $criteria = new CaseSearchCriteria();
+            $criteria->partyName = $blank;
+            self::assertSame(1, $this->cases->search($criteria, $ana, 1)->total);
+        }
     }
 
     public function testFiltersByStatusAndNumber(): void
@@ -122,6 +165,18 @@ final class CaseSearchTest extends KernelTestCase
         self::assertSame(['0000002', '0000001'], $this->sequentials($second->cases));
     }
 
+    public function testAnOutOfRangePageOrPageSizeIsRaisedToOne(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana, filedAt: '2024-01-01 10:00');
+        $this->data->legalCase('0000002', $ana, filedAt: '2024-01-02 10:00');
+
+        $result = $this->cases->search(new CaseSearchCriteria(), $ana, 0, 0);
+
+        self::assertSame(['0000002'], $this->sequentials($result->cases));
+        self::assertSame([2, 1, 2], [$result->total, $result->page, $result->pages]);
+    }
+
     public function testFindsAVisibleCaseByNumberOnly(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
@@ -141,12 +196,18 @@ final class CaseSearchTest extends KernelTestCase
         $sameTime = $second->record(EventType::Order, 'Mesmo horário.', new \DateTimeImmutable('2024-03-24 10:00'));
         $this->em->flush();
 
-        $latest = self::getContainer()->get(CaseEventRepository::class)->latestForCases([$first, $second]);
-
         $firstId = $first->getId();
         $secondId = $second->getId();
         self::assertNotNull($firstId);
         self::assertNotNull($secondId);
+
+        $events = self::getContainer()->get(CaseEventRepository::class);
+        $this->queries->reset();
+        $latest = $events->latestForCases([$first, $second]);
+        self::assertCount(1, $this->queries->selects());
+        self::assertSame([], $events->latestForCases([]));
+        self::assertCount(1, $this->queries->selects(), 'no cases, no query');
+
         self::assertSame(EventType::Decision, $latest[$firstId]->getType());
         self::assertSame($sameTime, $latest[$secondId], 'ties are broken by the highest id');
     }

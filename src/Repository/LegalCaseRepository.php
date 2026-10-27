@@ -32,6 +32,14 @@ class LegalCaseRepository extends ServiceEntityRepository
     public function search(CaseSearchCriteria $criteria, User $viewer, int $page, int $perPage = 10): CaseSearchResult
     {
         $page = max(1, $page);
+        $perPage = max(1, $perPage);
+        $term = $criteria->partyName ?? '';
+        $name = SearchText::normalize($term);
+        if ('' === $name && 1 !== preg_match('/^[\pZ\p{Cc}\p{Cf}]*$/u', $term)) {
+            // Typed, but nothing searchable (invalid UTF-8, a lone accent): no party can match, so do not show every case instead.
+            return new CaseSearchResult([], 0, $page, 1);
+        }
+
         $qb = $this->createQueryBuilder('c')
             ->addSelect('p')
             ->leftJoin('c.parties', 'p')
@@ -45,7 +53,6 @@ class LegalCaseRepository extends ServiceEntityRepository
         if (null !== $criteria->status) {
             $qb->andWhere('c.status = :status')->setParameter('status', $criteria->status);
         }
-        $name = SearchText::normalize($criteria->partyName ?? '');
         if ('' !== $name) {
             // A subquery keeps every party of the matching cases in the fetch join.
             $qb->andWhere("EXISTS (SELECT 1 FROM App\\Entity\\Party sp WHERE sp.legalCase = c AND sp.searchName LIKE :party ESCAPE '!')")
