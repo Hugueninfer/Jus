@@ -1,9 +1,10 @@
 {% set sortable = columns|filter(column => column.sortable ?? false) %}
-<div class="jus-data-table-wrapper">
-    {# The header row is hidden in card mode, so below md the sort links are repeated here. #}
+{# table-responsive: on wide screens a very long unbreakable value scrolls the table sideways instead of breaking the page. #}
+<div class="jus-data-table-wrapper table-responsive">
+    {# The header row is hidden in card mode, so below md the sort links are repeated here, with the hint the header leaves to aria-sort. #}
     {% if sortable|length > 0 %}
-        <nav class="jus-data-table-sort d-md-none" aria-label="Ordenar tabela">
-            <span class="jus-data-table-sort-label">Ordenar por:</span>
+        <nav class="jus-data-table-sort d-md-none" aria-label="{{ caption ? 'Ordenar: ' ~ caption : 'Ordenar tabela' }}">
+            <span class="jus-data-table-sort-label text-body-secondary">Ordenar por:</span>
             {% for column in sortable %}
                 <a href="{{ this.sortHref(column.key) }}"{% if this.activeSort == column.key %} aria-current="true"{% endif %}>
                     {{- column.label -}}
@@ -24,7 +25,6 @@
                         <th scope="col" aria-sort="{{ this.ariaSort(column.key) }}">
                             <a href="{{ this.sortHref(column.key) }}">
                                 {{- column.label -}}
-                                <span class="visually-hidden">{{ this.sortHint(column.key) }}</span>
                                 {% if this.activeSort == column.key %}
                                     <i class="bi bi-caret-{{ this.activeDirection == 'asc' ? 'up' : 'down' }}-fill" aria-hidden="true"></i>
                                 {% endif %}

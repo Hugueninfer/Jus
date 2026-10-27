@@ -11,10 +11,6 @@
   }
 }
 
-.jus-data-table-sort-label {
-  color: var(--bs-secondary-color);
-}
-
 // Each row is a card on small screens, labelled cell by cell; from md up it is a regular table.
 .jus-data-table {
   caption-side: top;
@@ -30,7 +26,7 @@
     border-radius: var(--jus-radius-base);
   }
 
-  // Let long unbreakable strings (file names, protocol numbers) wrap instead of widening the page.
+  // In card mode let long unbreakable strings (file names, protocol numbers) wrap instead of widening the page.
   td {
     display: flex;
     justify-content: space-between;
@@ -60,9 +56,13 @@
       border-width: 0;
     }
 
+    // Table layout keeps short values (dates) whole: anywhere-wrapping would let the auto layout squeeze their column.
+    // A very long unbreakable value scrolls inside the wrapper (.table-responsive) instead.
     td {
       display: table-cell;
+      min-width: auto;
       border-block-end-width: var(--bs-border-width);
+      overflow-wrap: normal;
     }
 
     td[data-label]::before {

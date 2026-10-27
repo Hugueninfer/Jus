@@ -133,6 +133,8 @@ final class DataTableTest extends KernelTestCase
         $wrapper = $this->table(['class' => 'mb-4', 'id' => 'documentos'])->filter('div.jus-data-table-wrapper');
 
         self::assertCount(1, $wrapper);
+        // The wrapper scrolls horizontally on wide screens when a cell holds a very long unbreakable value.
+        self::assertStringContainsString('table-responsive', (string) $wrapper->attr('class'));
         self::assertNull($wrapper->attr('id'));
         self::assertSame('table align-middle jus-data-table mb-4', $wrapper->children('table')->attr('class'));
         self::assertSame('documentos', $wrapper->children('table')->attr('id'));
@@ -146,6 +148,7 @@ final class DataTableTest extends KernelTestCase
         self::assertStringContainsString('d-md-none', (string) $nav->attr('class'));
         self::assertSame('Ordenar tabela', $nav->attr('aria-label'));
         self::assertStringContainsString('Ordenar por:', $nav->text());
+        self::assertStringContainsString('text-body-secondary', (string) $nav->filter('.jus-data-table-sort-label')->attr('class'));
 
         $links = $nav->filter('a');
         self::assertCount(2, $links);
@@ -174,22 +177,34 @@ final class DataTableTest extends KernelTestCase
         self::assertCount(1, $table->filter('div.jus-data-table-wrapper > table'));
     }
 
-    public function testDescribesTheSortLinksForScreenReaders(): void
+    public function testNamesTheMobileNavAfterTheCaptionWhenThereIsOne(): void
     {
-        $table = $this->table(['sort' => 'title', 'direction' => 'asc']);
+        $nav = $this->table(['caption' => 'Documentos do processo'])->filter('nav.jus-data-table-sort');
 
-        foreach (['th a', 'nav a'] as $selector) {
-            $links = $table->filter($selector);
+        self::assertSame('Ordenar: Documentos do processo', $nav->attr('aria-label'));
+    }
 
-            self::assertSame(', ordenado em ordem crescente', $links->eq(0)->filter('.visually-hidden')->text());
-            self::assertSame(', ordenar', $links->eq(1)->filter('.visually-hidden')->text());
-        }
+    public function testDescribesTheSortLinksOfTheMobileNavForScreenReaders(): void
+    {
+        $links = $this->table(['sort' => 'title', 'direction' => 'asc'])->filter('nav a');
 
-        $descending = $this->table(['sort' => 'uploadedAt', 'direction' => 'desc']);
+        self::assertSame(', ordenado em ordem crescente', $links->eq(0)->filter('.visually-hidden')->text());
+        self::assertSame(', ordenar', $links->eq(1)->filter('.visually-hidden')->text());
 
-        foreach (['th a', 'nav a'] as $selector) {
-            self::assertSame(', ordenado em ordem decrescente', $descending->filter($selector)->eq(1)->filter('.visually-hidden')->text());
-        }
+        $descending = $this->table(['sort' => 'uploadedAt', 'direction' => 'desc'])->filter('nav a');
+
+        self::assertSame(', ordenado em ordem decrescente', $descending->eq(1)->filter('.visually-hidden')->text());
+    }
+
+    public function testLeavesTheColumnHeaderNameToAriaSort(): void
+    {
+        $headers = $this->table(['sort' => 'title', 'direction' => 'asc'])->filter('th');
+
+        // A hidden hint here would be read after the name and repeat what aria-sort already announces.
+        self::assertCount(0, $headers->filter('.visually-hidden'));
+        self::assertSame('Título', trim($headers->eq(0)->filter('a')->text()));
+        self::assertSame('Data', trim($headers->eq(1)->filter('a')->text()));
+        self::assertSame('ascending', $headers->eq(0)->attr('aria-sort'));
     }
 
     /**
