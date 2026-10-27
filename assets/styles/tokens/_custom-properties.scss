@@ -22,4 +22,8 @@
   @each $name, $value in t.$shadows {
     --jus-shadow-#{$name}: #{$value};
   }
+
+  @each $name, $value in t.$focus {
+    --jus-focus-#{$name}: #{$value};
+  }
 }

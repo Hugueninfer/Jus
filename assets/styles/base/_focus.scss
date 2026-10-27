@@ -1,0 +1,32 @@
+// Keyboard focus, drawn from the --jus-focus-* tokens with at least 3:1 against the surrounding colours (WCAG 1.4.11).
+
+// The ring colour for the surface an element sits on: the token colour on the light page, the inverse one on the dark
+// surfaces. The skip link counts as dark because it appears over the primary navbar.
+:root {
+  --jus-focus-ring: var(--jus-focus-color);
+}
+
+.navbar-dark,
+.text-bg-primary,
+.jus-skip-link {
+  --jus-focus-ring: var(--jus-focus-color-inverse);
+}
+
+// What Bootstrap leaves to the browser (links, <summary>, the navbar brand) gets an explicit ring: the default one
+// changes from browser to browser and can fall below 3:1.
+:focus-visible {
+  outline: var(--jus-focus-width) solid var(--jus-focus-ring);
+  outline-offset: var(--jus-focus-offset);
+}
+
+// Buttons mix their ring from the variant colour at a fixed 50 % (about 2:1 on white). Use the token ring instead,
+// kept off the button by a gap in the page colour so it also stands apart from a primary button.
+.btn {
+  --bs-btn-focus-box-shadow:
+    0 0 0 var(--jus-focus-offset) var(--bs-body-bg),
+    0 0 0 calc(var(--jus-focus-offset) + var(--jus-focus-width)) var(--jus-focus-ring);
+}
+
+// Inputs and the close button use Bootstrap's ring, set from the tokens in _bootstrap-config.scss; nav links and the
+// navbar toggler draw it in their own text colour. The white close button (.btn-close-white) keeps the primary ring on
+// purpose: the filter that paints its icon white (invert, grayscale, brightness 200 %) renders that ring white too.
