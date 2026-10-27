@@ -1,0 +1,16 @@
+{% set assessment = this.assessment %}
+{% set urgency = assessment.urgency.value %}
+{% set variant = {on_track: 'success', warning: 'warning', due_today: 'danger', overdue: 'danger', fulfilled: 'secondary'}[urgency] %}
+{% set icon = {on_track: 'bi-calendar-check', warning: 'bi-hourglass-split', due_today: 'bi-exclamation-octagon', overdue: 'bi-exclamation-triangle', fulfilled: 'bi-check2-circle'}[urgency] %}
+<span {{ attributes.defaults({class: 'badge text-bg-' ~ variant, 'data-urgency': urgency}) }}>
+    <i class="bi {{ icon }}" aria-hidden="true"></i>
+    {% if urgency == 'fulfilled' %}
+        Cumprido em {{ deadline.fulfilledAt|date('d/m/Y') }}
+    {% elseif urgency == 'overdue' %}
+        Venceu em {{ assessment.dueDate|date('d/m/Y') }}
+    {% elseif urgency == 'due_today' %}
+        Vence hoje ({{ assessment.dueDate|date('d/m') }})
+    {% else %}
+        Vence em {{ assessment.businessDaysLeft }} {{ assessment.businessDaysLeft == 1 ? 'dia útil' : 'dias úteis' }} ({{ assessment.dueDate|date('d/m') }})
+    {% endif %}
+</span>
