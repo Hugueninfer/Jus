@@ -5,24 +5,25 @@
     summons: 'bi-envelope-paper',
     hearing: 'bi-people',
 } %}
-<ol {{ attributes.defaults({class: 'list-unstyled jus-timeline'}) }}>
+<ol {{ attributes.defaults({class: 'list-unstyled jus-timeline', role: 'list'}) }}>
     {% for day, events in this.days %}
         <li class="jus-timeline-day">
             <h3 class="h6 text-body-secondary mt-3 mb-2"><time datetime="{{ day }}">{{ day|date('d/m/Y') }}</time></h3>
-            <ol class="list-unstyled">
+            <ol class="list-unstyled" role="list">
                 {% for event in events %}
+                    {% set documentCount = event.documents|length %}
                     <li class="jus-timeline-event" data-event-type="{{ event.type.value }}">
                         <i class="bi {{ icons[event.type.value] }}" aria-hidden="true"></i>
-                        <div>
+                        <div class="jus-timeline-event-body">
                             <p class="mb-0">
                                 <strong>{{ event.type|label }}{% if event.filingType %} — {{ event.filingType|label }}{% endif %}</strong>
                                 <time class="small text-body-secondary" datetime="{{ event.occurredAt|date('c') }}">{{ event.occurredAt|date('H:i') }}</time>
                             </p>
-                            <p class="mb-0">{{ event.description }}</p>
-                            {% if event.documents is not empty %}
+                            <p class="mb-0 jus-timeline-description">{{ event.description }}</p>
+                            {% if documentCount > 0 %}
                                 <p class="small mb-0 text-body-secondary">
                                     <i class="bi bi-paperclip" aria-hidden="true"></i>
-                                    {{ event.documents|length }} {{ event.documents|length == 1 ? 'documento' : 'documentos' }}
+                                    {{ documentCount }} {{ documentCount == 1 ? 'documento' : 'documentos' }}
                                 </p>
                             {% endif %}
                         </div>

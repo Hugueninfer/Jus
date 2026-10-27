@@ -23,10 +23,13 @@ final class DeadlineIndicator
 
     public function assessment(): DeadlineAssessment
     {
+        $startDate = $this->deadline->getStartDate();
+
         return $this->calculator->assess(
-            $this->deadline->getStartDate(),
+            $startDate,
             $this->deadline->getBusinessDays(),
-            $this->clock->now(),
+            // "Today" is the calendar day where the deadline runs, not where the clock happens to be set.
+            $this->clock->now()->setTimezone($startDate->getTimezone()),
             $this->deadline->isFulfilled(),
         );
     }

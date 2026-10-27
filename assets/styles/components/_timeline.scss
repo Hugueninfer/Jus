@@ -1,4 +1,4 @@
-// A vertical line joins the events of each day; icons sit on top of it.
+// Each event carries its own left border, which stacks into a vertical line down the day.
 .jus-timeline-event {
   display: flex;
   gap: var(--jus-space-3);
@@ -9,4 +9,15 @@
   > .bi {
     color: var(--jus-color-primary);
   }
+}
+
+// A flex item does not shrink below its content: let long strings wrap instead of overflowing narrow screens.
+.jus-timeline-event-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+// Descriptions are plain text: keep the line breaks the author typed.
+.jus-timeline-description {
+  white-space: pre-line;
 }

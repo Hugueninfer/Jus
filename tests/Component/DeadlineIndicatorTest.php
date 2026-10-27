@@ -34,18 +34,34 @@ final class DeadlineIndicatorTest extends KernelTestCase
     public function testShowsTheDeadlineState(string $summonedOn, ?string $fulfilledAt, string $urgency, string $class, string $text): void
     {
         self::mockTime('2026-03-04 09:00:00');
-        $case = Samples::legalCase();
-        $party = $case->getParties()[0];
-        $deadline = new Deadline($party, $case->record(EventType::Summons, 'Intimação.', new \DateTimeImmutable($summonedOn.' 08:00')), 5);
-        if (null !== $fulfilledAt) {
-            $deadline->fulfil(new \DateTimeImmutable($fulfilledAt));
-        }
 
-        $badge = $this->renderTwigComponent('DeadlineIndicator', ['deadline' => $deadline])->crawler()->filter('span.badge');
+        $badge = $this->renderTwigComponent('DeadlineIndicator', ['deadline' => self::deadline($summonedOn, $fulfilledAt)])->crawler()->filter('span.badge');
 
         self::assertSame($urgency, $badge->attr('data-urgency'));
         self::assertStringContainsString($class, (string) $badge->attr('class'));
         self::assertSame($text, trim(preg_replace('/\s+/', ' ', $badge->text()) ?? ''));
         self::assertSame('true', $badge->filter('i')->attr('aria-hidden'));
+    }
+
+    public function testUsesTheCalendarDayOfTheDeadlineTimezone(): void
+    {
+        // 01:30 UTC on 05/03 is still 22:30 of 04/03 in São Paulo, the day this deadline falls due.
+        self::mockTime(new \DateTimeImmutable('2026-03-05 01:30:00', new \DateTimeZone('UTC')));
+
+        $badge = $this->renderTwigComponent('DeadlineIndicator', ['deadline' => self::deadline('2026-02-25')])->crawler()->filter('span.badge');
+
+        self::assertSame('due_today', $badge->attr('data-urgency'));
+        self::assertSame('Vence hoje (04/03)', trim(preg_replace('/\s+/', ' ', $badge->text()) ?? ''));
+    }
+
+    private static function deadline(string $summonedOn, ?string $fulfilledAt = null): Deadline
+    {
+        $case = Samples::legalCase();
+        $deadline = new Deadline($case->getParties()[0], $case->record(EventType::Summons, 'Intimação.', new \DateTimeImmutable($summonedOn.' 08:00')), 5);
+        if (null !== $fulfilledAt) {
+            $deadline->fulfil(new \DateTimeImmutable($fulfilledAt));
+        }
+
+        return $deadline;
     }
 }
