@@ -12,7 +12,7 @@
             <ol class="list-unstyled" role="list">
                 {% for event in events %}
                     {% set documentCount = event.documents|length %}
-                    <li class="jus-timeline-event" data-event-type="{{ event.type.value }}">
+                    <li class="jus-timeline-event" data-event-type="{{ event.type.value }}" data-event-label="{{ event.type|label }}">
                         <i class="bi {{ icons[event.type.value] }}" aria-hidden="true"></i>
                         <div class="jus-timeline-event-body">
                             <p class="mb-0">
@@ -32,6 +32,6 @@
             </ol>
         </li>
     {% else %}
-        <li class="text-body-secondary">Nenhuma movimentação.</li>
+        <li class="text-body-secondary">{{ emptyMessage }}</li>
     {% endfor %}
 </ol>
