@@ -37,7 +37,7 @@ stages:
               versionSpec: '24.x'
           - script: npm ci
             displayName: npm ci
-          - script: npm run ci
+          - script: npm run ci:quality
             displayName: ESLint, Stylelint, tsc and production build
 
   - stage: Test
@@ -51,3 +51,17 @@ stages:
             displayName: PHPUnit with coverage
           - script: composer coverage:domain
             displayName: Domain coverage must be 100%
+
+      - job: web_components
+        displayName: Web Components
+        steps:
+          - task: NodeTool@0
+            displayName: Install Node.js 24
+            inputs:
+              versionSpec: '24.x'
+          - script: npm ci
+            displayName: npm ci
+          - script: npx playwright install --with-deps chromium
+            displayName: Install Playwright Chromium
+          - script: npm test
+            displayName: Vitest in the browser (axe-core included)

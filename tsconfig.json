@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "sourceMap": true
   },
-  "include": ["assets/**/*.ts"]
+  "include": ["assets/**/*.ts", "vitest.config.ts"]
 }
