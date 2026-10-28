@@ -25,10 +25,13 @@ final class CnjNumberValueResolverTest extends TestCase
 
     public function testAnInvalidNumberIsNotFound(): void
     {
-        $this->expectException(NotFoundHttpException::class);
-        $this->expectExceptionMessage('Processo não encontrado.');
-
-        [...(new CnjNumberValueResolver())->resolve(new Request(attributes: ['numero' => '<script>']), $this->argument())];
+        try {
+            [...(new CnjNumberValueResolver())->resolve(new Request(attributes: ['numero' => '<script>']), $this->argument())];
+            self::fail('An invalid number must be a 404.');
+        } catch (NotFoundHttpException $e) {
+            // The whole message, not a part of it: it ends up on an error page and must never echo the input.
+            self::assertSame('Processo não encontrado.', $e->getMessage());
+        }
     }
 
     public function testIgnoresArgumentsWithoutARouteValue(): void

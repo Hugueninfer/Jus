@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Integration;
 
 use App\Domain\CnjNumber;
-use App\Domain\Deadline\DeadlineCalculator;
-use App\Domain\Deadline\NationalHolidayCalendar;
 use App\Domain\LegalCase\EventType;
 use App\Domain\LegalCase\FilingType;
 use App\Entity\CaseEvent;
@@ -17,7 +15,6 @@ use App\Entity\Party;
 use App\Entity\User;
 use App\Presentation\CaseDeadlines;
 use App\Presentation\CaseDocumentsTable;
-use App\Repository\DeadlineRepository;
 use App\Repository\LegalCaseRepository;
 use App\Tests\Support\QueryRecorder;
 use App\Tests\Support\TestCases;
@@ -142,10 +139,12 @@ final class CasePageDataTest extends KernelTestCase
         $number = $case->getNumber();
         $this->em->clear();
 
+        $this->queries->reset();
         $loaded = $this->cases->findOneForPage($number);
         self::assertNotNull($loaded);
         $rows = (new CaseDocumentsTable())->rows($loaded);
 
+        self::assertCount(1, $this->queries->selects(), 'the rows come from what the case already loaded, not from lazy loads');
         self::assertCount(2, $rows);
         self::assertSame(['title', 'type', 'uploadedAt', 'size'], array_keys($rows[0]));
         self::assertSame(['Despacho', EventType::Order, 2048], [$rows[0]['title'], $rows[0]['type'], $rows[0]['size']], 'newest event first; a document of any other event shows the event type');
@@ -179,11 +178,11 @@ final class CasePageDataTest extends KernelTestCase
     }
 
     /**
-     * Built by hand: nothing injects CaseDeadlines yet, so the container drops it as unused.
+     * The service as the case page gets it.
      */
     private function caseDeadlines(): CaseDeadlines
     {
-        return new CaseDeadlines(self::getContainer()->get(DeadlineRepository::class), new DeadlineCalculator(new NationalHolidayCalendar()));
+        return self::getContainer()->get(CaseDeadlines::class);
     }
 
     private function deadline(LegalCase $case, Party $party, string $summonedOn, ?string $fulfilledAt = null): Deadline

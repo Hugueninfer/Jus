@@ -7,14 +7,6 @@ namespace App\Tests\Functional;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Session\Session;
-use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
-use Twig\Environment;
 
 final class LayoutTest extends WebTestCase
 {
@@ -76,31 +68,23 @@ final class LayoutTest extends WebTestCase
         self::assertNotSame('', $query['_csrf_token']);
     }
 
-    public function testTheCasesLinkOnlyClaimsToBeThePageOnTheSearch(): void
+    public function testTheCasesLinkIsNotMarkedOutsideTheCasesSection(): void
     {
-        // Other case_* routes (the case page itself) keep the section highlighted but are not the page the link leads to.
-        $link = $this->renderLayoutAt('case_show')->filter('header a[href="/processos"]');
-        self::assertStringContainsString('active', (string) $link->attr('class'));
-        self::assertSame('true', $link->attr('aria-current'));
+        // The case page keeps the section highlighted (see CasePageTest); every other page leaves the link plain.
+        $client = self::createClient();
+        $user = User::clerk('joao@jus.test', 'João Almeida');
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->persist($user);
+        $em->flush();
+        $client->loginUser($user);
 
-        $link = $this->renderLayoutAt('design_system')->filter('header a[href="/processos"]');
+        $crawler = $client->request('GET', '/design-system');
+
+        self::assertResponseIsSuccessful();
+        $link = $crawler->filter('header a[href="/processos"]');
+        self::assertSame('Processos', trim($link->text()));
         self::assertStringNotContainsString('active', (string) $link->attr('class'));
         self::assertNull($link->attr('aria-current'));
-    }
-
-    /**
-     * The layout as a signed-in user sees it on a route that has no page of its own yet.
-     */
-    private function renderLayoutAt(string $route): Crawler
-    {
-        self::bootKernel();
-        $container = self::getContainer();
-        $request = new Request(attributes: ['_route' => $route]);
-        $request->setSession(new Session(new MockArraySessionStorage()));
-        $container->get(RequestStack::class)->push($request);
-        $user = User::clerk('joao@jus.test', 'João Almeida');
-        $container->get(TokenStorageInterface::class)->setToken(new UsernamePasswordToken($user, 'main', $user->getRoles()));
-
-        return new Crawler($container->get(Environment::class)->render('base.html.twig'));
+        self::assertSame('page', $crawler->filter('header a[href="/design-system"]')->attr('aria-current'));
     }
 }

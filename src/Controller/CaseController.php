@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Domain\CnjNumber;
 use App\Entity\User;
 use App\Form\CaseSearchType;
+use App\Presentation\CaseDeadlines;
+use App\Presentation\CaseDocumentsTable;
 use App\Repository\CaseEventRepository;
 use App\Repository\CaseSearchCriteria;
 use App\Repository\LegalCaseRepository;
+use App\Security\LegalCaseVoter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\ValueResolver;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
@@ -33,7 +38,7 @@ final class CaseController extends AbstractController
         if (null !== $criteria->number) {
             $case = $cases->findVisibleOneByNumber($criteria->number, $user);
             if (null !== $case) {
-                return $this->redirect('/processos/'.$case->getNumber()->formatted());
+                return $this->redirectToRoute('case_show', ['numero' => $case->getNumber()->formatted()]);
             }
         }
 
@@ -46,6 +51,36 @@ final class CaseController extends AbstractController
             'form' => $form,
             'result' => $result,
             'latestEvents' => $events->latestForCases($result->cases),
+        ]);
+    }
+
+    #[Route('/processos/{numero}', name: 'case_show', methods: ['GET'])]
+    public function show(
+        #[ValueResolver('cnj_number')] CnjNumber $numero,
+        Request $request,
+        LegalCaseRepository $cases,
+        CaseDeadlines $deadlines,
+        CaseDocumentsTable $documents,
+    ): Response {
+        if ($request->attributes->getString('numero') !== $numero->formatted()) {
+            // The route value goes last: a "numero" in the query string must not replace it.
+            return $this->redirectToRoute('case_show', [...$request->query->all(), 'numero' => $numero->formatted()], Response::HTTP_MOVED_PERMANENTLY);
+        }
+
+        $case = $cases->findOneForPage($numero) ?? throw $this->createNotFoundException('Processo não encontrado.');
+        // findOneForPage() applies no visibility rule: this is the only thing keeping a confidential case away from other lawyers.
+        $this->denyAccessUnlessGranted(LegalCaseVoter::VIEW, $case);
+
+        $tab = 'documentos' === $request->query->getString('aba') ? 'documentos' : 'movimentacoes';
+
+        return $this->render('case/show.html.twig', [
+            'case' => $case,
+            'deadlines' => $deadlines->forCase($case),
+            'tab' => $tab,
+            'documentColumns' => $documents->columns(),
+            'documentRows' => 'documentos' === $tab ? $documents->rows($case) : [],
+            'sort' => $request->query->getString('sort') ?: null,
+            'direction' => $request->query->getString('direction') ?: null,
         ]);
     }
 
