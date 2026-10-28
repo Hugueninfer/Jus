@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Domain\LegalCase\EventType;
+use App\Repository\DeadlineRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -12,7 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
  * A procedural deadline opened by a summons. The due date is never stored: it is always calculated
  * with App\Domain\Deadline\DeadlineCalculator from the start date and the number of business days.
  */
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: DeadlineRepository::class)]
 class Deadline
 {
     #[ORM\Id]
