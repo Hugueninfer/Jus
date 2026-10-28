@@ -172,6 +172,29 @@ final class CaseSearchPageTest extends WebTestCase
         self::assertSame('1', trim($crawler->filter('nav[aria-label="Paginação dos resultados"] [aria-current="page"]')->text()));
     }
 
+    #[DataProvider('provideHugePages')]
+    public function testSendsAHugePageToTheLastOne(string $page): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        for ($i = 1; $i <= 12; ++$i) {
+            $this->data->legalCase(\sprintf('%07d', $i), $ana);
+        }
+        $this->signIn($ana);
+
+        $this->client->request('GET', '/processos?parte=maria&pagina='.$page);
+
+        self::assertResponseRedirects('/processos?parte=maria&pagina=2');
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideHugePages(): iterable
+    {
+        yield 'largest integer' => ['9223372036854775807'];
+        yield 'a quintillion' => ['1000000000000000000'];
+    }
+
     /**
      * @return iterable<string, array{string}>
      */

@@ -177,6 +177,27 @@ final class CaseSearchTest extends KernelTestCase
         self::assertSame([2, 1, 2], [$result->total, $result->page, $result->pages]);
     }
 
+    public function testAHugePageIsCappedInsteadOfOverflowingTheOffset(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana);
+        $this->data->legalCase('0000002', $ana);
+
+        foreach ([\PHP_INT_MAX, 1_000_000_000_000_000_000] as $page) {
+            $result = $this->cases->search(new CaseSearchCriteria(), $ana, $page);
+
+            self::assertSame([], $result->cases);
+            self::assertSame([2, 1], [$result->total, $result->pages]);
+            self::assertGreaterThan($result->pages, $result->page, 'the caller can tell the page is past the end');
+        }
+
+        // A huge page size leaves room for the first page only.
+        $result = $this->cases->search(new CaseSearchCriteria(), $ana, \PHP_INT_MAX, \PHP_INT_MAX);
+
+        self::assertSame([1, 1], [$result->page, $result->pages]);
+        self::assertCount(2, $result->cases);
+    }
+
     public function testFindsAVisibleCaseByNumberOnly(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');

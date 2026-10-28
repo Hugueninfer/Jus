@@ -31,8 +31,10 @@ class LegalCaseRepository extends ServiceEntityRepository
 
     public function search(CaseSearchCriteria $criteria, User $viewer, int $page, int $perPage = 10): CaseSearchResult
     {
-        $page = max(1, $page);
         $perPage = max(1, $perPage);
+        // Capped so the offset ($page - 1) * $perPage stays an integer: a page this far out is empty anyway, and the caller
+        // can tell from $page > $pages that it is past the end.
+        $page = min(max(1, $page), intdiv(\PHP_INT_MAX, $perPage));
         $term = $criteria->partyName ?? '';
         $name = SearchText::normalize($term);
         if ('' === $name && 1 !== preg_match('/^[\pZ\p{Cc}\p{Cf}]*$/u', $term)) {

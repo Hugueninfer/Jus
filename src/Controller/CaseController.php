@@ -56,6 +56,12 @@ final class CaseController extends AbstractController
     {
         $page = $request->query->all()['pagina'] ?? null;
 
-        return \is_string($page) && false !== ($number = filter_var($page, \FILTER_VALIDATE_INT)) ? $number : 1;
+        if (!\is_string($page)) {
+            return 1;
+        }
+
+        $number = filter_var($page, \FILTER_VALIDATE_INT);
+
+        return false === $number ? 1 : $number;
     }
 }
