@@ -107,7 +107,7 @@ class LegalCaseRepository extends ServiceEntityRepository
     }
 
     /**
-     * Same rule as LegalCaseVoter::VIEW, applied in the query (defence in depth).
+     * Same rule as LegalCaseVoter::VIEW, applied in the query; SearchVisibilityParityTest keeps the two equal.
      */
     private function onlyVisibleTo(QueryBuilder $qb, User $viewer): void
     {
