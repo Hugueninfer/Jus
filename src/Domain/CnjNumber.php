@@ -13,8 +13,9 @@ namespace App\Domain;
  */
 final readonly class CnjNumber
 {
-    private const string MASKED = '/^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$/';
-    private const string UNMASKED = '/^\d{20}$/';
+    // The D modifier keeps "$" from also matching before a final line break, as JavaScript's "$" never does.
+    private const string MASKED = '/^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$/D';
+    private const string UNMASKED = '/^\d{20}$/D';
 
     /**
      * Same characters JavaScript's String.prototype.trim() removes, so a TypeScript port agrees on every input.

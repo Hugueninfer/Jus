@@ -25,3 +25,7 @@
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###
+
+# Vitest browser mode: failure screenshots and attachments (.vitest/) and screenshot-assertion output
+/.vitest/
+__screenshots__/

@@ -4,6 +4,14 @@ parameters:
         - src/
         - tests/
     tmpDir: var/cache/phpstan
+    # The project requires ext-intl, yet Symfony pulls in the intl polyfills (symfony/form -> polyfill-intl-icu,
+    # symfony/string -> polyfill-intl-normalizer). Their userland NumberFormatter, Collator, Locale and Normalizer
+    # stubs sit in Composer's classmap, so PHPStan reflects them instead of the bundled stubs of the real extension
+    # (it only skips the polyfill-php8x packages): NumberFormatter::formatCurrency() reads "string" instead of
+    # "string|false", Normalizer::normalize() reads "mixed". At runtime the polyfills do nothing when ext-intl is loaded.
+    excludePaths:
+        analyseAndScan:
+            - vendor/symfony/polyfill-intl-*/Resources/stubs/*
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
     doctrine:

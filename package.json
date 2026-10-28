@@ -10,15 +10,22 @@
     "dev": "encore dev",
     "watch": "encore dev --watch",
     "build": "encore production",
-    "lint:js": "eslint assets",
+    "lint:js": "eslint .",
     "lint:css": "stylelint \"assets/**/*.scss\"",
     "typecheck": "tsc --noEmit",
-    "ci": "npm run lint:js && npm run lint:css && npm run typecheck && npm run build"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ci:quality": "npm run lint:js && npm run lint:css && npm run typecheck && npm run build",
+    "ci": "npm run lint:js && npm run lint:css && npm run typecheck && npm run test && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@symfony/webpack-encore": "^7.2.0",
+    "@types/node": "^26.6.5",
+    "@vitest/browser-playwright": "^5.0.5",
+    "axe-core": "^4.14.0",
     "eslint": "^10.13.0",
+    "playwright": "^1.64.1",
     "sass": "^1.106.1",
     "sass-loader": "^17.0.1",
     "stylelint": "^17.16.0",
@@ -26,6 +33,7 @@
     "ts-loader": "^9.6.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5",
     "webpack": "^5.112.2",
     "webpack-cli": "^7.2.3"
   },
