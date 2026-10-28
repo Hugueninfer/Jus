@@ -6,12 +6,13 @@ namespace App\Entity;
 
 use App\Domain\LegalCase\EventType;
 use App\Domain\LegalCase\FilingType;
+use App\Repository\CaseEventRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: CaseEventRepository::class)]
 class CaseEvent
 {
     #[ORM\Id]
@@ -21,6 +22,7 @@ class CaseEvent
 
     /** @var Collection<int, Document> */
     #[ORM\OneToMany(targetEntity: Document::class, mappedBy: 'event', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $documents;
 
     public function __construct(

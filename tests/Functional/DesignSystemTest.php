@@ -21,7 +21,7 @@ final class DesignSystemTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Design System');
-        foreach (['tokens', 'alert', 'status-badge', 'case-card', 'timeline', 'deadline-indicator', 'data-table', 'cnj-field'] as $section) {
+        foreach (['tokens', 'alert', 'status-badge', 'case-card', 'timeline', 'deadline-indicator', 'data-table', 'pagination', 'cnj-field'] as $section) {
             self::assertCount(1, $crawler->filter('section#'.$section), $section);
             self::assertCount(1, $crawler->filter('nav a[href="#'.$section.'"]'), $section);
         }
@@ -43,6 +43,7 @@ final class DesignSystemTest extends WebTestCase
         $firstDocument = $crawler->filter('section#data-table table.jus-data-table tbody tr')->first();
         self::assertSame('#data-table', $firstDocument->filter('td')->eq(0)->filter('a')->attr('href'));
         self::assertSame('Petição inicial', trim($firstDocument->filter('td')->eq(1)->text()));
+        self::assertCount(1, $crawler->filter('section#pagination figure nav[aria-label="Paginação de exemplo"]'));
     }
 
     public function testEveryExampleIsNamedAndShowsItsCode(): void
@@ -116,6 +117,18 @@ final class DesignSystemTest extends WebTestCase
         $header = $table->filter('th[aria-sort="descending"]');
         self::assertCount(1, $header);
         self::assertSame('Tamanho', trim($header->text()));
+    }
+
+    public function testThePaginationExampleKeepsTheQueryStringAndReturnsToItsSection(): void
+    {
+        self::mockTime('2026-03-04 09:00:00');
+        $client = self::createClient();
+
+        $crawler = $client->request('GET', '/design-system?sort=size&direction=desc');
+
+        $nav = $crawler->filter('section#pagination figure nav');
+        self::assertSame('6', trim($nav->filter('[aria-current="page"]')->text()));
+        self::assertSame('?sort=size&direction=desc&pagina=7#pagination', $nav->selectLink('Próxima')->attr('href'));
     }
 
     public function testShowsOnlyTheDeadlineStatesTheCalendarAllowsOnAWeekend(): void

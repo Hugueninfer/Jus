@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Domain\LegalCase\PartySide;
+use App\Domain\Text\SearchText;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -20,7 +21,11 @@ class Party
     /** @var Collection<int, User> */
     #[ORM\ManyToMany(targetEntity: User::class)]
     #[ORM\JoinTable(name: 'party_lawyer')]
+    #[ORM\OrderBy(['name' => 'ASC'])]
     private Collection $lawyers;
+
+    #[ORM\Column(length: 160, options: ['default' => ''])]
+    private string $searchName;
 
     public function __construct(
         #[ORM\ManyToOne(inversedBy: 'parties')]
@@ -34,6 +39,7 @@ class Party
         private PartySide $side,
     ) {
         $this->lawyers = new ArrayCollection();
+        $this->searchName = SearchText::normalize($name);
     }
 
     public function addLawyer(User $lawyer): void
@@ -65,6 +71,11 @@ class Party
     public function getName(): string
     {
         return $this->name;
+    }
+
+    public function getSearchName(): string
+    {
+        return $this->searchName;
     }
 
     public function getTaxId(): string

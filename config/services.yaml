@@ -33,3 +33,11 @@ when@test:
         Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface:
             alias: security.user_password_hasher
             public: true
+
+        # Lets integration tests count the SELECTs a repository method runs (see tests/Support/QueryRecorder.php).
+        App\Tests\Support\QueryRecorder:
+            factory: ['App\Tests\Support\QueryRecorder', 'instance']
+        test.dbal_query_recorder:
+            class: Doctrine\DBAL\Logging\Middleware
+            arguments: ['@App\Tests\Support\QueryRecorder']
+            tags: [doctrine.middleware]

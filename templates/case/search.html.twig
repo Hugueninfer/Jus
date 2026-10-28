@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Processos · Jus{% endblock %}
+
+{% block body %}
+    <h1 class="h2 mb-3">Processos</h1>
+
+    {{ form_start(form, {attr: {class: 'row gx-3 mb-4', role: 'search', 'aria-label': 'Buscar processos'}}) }}
+        <div class="col-12 col-md-6 col-lg-4">{{ form_row(form.numero) }}</div>
+        <div class="col-12 col-md-6 col-lg-4">{{ form_row(form.parte) }}</div>
+        <div class="col-12 col-md-6 col-lg-4">{{ form_row(form.status) }}</div>
+        <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+            <button type="submit" class="btn btn-primary">Buscar</button>
+            <a class="btn btn-link" href="{{ path('case_search') }}">Limpar</a>
+        </div>
+    {{ form_end(form, {render_rest: false}) }}
+
+    {% if result is not null %}
+        <h2 class="h4" id="resultados" tabindex="-1">
+            {{ result.total }} {{ result.total == 1 ? 'processo encontrado' : 'processos encontrados' }}
+        </h2>
+
+        {% if result.cases is empty %}
+            <twig:Alert type="info">Nenhum processo encontrado.</twig:Alert>
+        {% else %}
+            <ul class="list-unstyled row g-3 jus-case-list" role="list">
+                {% for case in result.cases %}
+                    <li class="col-12 col-lg-6">
+                        <twig:CaseCard :case="case" :latestEvent="latestEvents[case.id] ?? null" :latestEventKnown="true" :href="'/processos/' ~ case.number.formatted" />
+                    </li>
+                {% endfor %}
+            </ul>
+            <twig:Pagination :page="result.page" :pages="result.pages" label="Paginação dos resultados" anchor="resultados" />
+        {% endif %}
+    {% endif %}
+{% endblock %}

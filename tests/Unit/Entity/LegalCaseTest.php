@@ -94,6 +94,30 @@ final class LegalCaseTest extends TestCase
         $case->file(FilingType::Statement, 'Manifestação.', new \DateTimeImmutable('2024-03-15 16:00'), User::lawyer('carla@jus.test', 'Carla Mendes', 'SP 654.321'));
     }
 
+    public function testListsDocumentsFromTheNewestEvent(): void
+    {
+        $case = self::legalCase();
+        $lawyer = User::lawyer('ana@jus.test', 'Ana Ribeiro', 'SP 123.456');
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($lawyer);
+
+        $older = $case->file(FilingType::InitialPetition, 'Petição inicial.', new \DateTimeImmutable('2024-03-04 10:00'), $lawyer)
+            ->attach('Petição inicial', 'inicial.pdf', 'stored-1.pdf', 1_000, $lawyer, new \DateTimeImmutable('2024-03-04 10:00'));
+        $newer = $case->file(FilingType::Statement, 'Manifestação.', new \DateTimeImmutable('2024-05-02 09:00'), $lawyer)
+            ->attach('Manifestação', 'manifestacao.pdf', 'stored-2.pdf', 2_000, $lawyer, new \DateTimeImmutable('2024-05-02 09:00'));
+        $case->record(EventType::Order, 'Despacho sem documentos.', new \DateTimeImmutable('2024-06-01 09:00'));
+
+        self::assertSame([$newer, $older], $case->getDocuments());
+    }
+
+    public function testKeepsTheRecordingOrderForEventsAtTheSameTime(): void
+    {
+        $case = self::legalCase();
+        $first = $case->record(EventType::Order, 'Primeiro.', new \DateTimeImmutable('2024-03-10 09:00'));
+        $second = $case->record(EventType::Decision, 'Segundo.', new \DateTimeImmutable('2024-03-10 09:00'));
+
+        self::assertSame([$first, $second], $case->getEvents());
+    }
+
     private static function legalCase(CaseStatus $status = CaseStatus::Active, bool $confidential = false): LegalCase
     {
         return new LegalCase(

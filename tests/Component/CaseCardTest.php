@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Component;
 
 use App\Domain\LegalCase\CaseStatus;
+use App\Domain\LegalCase\EventType;
 use App\Domain\LegalCase\PartySide;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -74,6 +75,37 @@ final class CaseCardTest extends KernelTestCase
         $card = $this->renderTwigComponent('CaseCard', ['case' => $case])->crawler();
 
         self::assertSame(['Polo ativo', 'Maria Oliveira', 'Polo passivo', '—'], self::texts($card->filter('dl')->children()));
+    }
+
+    public function testShowsTheLatestEventItIsGivenInsteadOfLookingItUpInTheCase(): void
+    {
+        // Not the case's own newest event (a decision on 02/04/2024): the card must show this one, as the search page
+        // hands it the events it fetched for the whole page in a single query.
+        $hearing = Samples::bareCase()->record(EventType::Hearing, 'Audiência de conciliação.', new \DateTimeImmutable('2024-05-06 14:00'));
+
+        $card = $this->renderTwigComponent('CaseCard', ['case' => Samples::legalCase(), 'latestEvent' => $hearing])->crawler();
+
+        self::assertSame('Última movimentação: 06/05/2024 — Audiência', trim(preg_replace('/\s+/', ' ', $card->filter('.jus-case-card-last-event')->text()) ?? ''));
+        self::assertSame('2024-05-06T14:00:00-03:00', $card->filter('.jus-case-card-last-event time')->attr('datetime'));
+    }
+
+    public function testTrustsACallerThatSaysTheCaseHasNoLatestEvent(): void
+    {
+        // The search page looks the latest events up for the whole page; a case missing from that lookup has none, so
+        // the card must not fall back to reading the case's own events (one query per case).
+        $card = $this->renderTwigComponent('CaseCard', ['case' => Samples::legalCase(), 'latestEvent' => null, 'latestEventKnown' => true])->crawler();
+
+        self::assertCount(1, $card->filter('article.jus-case-card'));
+        self::assertCount(0, $card->filter('.jus-case-card-last-event'));
+    }
+
+    public function testStillShowsTheGivenLatestEventWhenTheCallerKnowsIt(): void
+    {
+        $hearing = Samples::bareCase()->record(EventType::Hearing, 'Audiência de conciliação.', new \DateTimeImmutable('2024-05-06 14:00'));
+
+        $card = $this->renderTwigComponent('CaseCard', ['case' => Samples::legalCase(), 'latestEvent' => $hearing, 'latestEventKnown' => true])->crawler();
+
+        self::assertStringContainsString('Audiência', $card->filter('.jus-case-card-last-event')->text());
     }
 
     public function testLeavesOutTheLastEventWhenThereIsNone(): void

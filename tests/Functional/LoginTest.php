@@ -41,7 +41,10 @@ final class LoginTest extends WebTestCase
 
         self::assertResponseRedirects('/');
         $client->followRedirect();
-        self::assertSelectorTextContains('h1', 'Olá, Ana Ribeiro');
+        self::assertResponseRedirects('/processos');
+        $client->followRedirect();
+        self::assertSelectorTextContains('h1', 'Processos');
+        self::assertSelectorTextContains('nav', 'Ana Ribeiro');
     }
 
     public function testAWrongPasswordShowsAnError(): void
@@ -94,7 +97,7 @@ final class LoginTest extends WebTestCase
         $client = self::createClient();
         $client->loginUser($this->createUser(User::clerk('joao@jus.test', 'João Almeida'), 'senha-correta'));
 
-        $client->request('GET', '/');
+        $client->request('GET', '/processos');
         self::assertResponseIsSuccessful();
 
         $client->clickLink('Sair');
@@ -112,7 +115,7 @@ final class LoginTest extends WebTestCase
         $client->request('GET', '/logout');
         self::assertResponseStatusCodeSame(403);
 
-        $client->request('GET', '/');
+        $client->request('GET', '/processos');
         self::assertResponseIsSuccessful();
     }
 
