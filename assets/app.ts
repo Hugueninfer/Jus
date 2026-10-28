@@ -5,3 +5,6 @@ import './styles/app.scss';
 import 'bootstrap/js/dist/alert';
 import 'bootstrap/js/dist/offcanvas';
 import 'bootstrap/js/dist/tab';
+
+// The Web Components (registered as custom elements on load).
+import './components';

@@ -43,6 +43,11 @@ describe('assessCnj', () => {
     ['0000001-39', 'incomplete'],
     ['0000001-40.2024.8.26.0100', 'invalid'],
     ['0000001-39.2024.8.26.0100', 'valid'],
+    // 20 digits or more are complete enough to be checked, but only exactly 20 pass the format check.
+    ['000000139202482601001', 'invalid'],
+    ['0000001-39.2024.8.26.0100 1', 'invalid'],
+    ['0000001-39.2024.8.26.0100A', 'invalid'],
+    ['0000001A3920248260100', 'invalid'],
   ] as const)('assesses %j as %s', (input, expected) => {
     expect(assessCnj(input)).toBe(expected);
   });

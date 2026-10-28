@@ -25,6 +25,10 @@ export function formatCnj(digits: string): string {
   return maskPartial(digits);
 }
 
+/**
+ * The two check digits (ISO 7064 MOD 97-10) for the number without them: exactly 18 digits,
+ * the 7 of the sequence followed by the 11 from the year on. Other lengths or non-digits give meaningless results.
+ */
 export function checkDigitsFor(eighteenDigits: string): string {
   let remainder = 0;
   for (const digit of `${eighteenDigits}00`) {
