@@ -138,13 +138,29 @@ final class CasePageTest extends WebTestCase
         self::assertSame('Página não encontrada', trim($crawler->filter('main h1')->text()));
         self::assertSame('/processos', $crawler->filter('main a.btn')->attr('href'));
         $body = (string) $this->client->getResponse()->getContent();
-        self::assertStringNotContainsString('<script>', $body);
+        // The raw input must be absent from the content (the layout's own scripts are not the request's input).
+        self::assertStringNotContainsString('<script>', $crawler->filter('main')->html());
         self::assertStringNotContainsString('alert(1)', $body);
         self::assertStringNotContainsString('&lt;script', $body);
         self::assertStringNotContainsString('alert%281%29', $body);
     }
 
-    public function testTheForbiddenPageShowsNothingOfTheCase(): void
+    public function testAValidButUnknownNumberShowsTheNotFoundPage(): void
+    {
+        $this->boot(['debug' => false]);
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana);
+        $this->client->loginUser($ana);
+
+        $crawler = $this->client->request('GET', '/processos/'.CnjNumber::compose('0009999', '2024', '8', '26', '0100')->formatted());
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('Página não encontrada', trim($crawler->filter('main h1')->text()));
+        self::assertSame('/processos', $crawler->filter('main a.btn')->attr('href'));
+        self::assertStringNotContainsString('0009999', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testAConfidentialCaseLooksLikeAnUnknownOneToOtherLawyers(): void
     {
         $this->boot(['debug' => false]);
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
@@ -152,16 +168,26 @@ final class CasePageTest extends WebTestCase
         $this->data->legalCase('0000001', $bruno, confidential: true);
         $this->client->loginUser($ana);
 
+        $unknown = $this->client->request('GET', '/processos/'.CnjNumber::compose('0009999', '2024', '8', '26', '0100')->formatted());
+        self::assertResponseStatusCodeSame(404);
+        $unknownHeading = trim($unknown->filter('main h1')->text());
+        $unknownContent = trim($unknown->filter('main')->text());
+
         $crawler = $this->client->request('GET', self::URL);
 
-        self::assertResponseStatusCodeSame(403);
-        self::assertSame('Acesso negado', trim($crawler->filter('main h1')->text()));
+        // The same page as for a number that does not exist: nothing tells the lawyer that the case is there.
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('Página não encontrada', trim($crawler->filter('main h1')->text()));
+        self::assertSame($unknownHeading, trim($crawler->filter('main h1')->text()));
+        self::assertSame($unknownContent, trim($crawler->filter('main')->text()));
         $body = (string) $this->client->getResponse()->getContent();
         self::assertStringNotContainsString('Maria Oliveira', $body);
         self::assertStringNotContainsString('Procedimento Comum Cível', $body);
+        self::assertStringNotContainsString('Sigiloso', $body);
+        self::assertStringNotContainsString('Acesso negado', $body);
     }
 
-    public function testConfidentialCasesAreForbiddenToOtherLawyers(): void
+    public function testConfidentialCasesAreOnlyVisibleToTheClerkAndTheRepresentingLawyers(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $bruno = $this->data->lawyer('bruno@jus.test', 'Bruno Teixeira');
@@ -170,7 +196,7 @@ final class CasePageTest extends WebTestCase
 
         $this->client->loginUser($ana);
         $this->client->request('GET', self::URL);
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(404);
 
         $this->client->loginUser($bruno);
         $this->client->request('GET', self::URL);

@@ -67,9 +67,13 @@ final class CaseController extends AbstractController
             return $this->redirectToRoute('case_show', [...$request->query->all(), 'numero' => $numero->formatted()], Response::HTTP_MOVED_PERMANENTLY);
         }
 
-        $case = $cases->findOneForPage($numero) ?? throw $this->createNotFoundException('Processo não encontrado.');
-        // findOneForPage() applies no visibility rule: this is the only thing keeping a confidential case away from other lawyers.
-        $this->denyAccessUnlessGranted(LegalCaseVoter::VIEW, $case);
+        $case = $cases->findOneForPage($numero);
+        // findOneForPage() applies no visibility rule: this check is the only thing keeping a confidential case away from
+        // other lawyers. A case the user may not view is answered exactly like one that does not exist (like the search,
+        // which never lists it): the response must not reveal that it is there. A 403 is for actions (filing), not for viewing.
+        if (null === $case || !$this->isGranted(LegalCaseVoter::VIEW, $case)) {
+            throw $this->createNotFoundException('Processo não encontrado.');
+        }
 
         $tab = 'documentos' === self::queryString($request, 'aba') ? 'documentos' : 'movimentacoes';
 

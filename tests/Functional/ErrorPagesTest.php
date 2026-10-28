@@ -62,7 +62,7 @@ final class ErrorPagesTest extends WebTestCase
         self::assertSelectorTextContains('nav', 'Ana Ribeiro');
     }
 
-    public function testForbiddenCasesUseTheAccessDeniedPage(): void
+    public function testAConfidentialCaseUsesTheNotFoundPageToo(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $bruno = $this->data->lawyer('bruno@jus.test', 'Bruno Teixeira');
@@ -70,6 +70,20 @@ final class ErrorPagesTest extends WebTestCase
         $this->client->loginUser($ana);
 
         $crawler = $this->client->request('GET', '/processos/0000001-39.2024.8.26.0100');
+
+        // A case the user may not see is answered exactly like one that does not exist, never with a 403.
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('Página não encontrada', trim($crawler->filter('main#conteudo h1')->text()));
+        self::assertStringNotContainsString('Maria Oliveira', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testRefusedActionsUseTheAccessDeniedPage(): void
+    {
+        // Leaving without the CSRF token is refused with a 403 (see LoginTest): the one place that answers it today.
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->client->loginUser($ana);
+
+        $crawler = $this->client->request('GET', '/logout');
 
         self::assertResponseStatusCodeSame(403);
         self::assertCount(1, $crawler->filter('h1'));
@@ -81,7 +95,11 @@ final class ErrorPagesTest extends WebTestCase
         self::assertSame('/processos', $action->attr('href'));
         $body = (string) $this->client->getResponse()->getContent();
         self::assertStringNotContainsString('Access Denied', $body);
-        self::assertStringNotContainsString('Maria Oliveira', $body);
+        self::assertStringNotContainsString('Invalid CSRF token', $body);
+
+        // Refusing the request did not sign the user out.
+        $this->client->request('GET', '/processos');
+        self::assertResponseIsSuccessful();
     }
 
     public function testOtherClientErrorsUseTheGenericPage(): void
