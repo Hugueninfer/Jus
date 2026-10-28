@@ -24,27 +24,35 @@
 
     <section class="mb-4" aria-labelledby="partes">
         <h2 class="h4" id="partes">Partes</h2>
-        <div class="row g-3">
-            {% for party in case.parties %}
-                <div class="col-12 col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <p class="small text-body-secondary mb-1">{{ party.side|label }}</p>
-                            <h3 class="h6 fw-semibold mb-1">{{ party.name }}</h3>
-                            <p class="small mb-2">{{ party.taxId }}</p>
-                            {% if party.lawyers is not empty %}
-                                <p class="small mb-0">
-                                    Advogados:
-                                    {% for lawyer in party.lawyers %}{{ lawyer.name }} ({{ lawyer.oabNumber }}){{ loop.last ? '' : ', ' }}{% endfor %}
-                                </p>
-                            {% else %}
-                                <p class="small mb-0 text-body-secondary">Sem advogado constituído.</p>
-                            {% endif %}
-                        </div>
+        {% for group in case.partiesBySide %}
+            <div class="mt-3">
+                <h3 class="h5">{{ group.side|label }}</h3>
+                {% if group.parties is empty %}
+                    <p class="text-body-secondary mb-0"><span aria-hidden="true">—</span><span class="visually-hidden">Nenhuma parte.</span></p>
+                {% else %}
+                    <div class="row g-3">
+                        {% for party in group.parties %}
+                            <div class="col-12 col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h4 class="h6 fw-semibold mb-1">{{ party.name }}</h4>
+                                        <p class="small mb-2">{{ party.taxId }}</p>
+                                        {% if party.lawyers is not empty %}
+                                            <p class="small mb-0">
+                                                Advogados:
+                                                {% for lawyer in party.lawyers %}{{ lawyer.name }} ({{ lawyer.oabNumber }}){{ loop.last ? '' : ', ' }}{% endfor %}
+                                            </p>
+                                        {% else %}
+                                            <p class="small mb-0 text-body-secondary">Sem advogado constituído.</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
-                </div>
-            {% endfor %}
-        </div>
+                {% endif %}
+            </div>
+        {% endfor %}
     </section>
 
     <section class="mb-4" aria-labelledby="prazos">

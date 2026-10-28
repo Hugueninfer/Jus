@@ -8,6 +8,9 @@ use App\Domain\Text\SearchText;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
+/**
+ * The backfill uses App\Domain\Text\SearchText: changing its normalization later needs a migration that recomputes search_name.
+ */
 final class Version20261027204647 extends AbstractMigration
 {
     public function getDescription(): string

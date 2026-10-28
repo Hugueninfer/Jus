@@ -18,7 +18,7 @@
         <p class="mb-1 fw-semibold">{{ case.caseClass }}</p>
         <p class="mb-2 text-body-secondary">{{ case.subject }} · {{ case.court }}</p>
         <dl class="row small mb-2">
-            {% for side in this.sides %}
+            {% for side in case.partiesBySide %}
                 <dt class="col-sm-4">{{ side.side|label }}</dt>
                 {% for party in side.parties %}
                     <dd class="col-sm-8 mb-1{{ loop.first ? '' : ' offset-sm-4' }}">{{ party.name }}</dd>

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Functional;
 
 use App\Domain\CnjNumber;
+use App\Domain\LegalCase\CaseStatus;
 use App\Domain\LegalCase\EventType;
+use App\Domain\LegalCase\PartySide;
 use App\Entity\Deadline;
 use App\Entity\LegalCase;
 use App\Entity\Party;
@@ -56,14 +58,83 @@ final class CasePageTest extends WebTestCase
         self::assertSame('04/03/2024', $crawler->filter('main dl time')->text());
 
         self::assertSame(['Partes', 'Prazos', 'Andamento'], $crawler->filter('main h2')->each(static fn (Crawler $h): string => trim($h->text())));
+        self::assertSame(['Polo ativo', 'Polo passivo'], $crawler->filter('section[aria-labelledby="partes"] h3')->each(static fn (Crawler $h): string => trim($h->text())));
         $parties = $crawler->filter('section[aria-labelledby="partes"] .card');
         self::assertCount(2, $parties);
-        self::assertSame('Polo ativo', trim($parties->eq(0)->filter('p')->first()->text()));
-        self::assertSame('Maria Oliveira', trim($parties->eq(0)->filter('h3')->text()));
+        self::assertSame('Maria Oliveira', trim($parties->eq(0)->filter('h4')->text()));
         self::assertNotNull($ana->getOabNumber());
         self::assertStringContainsString('Ana Ribeiro ('.$ana->getOabNumber().')', $parties->eq(0)->text());
-        self::assertSame('Empresa X Ltda.', trim($parties->eq(1)->filter('h3')->text()));
+        self::assertSame('Empresa X Ltda.', trim($parties->eq(1)->filter('h4')->text()));
         self::assertStringContainsString('Sem advogado constituído.', $parties->eq(1)->text());
+    }
+
+    public function testGroupsThePartiesBySideWhateverTheOrderTheyWereAdded(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $case = new LegalCase(
+            CnjNumber::compose('0000001', '2024', '8', '26', '0100'),
+            'Procedimento Comum Cível',
+            'Indenização por dano moral',
+            '1ª Vara Cível',
+            CaseStatus::Active,
+            false,
+            1_500_000,
+            new \DateTimeImmutable('2024-03-04 10:00'),
+        );
+        // The defendant goes in first, so the stored (id) order is the opposite of the reading order.
+        $case->addParty('Empresa X Ltda.', '12.345.678/0001-90', PartySide::Defendant);
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($ana);
+        $case->addParty('Empresa Y S.A.', '98.765.432/0001-10', PartySide::Defendant);
+        $case->addParty('João Souza', '987.654.321-00', PartySide::Plaintiff);
+        $this->em->persist($case);
+        $this->em->flush();
+        $this->client->loginUser($ana);
+
+        $crawler = $this->client->request('GET', self::URL);
+
+        self::assertResponseIsSuccessful();
+        $section = $crawler->filter('section[aria-labelledby="partes"]');
+        // Heading order: Partes (h2) > side (h3) > party (h4), each party under its own side.
+        self::assertSame(
+            ['h2:Partes', 'h3:Polo ativo', 'h4:Maria Oliveira', 'h4:João Souza', 'h3:Polo passivo', 'h4:Empresa X Ltda.', 'h4:Empresa Y S.A.'],
+            $section->filter('h2, h3, h4')->each(static fn (Crawler $h): string => $h->nodeName().':'.trim($h->text())),
+        );
+        $sides = $crawler->filter('section[aria-labelledby="partes"] > div');
+        self::assertCount(2, $sides);
+        self::assertSame(['Maria Oliveira', 'João Souza'], $sides->eq(0)->filter('h4')->each(static fn (Crawler $h): string => trim($h->text())));
+        self::assertSame(['Empresa X Ltda.', 'Empresa Y S.A.'], $sides->eq(1)->filter('h4')->each(static fn (Crawler $h): string => trim($h->text())));
+        self::assertStringContainsString('Ana Ribeiro', $sides->eq(0)->filter('.card')->eq(0)->text());
+        self::assertStringContainsString('Sem advogado constituído.', $sides->eq(0)->filter('.card')->eq(1)->text());
+    }
+
+    public function testASideWithoutPartiesShowsADash(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $case = new LegalCase(
+            CnjNumber::compose('0000001', '2024', '8', '26', '0100'),
+            'Procedimento Comum Cível',
+            'Indenização por dano moral',
+            '1ª Vara Cível',
+            CaseStatus::Active,
+            false,
+            1_500_000,
+            new \DateTimeImmutable('2024-03-04 10:00'),
+        );
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($ana);
+        $this->em->persist($case);
+        $this->em->flush();
+        $this->client->loginUser($ana);
+
+        $crawler = $this->client->request('GET', self::URL);
+
+        self::assertResponseIsSuccessful();
+        $section = $crawler->filter('section[aria-labelledby="partes"]');
+        self::assertSame(['Polo ativo', 'Polo passivo'], $section->filter('h3')->each(static fn (Crawler $h): string => trim($h->text())));
+        self::assertSame(['Maria Oliveira'], $section->filter('h4')->each(static fn (Crawler $h): string => trim($h->text())));
+        $empty = $crawler->filter('section[aria-labelledby="partes"] > div')->eq(1);
+        self::assertSame('—', trim($empty->filter('p')->filter('[aria-hidden="true"]')->text()));
+        self::assertSame('Nenhuma parte.', trim($empty->filter('p .visually-hidden')->text()));
+        self::assertCount(0, $empty->filter('.card'));
     }
 
     public function testRedirectsPlainNumbersToTheMaskedUrl(): void
