@@ -43,7 +43,7 @@ final class ErrorPagesTest extends WebTestCase
         self::assertStringNotContainsString('/nao-existe', (string) $this->client->getResponse()->getContent());
     }
 
-    public function testAnUnknownCaseUsesTheNotFoundPage(): void
+    public function testAnInvalidCaseNumberUsesTheNotFoundPage(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $this->client->loginUser($ana);
@@ -89,13 +89,16 @@ final class ErrorPagesTest extends WebTestCase
         self::assertCount(1, $crawler->filter('h1'));
         self::assertSame('Acesso negado', trim($crawler->filter('main#conteudo h1')->text()));
         self::assertSelectorTextContains('title', 'Acesso negado · Jus');
-        self::assertStringContainsString('Você não tem permissão para ver este conteúdo.', $crawler->filter('main#conteudo')->text());
+        self::assertStringContainsString('Você não tem permissão para fazer isso.', $crawler->filter('main#conteudo')->text());
         $action = $crawler->filter('main#conteudo a.btn');
         self::assertSame('Ir para a busca', trim($action->text()));
         self::assertSame('/processos', $action->attr('href'));
         $body = (string) $this->client->getResponse()->getContent();
         self::assertStringNotContainsString('Access Denied', $body);
         self::assertStringNotContainsString('Invalid CSRF token', $body);
+        // The exception is raised inside the firewall, so (unlike an unknown route) the page knows who is signed in.
+        self::assertSelectorTextContains('nav', 'Ana Ribeiro');
+        self::assertSelectorTextNotContains('nav', 'Entrar');
 
         // Refusing the request did not sign the user out.
         $this->client->request('GET', '/processos');

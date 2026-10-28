@@ -23,7 +23,7 @@
                 {% for party in side.parties %}
                     <dd class="col-sm-8 mb-1{{ loop.first ? '' : ' offset-sm-4' }}">{{ party.name }}</dd>
                 {% else %}
-                    <dd class="col-sm-8 mb-1">—</dd>
+                    <dd class="col-sm-8 mb-1"><span aria-hidden="true">—</span><span class="visually-hidden">Nenhuma parte.</span></dd>
                 {% endfor %}
             {% endfor %}
         </dl>

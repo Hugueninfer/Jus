@@ -64,8 +64,8 @@ class LegalCase
     }
 
     /**
-     * Every side of the case, plaintiffs first, with its parties in the order they were added (possibly none): the
-     * reading order of the case page and of the case card, whatever order the parties were stored in.
+     * Every side of the case, with its parties (possibly none) in the order they were added; plaintiffs first even if a
+     * defendant was added first. This is the reading order of the case page and of the case card.
      *
      * @return list<array{side: PartySide, parties: list<Party>}>
      */

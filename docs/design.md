@@ -222,8 +222,9 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 | `FILE` | Apenas advogado de alguma parte do processo, e o processo não pode estar `ARCHIVED`. |
 
 - O download de documento exige `VIEW` no processo do documento.
+- **Uma regra para toda rota de um processo** (a página, o peticionamento e o download de documento): quem não tem `VIEW` recebe o mesmo 404 de um número inexistente ou inválido. O 403 só vale quando o usuário **pode ver** o processo mas não pode agir sobre ele: `FILE` num processo arquivado, num processo público em que ele não representa nenhuma parte, ou o servidor, que vê tudo mas nunca peticiona. Por isso a checagem vem em duas etapas: primeiro `VIEW` (404), depois `FILE` (403). Se o 403 viesse antes, ou no lugar do 404, a resposta revelaria que o processo sigiloso existe (quem não vê o processo também não tem `FILE`). O peticionamento e o download chegam na etapa 8 da seção 13.
 - A busca aplica a regra do `VIEW` **na própria consulta ao banco** (`LegalCaseRepository::onlyVisibleTo()`), sem passar pelo Voter, e um teste de integração mantém as duas iguais: para servidor, advogado de cada polo e advogado sem relação, em processo público e sigiloso, a busca e a consulta por número decidem como o Voter.
-- A página do processo carrega o processo e então consulta o Voter. Quem não pode ver um sigiloso recebe 404, exatamente como para um número inexistente ou inválido: o sistema nunca revela que um processo sigiloso existe (seção 8). O 403 fica reservado para ações que o usuário não pode executar, como peticionar (`FILE`), que chega na etapa 8 da seção 13.
+- A página do processo carrega o processo e então consulta o Voter. Quem não pode ver um sigiloso recebe 404, exatamente como para um número inexistente ou inválido: o sistema nunca revela que um processo sigiloso existe (seção 8).
 
 ### 5.6 Peticionamento (`FilingService`)
 
@@ -254,7 +255,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 |---|---|---|---|
 | `StatusBadge` | anônimo | `status: CaseStatus` | Mapeia o status para variante, ícone e rótulo; o rótulo é sempre texto (não só cor) |
 | `Alert` | anônimo | `type` (success, danger, warning, info; `error` vira danger), `dismissible` | Mensagem de feedback: `role="alert"` para danger e warning, `role="status"` para as demais. A gravidade não depende só da cor: ícone decorativo e prefixo oculto para leitores de tela ("Erro:", "Atenção:", "Sucesso:", "Informação:") |
-| `CaseCard` | classe | `case: LegalCase`, `href` (opcional), `latestEvent` (opcional), `latestEventKnown` | Número formatado, classe, partes por polo (rótulos do `PartySide`, uma linha por parte, "—" no polo vazio; o agrupamento é o de `LegalCase::getPartiesBySide()`, o mesmo da página do processo), órgão, status, selo "Sigiloso" e último evento. Com `href`, o número vira um link que cobre o cartão. Quem monta uma lista passa `latestEvent` com `latestEventKnown` verdadeiro: então `latestEvent` nulo significa "sem movimentações" e o cartão não toca na coleção de eventos do processo. A busca carrega os últimos eventos da página inteira numa consulta só, e os cartões nunca carregam nada sob demanda. Sem essas props, o cartão lê o primeiro evento da coleção (a mais recente) |
+| `CaseCard` | classe | `case: LegalCase`, `href` (opcional), `latestEvent` (opcional), `latestEventKnown` | Número formatado, classe, partes por polo (rótulos do `PartySide`, uma linha por parte, "—" no polo vazio, com "Nenhuma parte." oculto para leitores de tela; o agrupamento é o de `LegalCase::getPartiesBySide()`, o mesmo da página do processo), órgão, status, selo "Sigiloso" e último evento. Com `href`, o número vira um link que cobre o cartão. Quem monta uma lista passa `latestEvent` com `latestEventKnown` verdadeiro: então `latestEvent` nulo significa "sem movimentações" e o cartão não toca na coleção de eventos do processo. A busca carrega os últimos eventos da página inteira numa consulta só, e os cartões nunca carregam nada sob demanda. Sem essas props, o cartão lê o primeiro evento da coleção (a mais recente) |
 | `Timeline` | classe | `events: list<CaseEvent>`, `emptyMessage` | `<ol>` agrupada por data; cada item tem `data-event-type`, `data-event-label` (rótulo em português, usado pelo filtro) e ícone por tipo |
 | `DataTable` | classe | `columns`, `rows`, `sort`, `direction`, `caption`, `anchor`, `emptyMessage` | Ordenação no servidor por links com query string (só colunas com `sortable`), com `Collator` `pt_BR` e números no texto pelo valor. Opções de coluna: `sortable`, `format` (`date`, `datetime`, `bytes`, `brl`, `label`) e `href` (chave da linha com a URL; a célula vira link). Cada `<td>` tem `data-label`; abaixo de `md` vira lista de cards só com CSS, e uma navegação "Ordenar por" repete os links de ordenação que o cabeçalho escondido levava |
 | `DeadlineIndicator` | classe | `deadline: Deadline` | Usa `DeadlineCalculator` e `ClockInterface`; exibe "Vence em N dias úteis (dd/mm)" com a variante do estado |
@@ -313,9 +314,9 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 | GET | `/logout` | `app_logout` | autenticado, com token CSRF |
 | GET | `/` | `app_home` | redireciona para `/processos` |
 | GET | `/processos` | `case_search` | autenticado |
-| GET | `/processos/{numero}` | `case_show` | `VIEW` (sem permissão: 404) |
-| GET, POST | `/processos/{numero}/peticionar` | `case_file` | `FILE` |
-| GET | `/documentos/{id}` | `document_download` | `VIEW` no processo |
+| GET | `/processos/{numero}` | `case_show` | `VIEW` (sem `VIEW`: 404) |
+| GET, POST | `/processos/{numero}/peticionar` | `case_file` | `FILE` (sem `VIEW`: 404; com `VIEW` e sem `FILE`: 403) |
+| GET | `/documentos/{id}` | `document_download` | `VIEW` no processo (sem `VIEW` no processo: 404) |
 | GET | `/design-system` | `design_system` | público |
 
 - O logout exige o token CSRF: o link "Sair" é gerado com `logout_path('main')`, e um `/logout` sem token responde 403 sem encerrar a sessão.
@@ -327,7 +328,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 - Número válido que corresponde a um processo **que o usuário pode ver** → redireciona direto para `case_show`, na URL mascarada; os demais filtros (`parte`, `status`) são ignorados nesse redirect. Um `status` inválido mostra um erro ao lado do campo, na própria página, e não lista processos. Se o processo não existe ou é um sigiloso do qual o usuário não participa, a resposta é a mesma: "Nenhum processo encontrado." A busca nunca revela a existência de um processo sigiloso.
 - Resultados: um `h2` com o total, os `<twig:CaseCard>` ordenados por `filedAt` decrescente (empate pelo maior id), 10 por página (Doctrine Paginator) e a `<twig:Pagination>` com os filtros preservados; sem resultados, um `<twig:Alert>` com o estado vazio. Um nome de parte sem nada pesquisável (só um acento, por exemplo) não encontra ninguém, em vez de listar tudo.
 - `pagina` malformada (texto, vazia, decimal, lista) vale a primeira página; além da última, a resposta é um redirect para a última página, com os demais parâmetros.
-- Número fixo de consultas, qualquer que seja o tamanho da página, para uma página **com resultados**: 5 (atualização do usuário, contagem e ids do paginador, processos com partes, últimas movimentações). Um teste confere. Sem resultados rodam menos (3: atualização do usuário, contagem e ids; as duas últimas não rodam).
+- Número fixo de consultas, qualquer que seja o tamanho da página, para uma página **com resultados**: 5 (atualização do usuário, contagem e ids do paginador, processos com partes, últimas movimentações). Um teste confere. Sem resultados rodam menos: 3 (atualização do usuário, contagem e ids do paginador) ou, com o filtro `numero`, 4 (a consulta do processo por número entra antes); com um filtro inválido, só a atualização do usuário.
 
 **Processo (`/processos/{numero}`)**
 - Número sem máscara → redirect 301 para a URL mascarada, mantendo a query string (`aba`, `sort`, `direction`). Número inválido ou sem processo → 404, e o número digitado nunca é repetido na página. Sigiloso de outro advogado → o mesmo 404 e a mesma página, sem dado algum do processo: nada diferencia um sigiloso que o usuário não pode ver de um número que não existe (seção 8).
@@ -360,7 +361,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 | Número CNJ inválido na busca | Erro no campo do formulário, sem exceção |
 | Número válido não encontrado na busca (ou sigiloso de outro advogado) | Estado vazio "Nenhum processo encontrado." |
 | Sigiloso de outro advogado na URL | 404 "Página não encontrada", a mesma página de um número inexistente: o sistema nunca revela que um processo sigiloso existe |
-| Ação que o usuário não pode executar (hoje, o logout sem token CSRF; depois, peticionar sem a permissão `FILE`) | 403 "Acesso negado", sem detalhes da exceção |
+| Ação que o usuário não pode executar num processo que **pode ver** (depois: peticionar com `VIEW` e sem `FILE`) ou ação recusada pelo sistema (hoje: o logout sem token CSRF) | 403 "Acesso negado", sem detalhes da exceção. Quem não tem `VIEW` nunca chega ao 403: recebe o 404 da linha acima, em qualquer rota do processo |
 | Não autenticado | Redirect para `/login`, nas rotas que existem |
 | `pagina`, `aba`, `sort` ou `direction` malformados | Valor padrão, sem erro |
 | `pagina` além da última página | Redirect para a última página |

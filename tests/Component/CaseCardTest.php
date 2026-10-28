@@ -74,7 +74,14 @@ final class CaseCardTest extends KernelTestCase
 
         $card = $this->renderTwigComponent('CaseCard', ['case' => $case])->crawler();
 
-        self::assertSame(['Polo ativo', 'Maria Oliveira', 'Polo passivo', '—'], self::texts($card->filter('dl')->children()));
+        $list = $card->filter('dl');
+        self::assertSame(['dt', 'dd', 'dt', 'dd'], $list->children()->each(static fn (Crawler $node): string => $node->nodeName()));
+        self::assertSame(['Polo ativo', 'Polo passivo'], self::texts($list->filter('dt')));
+        self::assertSame('Maria Oliveira', trim($list->filter('dd')->eq(0)->text()));
+        // Same pattern as the case page: a dash for the eye, and words for a screen reader.
+        $empty = $list->filter('dd')->eq(1);
+        self::assertSame('—', trim($empty->filter('[aria-hidden="true"]')->text()));
+        self::assertSame('Nenhuma parte.', trim($empty->filter('.visually-hidden')->text()));
     }
 
     public function testShowsTheLatestEventItIsGivenInsteadOfLookingItUpInTheCase(): void
