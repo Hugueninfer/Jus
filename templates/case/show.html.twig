@@ -1,0 +1,85 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Processo {{ case.number|cnj }} · Jus{% endblock %}
+
+{% block body %}
+    <p class="mb-2"><a href="{{ path('case_search') }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar para a busca</a></p>
+
+    <header class="mb-4">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <h1 class="h3 mb-0 font-monospace">{{ case.number|cnj }}</h1>
+            {% if case.confidential %}
+                <span class="badge text-bg-dark"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
+            {% endif %}
+            <twig:StatusBadge :status="case.status" />
+        </div>
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Classe</dt><dd class="col-sm-9">{{ case.caseClass }}</dd>
+            <dt class="col-sm-3">Assunto</dt><dd class="col-sm-9">{{ case.subject }}</dd>
+            <dt class="col-sm-3">Órgão julgador</dt><dd class="col-sm-9">{{ case.court }}</dd>
+            <dt class="col-sm-3">Valor da causa</dt><dd class="col-sm-9">{{ case.claimValueInCents|brl }}</dd>
+            <dt class="col-sm-3">Distribuição</dt><dd class="col-sm-9"><time datetime="{{ case.filedAt|date('Y-m-d') }}">{{ case.filedAt|date('d/m/Y') }}</time></dd>
+        </dl>
+    </header>
+
+    <section class="mb-4" aria-labelledby="partes">
+        <h2 class="h4" id="partes">Partes</h2>
+        <div class="row g-3">
+            {% for party in case.parties %}
+                <div class="col-12 col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <p class="small text-body-secondary mb-1">{{ party.side|label }}</p>
+                            <h3 class="h6 fw-semibold mb-1">{{ party.name }}</h3>
+                            <p class="small mb-2">{{ party.taxId }}</p>
+                            {% if party.lawyers is not empty %}
+                                <p class="small mb-0">
+                                    Advogados:
+                                    {% for lawyer in party.lawyers %}{{ lawyer.name }} ({{ lawyer.oabNumber }}){{ loop.last ? '' : ', ' }}{% endfor %}
+                                </p>
+                            {% else %}
+                                <p class="small mb-0 text-body-secondary">Sem advogado constituído.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="mb-4" aria-labelledby="prazos">
+        <h2 class="h4" id="prazos">Prazos</h2>
+        {% if deadlines is empty %}
+            <p class="text-body-secondary">Nenhum prazo.</p>
+        {% else %}
+            <ul class="list-unstyled" role="list">
+                {% for deadline in deadlines %}
+                    <li class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <twig:DeadlineIndicator :deadline="deadline" />
+                        <span>{{ deadline.party.name }} — intimação em <time datetime="{{ deadline.startDate|date('Y-m-d') }}">{{ deadline.startDate|date('d/m/Y') }}</time></span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="andamento-titulo">
+        <h2 class="h4" id="andamento-titulo">Andamento</h2>
+        {# Plain links, so the tabs work without JavaScript: the server renders only the active panel. #}
+        <nav id="andamento" aria-label="Andamento do processo" tabindex="-1">
+            <ul class="nav nav-tabs mb-3">
+                {% for key, title in {movimentacoes: 'Movimentações', documentos: 'Documentos'} %}
+                    <li class="nav-item">
+                        <a class="nav-link{{ tab == key ? ' active' }}" href="?aba={{ key }}#andamento"{% if tab == key %} aria-current="page"{% endif %}>{{ title }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </nav>
+
+        {% if tab == 'documentos' %}
+            <twig:DataTable :columns="documentColumns" :rows="documentRows" :sort="sort" :direction="direction" caption="Documentos do processo" anchor="andamento" emptyMessage="Nenhum documento." />
+        {% else %}
+            <twig:Timeline :events="case.events" />
+        {% endif %}
+    </section>
+{% endblock %}

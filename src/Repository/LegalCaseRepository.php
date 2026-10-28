@@ -87,6 +87,26 @@ class LegalCaseRepository extends ServiceEntityRepository
     }
 
     /**
+     * The whole aggregate the case page shows, in one query.
+     */
+    public function findOneForPage(CnjNumber $number): ?LegalCase
+    {
+        /** @var ?LegalCase $case */
+        $case = $this->createQueryBuilder('c')
+            ->addSelect('p', 'l', 'e', 'd')
+            ->leftJoin('c.parties', 'p')
+            ->leftJoin('p.lawyers', 'l')
+            ->leftJoin('c.events', 'e')
+            ->leftJoin('e.documents', 'd')
+            ->where('c.number = :number')
+            ->setParameter('number', $number, CnjNumberDoctrineType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $case;
+    }
+
+    /**
      * Same rule as LegalCaseVoter::VIEW, applied in the query (defence in depth).
      */
     private function onlyVisibleTo(QueryBuilder $qb, User $viewer): void

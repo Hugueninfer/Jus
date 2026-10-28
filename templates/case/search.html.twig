@@ -26,7 +26,7 @@
             <ul class="list-unstyled row g-3 jus-case-list" role="list">
                 {% for case in result.cases %}
                     <li class="col-12 col-lg-6">
-                        <twig:CaseCard :case="case" :latestEvent="latestEvents[case.id] ?? null" :latestEventKnown="true" :href="'/processos/' ~ case.number.formatted" />
+                        <twig:CaseCard :case="case" :latestEvent="latestEvents[case.id] ?? null" :latestEventKnown="true" :href="path('case_show', {numero: case.number.formatted})" />
                     </li>
                 {% endfor %}
             </ul>
