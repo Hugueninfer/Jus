@@ -9,6 +9,7 @@ use App\Entity\User;
 use App\Tests\Support\QueryRecorder;
 use App\Tests\Support\TestCases;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -134,20 +135,72 @@ final class CaseSearchPageTest extends WebTestCase
         self::assertResponseRedirects('/processos?parte=maria&pagina=2');
     }
 
+    public function testAnonymousVisitorsAreSentToTheLoginPage(): void
+    {
+        $this->client->request('GET', '/processos');
+
+        self::assertResponseRedirects('/login');
+    }
+
+    public function testRejectsAnUnknownStatusWithoutListingCases(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana);
+        $this->signIn($ana);
+
+        $crawler = $this->client->request('GET', '/processos?status=bogus');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('A escolha selecionada é inválida.', trim($crawler->filter('#status_error1')->text()));
+        self::assertCount(0, $crawler->filter('article.jus-case-card'));
+        self::assertCount(0, $crawler->filter('#resultados'));
+    }
+
+    #[DataProvider('provideValuesThatAreNotAPageNumber')]
+    public function testTreatsAPageThatIsNotAnIntegerAsTheFirst(string $query): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        for ($i = 1; $i <= 12; ++$i) {
+            $this->data->legalCase(\sprintf('%07d', $i), $ana);
+        }
+        $this->signIn($ana);
+
+        $crawler = $this->client->request('GET', '/processos?'.$query);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(10, $crawler->filter('article.jus-case-card'));
+        self::assertSame('1', trim($crawler->filter('nav[aria-label="Paginação dos resultados"] [aria-current="page"]')->text()));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideValuesThatAreNotAPageNumber(): iterable
+    {
+        yield 'text' => ['pagina=abc'];
+        yield 'empty' => ['pagina='];
+        yield 'decimal' => ['pagina=1.5'];
+        yield 'list' => ['pagina[]=1'];
+        yield 'beyond the integer range' => ['pagina=99999999999999999999'];
+    }
+
     public function testUsesAFixedNumberOfQueriesForAFullPage(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         for ($i = 1; $i <= 10; ++$i) {
-            $this->data->legalCase(\sprintf('%07d', $i), $ana);
+            // Every other case has no events: the card must not go looking for them one case at a time.
+            $this->data->legalCase(\sprintf('%07d', $i), $ana, withEvents: 0 === $i % 2);
         }
         $this->signIn($ana);
         self::getContainer()->get(EntityManagerInterface::class)->clear();
 
         QueryRecorder::instance()->reset();
-        $this->client->request('GET', '/processos');
+        $crawler = $this->client->request('GET', '/processos');
 
         // user refresh, paginator count, paginator ids, cases + parties, latest events
-        self::assertLessThanOrEqual(6, \count(QueryRecorder::instance()->selects()));
+        self::assertCount(5, QueryRecorder::instance()->selects(), implode(\PHP_EOL, QueryRecorder::instance()->selects()));
+        self::assertCount(10, $crawler->filter('article.jus-case-card'));
+        self::assertCount(5, $crawler->filter('.jus-case-card-last-event'));
     }
 
     private function signIn(User $user): void

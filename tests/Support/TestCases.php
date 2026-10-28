@@ -33,7 +33,8 @@ final readonly class TestCases
     }
 
     /**
-     * A case whose plaintiff is represented by $counsel, with an initial petition (one document) and a decision.
+     * A case whose plaintiff is represented by $counsel, with an initial petition (one document) and a decision, unless
+     * $withEvents is false: a case that was just registered has no events at all.
      */
     public function legalCase(
         string $sequential,
@@ -42,6 +43,7 @@ final readonly class TestCases
         bool $confidential = false,
         CaseStatus $status = CaseStatus::Active,
         string $filedAt = '2024-03-04 10:00',
+        bool $withEvents = true,
     ): LegalCase {
         $filed = new \DateTimeImmutable($filedAt);
         $case = new LegalCase(
@@ -56,9 +58,11 @@ final readonly class TestCases
         );
         $case->addParty($plaintiff, '123.456.789-00', PartySide::Plaintiff)->addLawyer($counsel);
         $case->addParty('Empresa X Ltda.', '12.345.678/0001-90', PartySide::Defendant);
-        $case->file(FilingType::InitialPetition, 'Petição inicial distribuída.', $filed, $counsel)
-            ->attach('Petição inicial', 'peticao-inicial.pdf', 'stored-'.$sequential.'.pdf', 184_320, $counsel, $filed);
-        $case->record(EventType::Decision, 'Decisão interlocutória.', $filed->add(new \DateInterval('P20D')));
+        if ($withEvents) {
+            $case->file(FilingType::InitialPetition, 'Petição inicial distribuída.', $filed, $counsel)
+                ->attach('Petição inicial', 'peticao-inicial.pdf', 'stored-'.$sequential.'.pdf', 184_320, $counsel, $filed);
+            $case->record(EventType::Decision, 'Decisão interlocutória.', $filed->add(new \DateInterval('P20D')));
+        }
 
         $this->em->persist($case);
         $this->em->flush();

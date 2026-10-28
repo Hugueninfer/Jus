@@ -89,6 +89,25 @@ final class CaseCardTest extends KernelTestCase
         self::assertSame('2024-05-06T14:00:00-03:00', $card->filter('.jus-case-card-last-event time')->attr('datetime'));
     }
 
+    public function testTrustsACallerThatSaysTheCaseHasNoLatestEvent(): void
+    {
+        // The search page looks the latest events up for the whole page; a case missing from that lookup has none, so
+        // the card must not fall back to reading the case's own events (one query per case).
+        $card = $this->renderTwigComponent('CaseCard', ['case' => Samples::legalCase(), 'latestEvent' => null, 'latestEventKnown' => true])->crawler();
+
+        self::assertCount(1, $card->filter('article.jus-case-card'));
+        self::assertCount(0, $card->filter('.jus-case-card-last-event'));
+    }
+
+    public function testStillShowsTheGivenLatestEventWhenTheCallerKnowsIt(): void
+    {
+        $hearing = Samples::bareCase()->record(EventType::Hearing, 'Audiência de conciliação.', new \DateTimeImmutable('2024-05-06 14:00'));
+
+        $card = $this->renderTwigComponent('CaseCard', ['case' => Samples::legalCase(), 'latestEvent' => $hearing, 'latestEventKnown' => true])->crawler();
+
+        self::assertStringContainsString('Audiência', $card->filter('.jus-case-card-last-event')->text());
+    }
+
     public function testLeavesOutTheLastEventWhenThereIsNone(): void
     {
         $card = $this->renderTwigComponent('CaseCard', ['case' => Samples::bareCase()])->crawler();

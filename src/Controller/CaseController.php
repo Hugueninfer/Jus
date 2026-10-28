@@ -37,7 +37,7 @@ final class CaseController extends AbstractController
             }
         }
 
-        $result = $cases->search($criteria, $user, $request->query->getInt('pagina', 1));
+        $result = $cases->search($criteria, $user, self::pageNumber($request));
         if ($result->page > $result->pages) {
             return $this->redirectToRoute('case_search', [...$request->query->all(), 'pagina' => $result->pages]);
         }
@@ -47,5 +47,15 @@ final class CaseController extends AbstractController
             'result' => $result,
             'latestEvents' => $events->latestForCases($result->cases),
         ]);
+    }
+
+    /**
+     * The requested page; anything that is not an integer (text, empty, decimal, a list) is the first page.
+     */
+    private static function pageNumber(Request $request): int
+    {
+        $page = $request->query->all()['pagina'] ?? null;
+
+        return \is_string($page) && false !== ($number = filter_var($page, \FILTER_VALIDATE_INT)) ? $number : 1;
     }
 }

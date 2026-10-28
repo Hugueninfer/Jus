@@ -33,7 +33,7 @@
                                 {% if app.user %}
                                     {% set on_cases = app.current_route is not null and app.current_route starts with 'case_' %}
                                     <li class="nav-item">
-                                        <a class="nav-link{{ on_cases ? ' active' }}" href="{{ path('case_search') }}"{% if on_cases %} aria-current="page"{% endif %}>Processos</a>
+                                        <a class="nav-link{{ on_cases ? ' active' }}" href="{{ path('case_search') }}"{% if on_cases %} aria-current="{{ app.current_route == 'case_search' ? 'page' : 'true' }}"{% endif %}>Processos</a>
                                     </li>
                                 {% endif %}
                                 <li class="nav-item">

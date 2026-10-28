@@ -19,9 +19,15 @@ final class CaseCard
 
     /**
      * The newest event of the case when the caller already has it (the search page fetches those for a whole page at
-     * once); otherwise it is read from the case's events.
+     * once).
      */
     public ?CaseEvent $latestEvent = null;
+
+    /**
+     * True when the caller has already looked the latest event up, so a null $latestEvent means the case has none and
+     * the card must not read the case's events to find out (that would be one query per case on a list).
+     */
+    public bool $latestEventKnown = false;
 
     /**
      * Every side of the case, plaintiffs first, with its parties (possibly none).
@@ -35,7 +41,11 @@ final class CaseCard
 
     public function lastEvent(): ?CaseEvent
     {
-        return $this->latestEvent ?? $this->case->getEvents()[0] ?? null;
+        if (null !== $this->latestEvent || $this->latestEventKnown) {
+            return $this->latestEvent;
+        }
+
+        return $this->case->getEvents()[0] ?? null;
     }
 
     /**

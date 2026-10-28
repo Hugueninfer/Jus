@@ -12,8 +12,10 @@
     box-shadow: 0 0 0 var(--jus-focus-width) var(--jus-focus-ring);
   }
 
+  // Transparent rather than none: it is invisible normally, but forced-colors modes (Windows High Contrast) paint it in a
+  // system colour, and without it the link would show no focus at all there (the box-shadow ring is dropped).
   .stretched-link:focus-visible {
-    outline: none;
+    outline: var(--jus-focus-width) solid transparent;
   }
 
   @media (prefers-reduced-motion: reduce) {
