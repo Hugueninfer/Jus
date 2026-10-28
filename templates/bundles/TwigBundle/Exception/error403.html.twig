@@ -1,0 +1,9 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Acesso negado · Jus{% endblock %}
+
+{% block body %}
+    <h1 class="h2">Acesso negado</h1>
+    <p class="lead">Você não tem permissão para ver este conteúdo. Se acha que deveria ter, fale com a secretaria responsável.</p>
+    <a class="btn btn-primary" href="{{ path('case_search') }}">Ir para a busca</a>
+{% endblock %}

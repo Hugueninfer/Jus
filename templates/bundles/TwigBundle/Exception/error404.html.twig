@@ -1,0 +1,13 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Página não encontrada · Jus{% endblock %}
+
+{% block body %}
+    <h1 class="h2">Página não encontrada</h1>
+    <p class="lead">O endereço pode estar incorreto, ou o conteúdo não existe mais.</p>
+    {% if app.user %}
+        <a class="btn btn-primary" href="{{ path('case_search') }}">Ir para a busca</a>
+    {% else %}
+        <a class="btn btn-primary" href="{{ path('app_login') }}">Entrar</a>
+    {% endif %}
+{% endblock %}
