@@ -64,6 +64,25 @@ class LegalCase
     }
 
     /**
+     * Every side of the case, with its parties (possibly none) in the order they were added; plaintiffs first even if a
+     * defendant was added first. This is the reading order of the case page and of the case card.
+     *
+     * @return list<array{side: PartySide, parties: list<Party>}>
+     */
+    public function getPartiesBySide(): array
+    {
+        $parties = $this->getParties();
+
+        return array_map(
+            static fn (PartySide $side): array => [
+                'side' => $side,
+                'parties' => array_values(array_filter($parties, static fn (Party $party): bool => $side === $party->getSide())),
+            ],
+            PartySide::cases(),
+        );
+    }
+
+    /**
      * Records an event of the case. Filings go through file().
      */
     public function record(EventType $type, string $description, \DateTimeImmutable $occurredAt, ?User $createdBy = null): CaseEvent

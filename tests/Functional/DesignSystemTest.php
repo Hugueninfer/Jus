@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional;
 
+use App\Twig\Components\CaseCard;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Symfony\Component\DomCrawler\Crawler;
@@ -99,6 +100,30 @@ final class DesignSystemTest extends WebTestCase
             self::assertSame('0', $region->attr('tabindex'));
             self::assertSame(trim($table->filter('caption')->text()), $region->attr('aria-label'));
         });
+    }
+
+    public function testTheCaseCardTableDocumentsEveryPublicProp(): void
+    {
+        self::mockTime('2026-03-04 09:00:00');
+        $client = self::createClient();
+
+        $crawler = $client->request('GET', '/design-system');
+
+        $props = array_map(
+            static fn (\ReflectionProperty $property): string => $property->getName(),
+            (new \ReflectionClass(CaseCard::class))->getProperties(\ReflectionProperty::IS_PUBLIC),
+        );
+        $table = $crawler->filter('section#case-card table')->first();
+        $documented = $table->filter('tbody tr')->each(static fn (Crawler $row): string => trim($row->filter('th')->text()));
+        self::assertSame([...$props, '(atributos)'], $documented, 'The props table lists the props of CaseCard.');
+
+        $rows = [];
+        $table->filter('tbody tr')->each(static function (Crawler $row) use (&$rows): void {
+            $rows[trim($row->filter('th')->text())] = $row->filter('td')->each(static fn (Crawler $cell): string => trim($cell->text()));
+        });
+        self::assertSame(['?CaseEvent', 'null'], \array_slice($rows['latestEvent'], 0, 2));
+        self::assertSame(['bool', 'false'], \array_slice($rows['latestEventKnown'], 0, 2));
+        self::assertStringContainsString('nunca carrega os eventos do processo', $rows['latestEventKnown'][2]);
     }
 
     public function testTheDocumentsTableIsSortedFromTheQueryString(): void

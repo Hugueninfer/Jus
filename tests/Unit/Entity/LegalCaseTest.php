@@ -49,6 +49,31 @@ final class LegalCaseTest extends TestCase
         self::assertFalse($case->isRepresentedBy(User::lawyer('carla@jus.test', 'Carla Mendes', 'SP 654.321')));
     }
 
+    public function testGroupsThePartiesBySidePlaintiffsFirst(): void
+    {
+        $case = self::legalCase();
+        $defendant = $case->addParty('Empresa X Ltda.', '12.345.678/0001-90', PartySide::Defendant);
+        $maria = $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff);
+        $otherDefendant = $case->addParty('Empresa Y S.A.', '98.765.432/0001-10', PartySide::Defendant);
+        $joao = $case->addParty('João Souza', '987.654.321-00', PartySide::Plaintiff);
+
+        $sides = $case->getPartiesBySide();
+
+        self::assertSame([PartySide::Plaintiff, PartySide::Defendant], array_column($sides, 'side'));
+        self::assertSame([$maria, $joao], $sides[0]['parties']);
+        self::assertSame([$defendant, $otherDefendant], $sides[1]['parties']);
+    }
+
+    public function testListsEverySideEvenWithoutParties(): void
+    {
+        $case = self::legalCase();
+        self::assertSame([['side' => PartySide::Plaintiff, 'parties' => []], ['side' => PartySide::Defendant, 'parties' => []]], $case->getPartiesBySide());
+
+        $maria = $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff);
+
+        self::assertSame([['side' => PartySide::Plaintiff, 'parties' => [$maria]], ['side' => PartySide::Defendant, 'parties' => []]], $case->getPartiesBySide());
+    }
+
     public function testListsEventsNewestFirst(): void
     {
         $case = self::legalCase();

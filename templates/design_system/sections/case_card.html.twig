@@ -5,8 +5,10 @@
     caption: 'Propriedades do componente CaseCard',
     headers: ['Propriedade', 'Tipo', 'Padrão', 'Descrição'],
     rows: [
-        ['case', 'LegalCase', 'obrigatório', 'O processo exibido. O número sai formatado pelo filtro cnj e a situação pelo StatusBadge. Processos sigilosos ganham o selo "Sigiloso". Os polos levam o rótulo de PartySide, com uma linha por parte; um polo sem partes mostra "—". Sem movimentações, a linha "Última movimentação" não aparece.'],
+        ['case', 'LegalCase', 'obrigatório', 'O processo exibido. O número sai formatado pelo filtro cnj e a situação pelo StatusBadge. Processos sigilosos ganham o selo "Sigiloso". Os polos levam o rótulo de PartySide, com uma linha por parte; um polo sem partes mostra "—" (com "Nenhuma parte." oculto, para leitores de tela). Sem movimentações, a linha "Última movimentação" não aparece.'],
         ['href', 'string', 'null', 'Quando informado, o número do processo vira um link que cobre o cartão inteiro (stretched-link). Sem ele, o cartão é só informativo.'],
+        ['latestEvent', '?CaseEvent', 'null', 'A última movimentação do processo, quando quem usa o cartão já a carregou (a página de busca carrega as de todos os cartões da página numa consulta só). Sem ela, e com latestEventKnown falso, o cartão lê o primeiro evento da coleção do processo, que é o mais recente.'],
+        ['latestEventKnown', 'bool', 'false', 'Quando verdadeiro, o cartão confia em latestEvent, mesmo nulo (o processo não tem movimentações), e nunca carrega os eventos do processo: numa lista, isso evita uma consulta por cartão.'],
         ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (article.card).'],
     ],
     monospace: [1, 2],
