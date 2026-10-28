@@ -71,7 +71,7 @@ final class CaseController extends AbstractController
         // findOneForPage() applies no visibility rule: this is the only thing keeping a confidential case away from other lawyers.
         $this->denyAccessUnlessGranted(LegalCaseVoter::VIEW, $case);
 
-        $tab = 'documentos' === $request->query->getString('aba') ? 'documentos' : 'movimentacoes';
+        $tab = 'documentos' === self::queryString($request, 'aba') ? 'documentos' : 'movimentacoes';
 
         return $this->render('case/show.html.twig', [
             'case' => $case,
@@ -79,9 +79,20 @@ final class CaseController extends AbstractController
             'tab' => $tab,
             'documentColumns' => $documents->columns(),
             'documentRows' => 'documentos' === $tab ? $documents->rows($case) : [],
-            'sort' => $request->query->getString('sort') ?: null,
-            'direction' => $request->query->getString('direction') ?: null,
+            'sort' => self::queryString($request, 'sort'),
+            'direction' => self::queryString($request, 'direction'),
         ]);
+    }
+
+    /**
+     * A query value that is a non-empty string; anything else (missing, empty, a list) counts as not given, so a
+     * malformed link shows the default view instead of an error.
+     */
+    private static function queryString(Request $request, string $key): ?string
+    {
+        $value = $request->query->all()[$key] ?? null;
+
+        return \is_string($value) && '' !== $value ? $value : null;
     }
 
     /**

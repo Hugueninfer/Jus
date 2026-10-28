@@ -27,9 +27,7 @@ final class CasePageTest extends WebTestCase
 
     protected function setUp(): void
     {
-        $this->client = self::createClient();
-        $this->em = self::getContainer()->get(EntityManagerInterface::class);
-        $this->data = new TestCases($this->em);
+        $this->boot();
     }
 
     public function testShowsTheCaseCover(): void
@@ -129,7 +127,7 @@ final class CasePageTest extends WebTestCase
     public function testTheNotFoundPageDoesNotEchoTheNumber(): void
     {
         // Debug pages dump the whole request: only the error page of a production kernel says what a visitor would see.
-        $this->bootWithoutDebug();
+        $this->boot(['debug' => false]);
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $this->client->loginUser($ana);
 
@@ -143,7 +141,7 @@ final class CasePageTest extends WebTestCase
 
     public function testTheForbiddenPageShowsNothingOfTheCase(): void
     {
-        $this->bootWithoutDebug();
+        $this->boot(['debug' => false]);
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $bruno = $this->data->lawyer('bruno@jus.test', 'Bruno Teixeira');
         $this->data->legalCase('0000001', $bruno, confidential: true);
@@ -288,26 +286,39 @@ final class CasePageTest extends WebTestCase
         self::assertCount(1, $crawler->filter('ol.jus-timeline'));
     }
 
-    #[DataProvider('provideListsInsteadOfText')]
-    public function testAListWhereTheQueryExpectsTextIsABadRequest(string $query): void
+    #[DataProvider('provideValuesThatAreNotText')]
+    public function testAMalformedTabOrSortFallsBackToTheDefaults(string $query, string $tab, ?string $ascendingColumn): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $this->data->legalCase('0000001', $ana);
         $this->client->loginUser($ana);
 
-        $this->client->request('GET', self::URL.'?'.$query);
+        $crawler = $this->client->request('GET', self::URL.'?'.$query);
 
-        self::assertResponseStatusCodeSame(400);
+        self::assertResponseIsSuccessful();
+        self::assertSame($tab, trim($crawler->filter('nav[aria-label="Andamento do processo"] [aria-current="page"]')->text()));
+        $sorted = $crawler->filter('table.jus-data-table th[aria-sort="ascending"], table.jus-data-table th[aria-sort="descending"]');
+        if (null === $ascendingColumn) {
+            self::assertCount(0, $sorted);
+
+            return;
+        }
+        self::assertCount(1, $sorted);
+        self::assertSame($ascendingColumn, trim($sorted->text()));
+        self::assertSame('ascending', $sorted->attr('aria-sort'));
     }
 
     /**
-     * @return iterable<string, array{string}>
+     * @return iterable<string, array{string, string, ?string}>
      */
-    public static function provideListsInsteadOfText(): iterable
+    public static function provideValuesThatAreNotText(): iterable
     {
-        yield 'tab' => ['aba[]=documentos'];
-        yield 'sort' => ['aba=documentos&sort[]=title'];
-        yield 'direction' => ['aba=documentos&direction[]=desc'];
+        yield 'tab as a list' => ['aba[]=documentos', 'Movimentações', null];
+        yield 'empty tab' => ['aba=', 'Movimentações', null];
+        yield 'sort as a list' => ['aba=documentos&sort[]=title', 'Documentos', null];
+        yield 'empty sort' => ['aba=documentos&sort=&direction=desc', 'Documentos', null];
+        yield 'direction as a list' => ['aba=documentos&sort=title&direction[]=desc', 'Documentos', 'Título'];
+        yield 'tab as a map' => ['aba[x]=documentos&sort=title', 'Movimentações', null];
     }
 
     public function testListsDeadlinesOpenFirst(): void
@@ -382,10 +393,15 @@ final class CasePageTest extends WebTestCase
         self::assertSame('true', $link->attr('aria-current'));
     }
 
-    private function bootWithoutDebug(): void
+    /**
+     * A fresh kernel, client and test data; a test calls it again to change the kernel options.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function boot(array $options = []): void
     {
         self::ensureKernelShutdown();
-        $this->client = self::createClient(['debug' => false]);
+        $this->client = self::createClient($options);
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
         $this->data = new TestCases($this->em);
     }
