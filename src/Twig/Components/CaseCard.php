@@ -18,6 +18,12 @@ final class CaseCard
     public ?string $href = null;
 
     /**
+     * The newest event of the case when the caller already has it (the search page fetches those for a whole page at
+     * once); otherwise it is read from the case's events.
+     */
+    public ?CaseEvent $latestEvent = null;
+
+    /**
      * Every side of the case, plaintiffs first, with its parties (possibly none).
      *
      * @return list<array{side: PartySide, parties: list<Party>}>
@@ -29,7 +35,7 @@ final class CaseCard
 
     public function lastEvent(): ?CaseEvent
     {
-        return $this->case->getEvents()[0] ?? null;
+        return $this->latestEvent ?? $this->case->getEvents()[0] ?? null;
     }
 
     /**

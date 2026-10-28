@@ -1,0 +1,22 @@
+// The whole card is one link (stretched link); show where it is and that it reacts.
+.jus-case-card {
+  transition: box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    box-shadow: var(--jus-shadow-base);
+  }
+
+  // The ring goes around the whole card, which is what the link covers; a second, small ring around the number alone
+  // would only look like two focus points.
+  &:focus-within {
+    box-shadow: 0 0 0 var(--jus-focus-width) var(--jus-focus-ring);
+  }
+
+  .stretched-link:focus-visible {
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}

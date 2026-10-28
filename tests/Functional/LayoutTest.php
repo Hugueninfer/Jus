@@ -37,6 +37,7 @@ final class LayoutTest extends WebTestCase
         self::assertSame('page', $crawler->filter('header a[href="/design-system"]')->attr('aria-current'));
         self::assertSame('Entrar', trim($crawler->filter('header a[href="/login"]')->text()));
         self::assertCount(0, $crawler->selectLink('Sair'));
+        self::assertCount(0, $crawler->filter('header a[href="/processos"]'));
         self::assertCount(1, $crawler->filter('header button[data-bs-target="#menu-principal"]'));
     }
 
@@ -49,11 +50,14 @@ final class LayoutTest extends WebTestCase
         $em->flush();
         $client->loginUser($user);
 
-        $crawler = $client->request('GET', '/');
+        $crawler = $client->request('GET', '/processos');
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('nav', 'João Almeida');
+        self::assertSame('Processos', trim($crawler->filter('header a[href="/processos"]')->text()));
+        self::assertSame('page', $crawler->filter('header a[href="/processos"]')->attr('aria-current'));
         self::assertCount(1, $crawler->filter('header a[href="/design-system"]'));
+        self::assertNull($crawler->filter('header a[href="/design-system"]')->attr('aria-current'));
         self::assertCount(0, $crawler->filter('header a[href="/login"]'));
 
         $logoutUrl = (string) $crawler->selectLink('Sair')->attr('href');

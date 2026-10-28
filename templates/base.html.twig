@@ -30,6 +30,12 @@
                         </div>
                         <div class="offcanvas-body">
                             <ul class="navbar-nav ms-auto align-items-md-center gap-md-3">
+                                {% if app.user %}
+                                    {% set on_cases = app.current_route is not null and app.current_route starts with 'case_' %}
+                                    <li class="nav-item">
+                                        <a class="nav-link{{ on_cases ? ' active' }}" href="{{ path('case_search') }}"{% if on_cases %} aria-current="page"{% endif %}>Processos</a>
+                                    </li>
+                                {% endif %}
                                 <li class="nav-item">
                                     <a class="nav-link{{ app.current_route == 'design_system' ? ' active' }}" href="{{ path('design_system') }}"{% if app.current_route == 'design_system' %} aria-current="page"{% endif %}>Design System</a>
                                 </li>
