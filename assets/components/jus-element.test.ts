@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
+import { installTokens } from '../test-support/tokens';
 import { define } from './index';
 import { JusElement, sheet } from './jus-element';
 
@@ -55,8 +57,32 @@ function cssOf(styleSheet: CSSStyleSheet | undefined): string {
   return Array.from(required(styleSheet).cssRules, (rule) => rule.cssText).join('\n');
 }
 
+function rootToken(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/** Mounts the test element and moves keyboard focus onto the button in its shadow root. */
+async function focusButtonIn(parent: HTMLElement): Promise<HTMLButtonElement> {
+  const element = document.createElement('jus-test-element');
+  parent.append(element);
+  await userEvent.tab();
+  const button = required(element.shadowRoot?.activeElement);
+  if (!(button instanceof HTMLButtonElement)) {
+    throw new Error('Expected the keyboard focus to land on the button.');
+  }
+
+  return button;
+}
+
 describe('JusElement', () => {
+  let removeTokens: () => void;
+
+  beforeEach(() => {
+    removeTokens = installTokens();
+  });
+
   afterEach(() => {
+    removeTokens();
     document.body.replaceChildren();
     document.documentElement.removeAttribute('style');
   });
@@ -100,12 +126,42 @@ describe('JusElement', () => {
     expect(sheets[2]).toBe(otherSheet);
   });
 
-  it('builds the base sheet only from design tokens', () => {
+  it('writes no literal hex, rgb or hsl colour in the base sheet', () => {
     const css = cssOf(sheetsOf(mount('jus-plain-element'))[0]);
 
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
-    expect(css).toContain('var(--jus-color-body)');
-    expect(css).toContain('var(--jus-focus-width)');
+  });
+
+  it('refers only to tokens the page defines, apart from the focus ring colour it falls back from', () => {
+    const css = cssOf(sheetsOf(mount('jus-plain-element'))[0]);
+    const names = new Set(Array.from(css.matchAll(/--jus-[a-z0-9-]+/g), (match) => match[0]));
+    // The page sets --jus-focus-ring in base/_focus.scss; the base sheet always gives it a token fallback.
+    names.delete('--jus-focus-ring');
+
+    expect(names.size).toBeGreaterThan(5);
+    for (const name of names) {
+      expect(rootToken(name), name).not.toBe('');
+    }
+  });
+
+  it('draws the focus ring with the page ring colour', async () => {
+    const surface = document.createElement('div');
+    surface.style.setProperty('--jus-focus-ring', 'rgb(9, 8, 7)');
+    document.body.append(surface);
+
+    const outline = getComputedStyle(await focusButtonIn(surface));
+
+    expect(outline.outlineStyle).toBe('solid');
+    expect(outline.outlineColor).toBe('rgb(9, 8, 7)');
+  });
+
+  it('falls back to the focus token colour when the page sets no ring colour', async () => {
+    document.documentElement.style.setProperty('--jus-focus-color', 'rgb(4, 5, 6)');
+
+    const outline = getComputedStyle(await focusButtonIn(document.body));
+
+    expect(outline.outlineStyle).toBe('solid');
+    expect(outline.outlineColor).toBe('rgb(4, 5, 6)');
   });
 
   it('hides [hidden] content even when a component sets display on it', () => {
@@ -129,10 +185,14 @@ describe('JusElement', () => {
     expect(getComputedStyle(button).color).toBe('rgb(250, 251, 252)');
   });
 
-  it('has no accessibility violations for its base markup', async () => {
+  it('has no accessibility violations for its base markup, with the real palette, pressed or not', async () => {
     const main = document.createElement('main');
     main.append(document.createElement('jus-test-element'));
     document.body.append(main);
+
+    await expectNoAxeViolations(main);
+
+    required(main.querySelector('jus-test-element')?.shadowRoot?.querySelector('button')).setAttribute('aria-pressed', 'true');
 
     await expectNoAxeViolations(main);
   });

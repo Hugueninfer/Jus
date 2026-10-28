@@ -49,7 +49,8 @@ const baseSheet = sheet(`
   }
 
   :focus-visible {
-    outline: var(--jus-focus-width) solid var(--jus-focus-color);
+    /* The page sets --jus-focus-ring to the inverse colour on dark surfaces (base/_focus.scss); inherited here. */
+    outline: var(--jus-focus-width) solid var(--jus-focus-ring, var(--jus-focus-color));
     outline-offset: var(--jus-focus-offset);
   }
 `);

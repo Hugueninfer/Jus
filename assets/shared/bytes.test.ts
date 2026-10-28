@@ -27,7 +27,10 @@ describe('formatBytes (shared cases with the Twig `bytes` filter)', () => {
     expect(formatBytes(bytes)).toBe(expected);
   });
 
-  it('separates the number from the unit with a regular space, as the Twig filter does', () => {
-    expect(formatBytes(184_320)).toBe('180 KB');
+  // The Twig filter joins with a regular space, while Intl-based formatters often use U+00A0 or U+202F for it.
+  it.each([184_320, 1_048_524, 1_572_864, 1_099_511_627_776])('puts a regular space before the unit for %d bytes', (bytes) => {
+    for (const code of [0x00a0, 0x202f]) {
+      expect(formatBytes(bytes)).not.toContain(String.fromCodePoint(code));
+    }
   });
 });
