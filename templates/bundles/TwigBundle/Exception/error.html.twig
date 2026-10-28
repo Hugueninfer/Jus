@@ -1,0 +1,9 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Algo deu errado · Jus{% endblock %}
+
+{% block body %}
+    <h1 class="h2">Algo deu errado</h1>
+    <p class="lead">Não foi possível concluir a operação. Tente de novo em instantes.</p>
+    <a class="btn btn-primary" href="{{ path('app_home') }}">Voltar ao início</a>
+{% endblock %}

@@ -131,12 +131,17 @@ final class CasePageTest extends WebTestCase
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $this->client->loginUser($ana);
 
-        $this->client->request('GET', '/processos/'.rawurlencode('<script>alert(1)'));
+        $crawler = $this->client->request('GET', '/processos/'.rawurlencode('<script>alert(1)'));
 
         self::assertResponseStatusCodeSame(404);
+        // The application's own page, not a bare error: nothing of the request but the way back to the search.
+        self::assertSame('Página não encontrada', trim($crawler->filter('main h1')->text()));
+        self::assertSame('/processos', $crawler->filter('main a.btn')->attr('href'));
         $body = (string) $this->client->getResponse()->getContent();
         self::assertStringNotContainsString('<script>', $body);
         self::assertStringNotContainsString('alert(1)', $body);
+        self::assertStringNotContainsString('&lt;script', $body);
+        self::assertStringNotContainsString('alert%281%29', $body);
     }
 
     public function testTheForbiddenPageShowsNothingOfTheCase(): void
@@ -147,9 +152,10 @@ final class CasePageTest extends WebTestCase
         $this->data->legalCase('0000001', $bruno, confidential: true);
         $this->client->loginUser($ana);
 
-        $this->client->request('GET', self::URL);
+        $crawler = $this->client->request('GET', self::URL);
 
         self::assertResponseStatusCodeSame(403);
+        self::assertSame('Acesso negado', trim($crawler->filter('main h1')->text()));
         $body = (string) $this->client->getResponse()->getContent();
         self::assertStringNotContainsString('Maria Oliveira', $body);
         self::assertStringNotContainsString('Procedimento Comum Cível', $body);
