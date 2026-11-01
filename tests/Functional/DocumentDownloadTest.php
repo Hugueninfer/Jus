@@ -201,6 +201,22 @@ final class DocumentDownloadTest extends WebTestCase
         self::assertResponseStatusCodeSame(405);
     }
 
+    public function testHeadIsAnsweredLikeGetWithoutTheBody(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $document = $this->documentOf($this->data->legalCase('0000001', $ana), $ana, 'peticao.pdf');
+        $this->client->loginUser($ana);
+
+        // A route that allows GET allows HEAD too, which is how the framework treats it.
+        $this->client->request('HEAD', $this->urlOf($document));
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'application/pdf');
+        self::assertResponseHeaderSame('Content-Disposition', 'attachment; filename=peticao.pdf');
+        self::assertTrue($this->client->getResponse()->headers->hasCacheControlDirective('no-store'));
+        self::assertSame('', $this->client->getInternalResponse()->getContent());
+    }
+
     public function testAnonymousVisitorsAreSentToTheLoginPage(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
