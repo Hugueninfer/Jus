@@ -519,6 +519,7 @@ Stage Test (depois do Quality)
 
 - O job "Web Components" é o único que precisa de navegador: instala o Chromium do Playwright e roda `npm test`, que no pipeline (`TF_BUILD` definida) usa esse Chromium. O job de qualidade do front-end roda `npm run ci:quality`, a mesma sequência de `npm run ci` sem os testes.
 - Localmente, `composer ci` reúne as verificações dos dois estágios, com `npm run ci` (lint, tipos, testes no Chrome instalado e build) no fim.
+- `composer test` e `composer test:coverage` esvaziam o cache de teste e o reconstroem antes (`composer test:cache`, para os dois kernels que os testes sobem, com e sem debug), para que nenhum teste rode contra um container ou modelos Twig velhos, que o kernel sem debug não renova sozinho. A reconstrução fica fora da execução com cobertura, onde custaria o dobro, e soma cerca de 11 s à suíte.
 - PHPStan no nível max **sem baseline** e sem `ignoreErrors`. A única exceção de configuração é tirar da análise os stubs dos polyfills `intl` do Symfony (`vendor/symfony/polyfill-intl-*/Resources/stubs/`): o projeto exige a extensão `intl`, e esses stubs em PHP puro, no classmap do Composer, esconderiam dela os tipos reais (por exemplo, `NumberFormatter::formatCurrency()` como `string|false`).
 - O repositório fica no GitHub (público). O pipeline está definido em `azure-pipelines.yml`; a conexão dele com o Azure DevOps ainda está pendente, e o badge de status vai no README quando estiver.
 

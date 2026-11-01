@@ -8,6 +8,7 @@
     "require": {
         "php": ">=8.4",
         "ext-ctype": "*",
+        "ext-fileinfo": "*",
         "ext-iconv": "*",
         "ext-intl": "*",
         "ext-pdo_sqlite": "*",
@@ -20,6 +21,7 @@
         "symfony/flex": "^2",
         "symfony/form": "7.4.*",
         "symfony/framework-bundle": "7.4.*",
+        "symfony/mime": "7.4.*",
         "symfony/runtime": "7.4.*",
         "symfony/security-bundle": "7.4.*",
         "symfony/security-core": "7.4.*",
@@ -104,8 +106,18 @@
             "@php bin/console lint:twig templates",
             "@php bin/console doctrine:schema:validate --skip-sync"
         ],
-        "test": "phpunit",
-        "test:coverage": "php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover var/coverage/clover.xml",
+        "test:cache": [
+            "@php bin/console cache:clear --env=test --quiet @no_additional_args",
+            "@php bin/console cache:warmup --env=test --no-debug --quiet @no_additional_args"
+        ],
+        "test": [
+            "@test:cache",
+            "phpunit"
+        ],
+        "test:coverage": [
+            "@test:cache",
+            "php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover var/coverage/clover.xml"
+        ],
         "coverage:domain": "php bin/check-domain-coverage.php var/coverage/clover.xml",
         "qa": ["@cs", "@lint", "@stan", "@test"],
         "ci": ["@composer validate --strict", "@cs", "@lint", "@stan", "@test:coverage", "@coverage:domain", "npm run ci"]
@@ -113,7 +125,9 @@
     "scripts-descriptions": {
         "setup": "Recreates the local SQLite database with demo data.",
         "lint": "Symfony container, YAML and Doctrine mapping checks.",
-        "test:coverage": "Runs PHPUnit with a Clover coverage report (Xdebug locally, PCOV in CI).",
+        "test:cache": "Empties the test cache and builds it again for both kernels the tests boot (debug and not), so that no test runs against a stale container or templates.",
+        "test": "Runs PHPUnit on a fresh test cache.",
+        "test:coverage": "Runs PHPUnit on a fresh test cache with a Clover coverage report (Xdebug locally, PCOV in CI).",
         "coverage:domain": "Fails unless every file in src/Domain/ is 100% covered.",
         "qa": "Code style, lint, static analysis and tests.",
         "ci": "Runs exactly what the Azure pipeline runs (PHP and front-end)."
