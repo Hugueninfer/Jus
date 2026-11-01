@@ -40,6 +40,13 @@ final class DesignSystemTest extends WebTestCase
         self::assertStringContainsString('<twig:Alert type="success"', $crawler->filter('section#alert pre code')->first()->text());
         self::assertCount(5, $crawler->filter('section#deadline-indicator [data-urgency]'));
         self::assertCount(1, $crawler->filter('section#cnj-field jus-numero-processo input'));
+        // The filter example wraps a timeline with several event types, so its buttons have something to choose between.
+        $filtered = $crawler->filter('section#timeline figure jus-filtro-timeline > ol.jus-timeline');
+        self::assertCount(1, $filtered);
+        $types = $filtered->filter('li.jus-timeline-event')->each(static fn (Crawler $event): string => (string) $event->attr('data-event-type'));
+        self::assertGreaterThanOrEqual(2, \count(array_unique($types)));
+        self::assertStringContainsString('<jus-filtro-timeline>', $crawler->filter('section#timeline pre code')->reduce(static fn (Crawler $code): bool => str_contains($code->text(), 'jus-filtro-timeline'))->text());
+        self::assertContains('Filtro por tipo: jus-filtro-timeline', $crawler->filter('section#timeline h3')->each(static fn (Crawler $heading): string => trim($heading->text())));
         self::assertCount(2, $crawler->filter('section#data-table table.jus-data-table')); // the documents and the empty table
         $firstDocument = $crawler->filter('section#data-table table.jus-data-table tbody tr')->first();
         self::assertSame('#data-table', $firstDocument->filter('td')->eq(0)->filter('a')->attr('href'));

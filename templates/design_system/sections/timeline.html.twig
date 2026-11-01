@@ -7,7 +7,7 @@
     rows: [
         ['events', 'list<CaseEvent>', '[]', 'Movimentações a exibir, em qualquer ordem.'],
         ['emptyMessage', 'string', 'Nenhuma movimentação.', 'Texto do item único mostrado quando não há movimentações.'],
-        ['data-event-type', 'atributo', 'decision, order, filing, summons ou hearing', 'Valor de EventType em cada item da lista. É o ponto de ligação para o filtro por tipo de movimentação.'],
+        ['data-event-type', 'atributo', 'decision, order, filing, summons ou hearing', 'Valor de EventType em cada item da lista. É o ponto de ligação do filtro por tipo de movimentação (jus-filtro-timeline, abaixo).'],
         ['data-event-label', 'atributo', 'Decisão, Despacho...', 'Rótulo em português do tipo, no mesmo item: o filtro monta seus botões a partir dele, sem repetir os rótulos no JavaScript.'],
         ['(atributos)', 'HTML', '—', 'Atributos adicionais são mesclados ao elemento raiz (ol.jus-timeline).'],
     ],
@@ -23,3 +23,21 @@
 
 {{ include('design_system/_example.html.twig', {example: 'design_system/examples/timeline/default.html.twig', label: 'movimentações de um processo'}) }}
 {{ include('design_system/_example.html.twig', {example: 'design_system/examples/timeline/empty.html.twig', label: 'sem movimentações'}) }}
+
+<h3 class="h6">Filtro por tipo: <code>jus-filtro-timeline</code></h3>
+<p>Elemento personalizado que envolve a <code>Timeline</code> e acrescenta, acima dela, um botão por tipo de movimentação. A lista continua sendo o HTML renderizado pelo servidor, encaixado no <code>slot</code> do elemento (Shadow DOM). Ele <strong>não tem atributos nem propriedades</strong>: lê o <code>data-event-type</code> e o <code>data-event-label</code> dos itens da própria lista.</p>
+<ul>
+    <li>Os botões são "Todas" e um por tipo presente, na ordem em que o tipo aparece pela primeira vez. Com um só tipo, ou sem movimentações, nenhum botão é mostrado.</li>
+    <li>A escolha é única: clicar num tipo mostra só as movimentações dele; "Todas" mostra tudo. Os itens são ocultados com o atributo <code>hidden</code>, nunca removidos, e um dia que ficou sem movimentações visíveis some junto com o seu título.</li>
+    <li>Se a lista for trocada dentro do elemento (evento <code>slotchange</code>), os botões são refeitos; a escolha é mantida quando o tipo ainda existe.</li>
+</ul>
+
+<h3 class="h6">Acessibilidade do filtro</h3>
+<ul>
+    <li>Os botões ficam num grupo nomeado (<code>role="group"</code>, "Filtrar movimentações por tipo") e são <code>button</code> nativos: Tab chega a cada um, Enter e Espaço os acionam e o foco permanece no botão escolhido.</li>
+    <li>O botão ativo tem <code>aria-pressed="true"</code> e os demais <code>"false"</code>; o botão tem borda na cor <code>muted</code>, para ser reconhecido como controle sem depender só do texto.</li>
+    <li>O resultado é anunciado com educação (<code>aria-live="polite"</code>, texto visualmente oculto): "Mostrando 1 de 4 movimentações." ao filtrar e "Mostrando todas as 4 movimentações." ao voltar para "Todas". Nada é anunciado ao carregar a página.</li>
+    <li>Sem JavaScript o elemento não faz nada: não há botões e a lista completa aparece.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/timeline/filter.html.twig', label: 'filtro por tipo de movimentação'}) }}
