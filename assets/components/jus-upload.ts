@@ -1,11 +1,12 @@
 import { formatBytes } from '../shared/bytes';
-import { setInvalid } from '../shared/validity';
+import { retireServerErrors, setFieldError, setInvalid, shownFieldError } from '../shared/validity';
 import { JusElement, sheet } from './jus-element';
 
 const PDF = 'application/pdf';
 const HINT = 'ou arraste os arquivos PDF para cá';
 const LIST_LABEL = 'Arquivos selecionados';
 const REMOVE_LABEL = 'Remover';
+const ZONE = 'jus-upload-zone';
 const DRAGGING = 'is-dragging';
 
 const styles = sheet(`
@@ -25,12 +26,6 @@ const styles = sheet(`
     border-style: solid;
     border-color: var(--jus-color-primary);
     background: var(--jus-color-light);
-  }
-
-  /* The message is text, so it does not depend on its colour; the input carries the invalid border and icon besides. */
-  .jus-upload-error {
-    margin: var(--jus-space-2) 0 0;
-    color: var(--jus-color-danger);
   }
 
   ::slotted(input) {
@@ -69,11 +64,6 @@ const styles = sheet(`
 
   .jus-upload-size {
     color: var(--jus-color-muted);
-  }
-
-  /* The base sheet's border is a decoration (about 1.5:1); the button needs a boundary that identifies it as a control. */
-  .jus-button {
-    border-color: var(--jus-color-muted);
   }
 `);
 
@@ -137,11 +127,14 @@ function carriesFiles(event: DragEvent): boolean {
  * dialog replaces the selection, as it does natively; a drop adds to it.
  *
  * When a change leaves the choice invalid the problem is shown (the input gets aria-invalid and Bootstrap's
- * is-invalid, and the message is written as text under the zone) and announced after the count; when it leaves it
- * valid both marks go. Connecting only checks the choice and leaves alone the marks the server may have rendered.
+ * is-invalid, and the message is written as text after the element, outside the shadow root so that the input can be
+ * described by it) and announced after the count; when it leaves it valid both marks and the text go. The first change
+ * also hides the errors the server rendered, which describe what was submitted. Connecting only checks the choice and
+ * leaves alone the marks and the errors the server may have rendered.
  * Changing a limit attribute checks it again and, only while the component is showing an error, updates or clears
  * that error to follow the new limit; with none shown the marks stay as they are until the next change or submit.
- * A disabled input (or one in a disabled fieldset) takes no drops and its remove buttons are disabled.
+ * A disabled input (or one in a disabled fieldset) takes no drops, its remove buttons are disabled and the hint about
+ * dragging files is hidden. Without an input inside the element renders nothing of its own (no zone, no hint).
  *
  * Consumers should read the validity on `change`, not on `input`: the component checks the choice when `change` arrives.
  */
@@ -149,7 +142,7 @@ export class JusUpload extends JusElement {
   static readonly observedAttributes = ['max-size', 'max-files'];
 
   readonly #zone = document.createElement('div');
-  readonly #error = document.createElement('p');
+  readonly #hint = document.createElement('span');
   readonly #list = document.createElement('ul');
   readonly #status = document.createElement('p');
   #input: HTMLInputElement | undefined;
@@ -159,15 +152,12 @@ export class JusUpload extends JusElement {
 
   constructor() {
     super();
-    this.#zone.className = 'jus-upload-zone';
-    const hint = document.createElement('span');
-    hint.className = 'jus-upload-hint';
-    hint.textContent = HINT;
-    this.#zone.append(document.createElement('slot'), hint);
-
-    // Not a live region: the announcement is the status below, which carries the message after the count.
-    this.#error.className = 'jus-upload-error';
-    this.#error.hidden = true;
+    // Plain until there is an input to enhance: the zone gets its look (and its hint) when the element connects with one,
+    // so an element without it renders nothing extra and lets whatever is inside show as it is.
+    this.#hint.className = 'jus-upload-hint';
+    this.#hint.textContent = HINT;
+    this.#hint.hidden = true;
+    this.#zone.append(document.createElement('slot'), this.#hint);
 
     // The role keeps the list a list for screen readers that drop it with list-style: none.
     this.#list.setAttribute('role', 'list');
@@ -177,7 +167,7 @@ export class JusUpload extends JusElement {
     this.#status.setAttribute('aria-live', 'polite');
     this.#status.className = 'visually-hidden';
 
-    this.root.append(this.#zone, this.#error, this.#list, this.#status);
+    this.root.append(this.#zone, this.#list, this.#status);
   }
 
   protected override styles(): CSSStyleSheet[] {
@@ -196,6 +186,7 @@ export class JusUpload extends JusElement {
     const { signal } = controller;
 
     input.addEventListener('change', () => {
+      retireServerErrors(input);
       this.#settle(true);
     }, { signal });
     // The browser reports the field as invalid when the form is submitted (or checked). That is when a choice that
@@ -247,7 +238,9 @@ export class JusUpload extends JusElement {
       }
     }, { signal });
 
+    this.#zone.classList.add(ZONE);
     this.#render();
+    this.#syncDisabled();
   }
 
   disconnectedCallback(): void {
@@ -261,7 +254,7 @@ export class JusUpload extends JusElement {
     this.#validate();
     // An error on show follows the new limits: it goes away, or names the rule that fails now. When none is shown the
     // marks stay as they are (the server's included) until the next change or the submit.
-    if (!this.#error.hidden) {
+    if (this.#input !== undefined && shownFieldError(this.#input) !== '') {
       this.#report();
     }
   }
@@ -275,13 +268,19 @@ export class JusUpload extends JusElement {
     return this.#input?.matches(':disabled') === true;
   }
 
-  /** Keeps the remove buttons in step with the input being disabled or enabled, it or a fieldset around it. */
+  /** Shows the hint about dragging files only while the input takes them, and disables the remove buttons while it does not. */
+  #syncDisabled(): void {
+    const disabled = this.#disabled();
+    this.#hint.hidden = disabled;
+    for (const button of this.#list.querySelectorAll('button')) {
+      button.disabled = disabled;
+    }
+  }
+
+  /** Keeps the hint and the remove buttons in step with the input being disabled or enabled, it or a fieldset around it. */
   #watchDisabled(input: HTMLInputElement, signal: AbortSignal): void {
     const observer = new MutationObserver(() => {
-      const disabled = this.#disabled();
-      for (const button of this.#list.querySelectorAll('button')) {
-        button.disabled = disabled;
-      }
+      this.#syncDisabled();
     });
     for (let node: Element | null = input; node !== null; node = node.parentElement) {
       if (node === input || node instanceof HTMLFieldSetElement) {
@@ -332,10 +331,11 @@ export class JusUpload extends JusElement {
   }
 
   /**
-   * Marks the input invalid and writes the message under the zone, or takes both off; returns the message. Only the
-   * component's own messages (the custom error) are marked and written after a change: what the browser says by
-   * itself, such as a required field left empty, is in its language and stays with its bubble on submit. When the
-   * browser itself reports the field as invalid (`submitted`), any invalid state marks it, still with no text of its own.
+   * Marks the input invalid and writes the message after the element (see `setFieldError`), or takes both off; returns
+   * the message. Only the component's own messages (the custom error) are marked and written after a change: what the
+   * browser says by itself, such as a required field left empty, is in its language and stays with its bubble on submit.
+   * When the browser itself reports the field as invalid (`submitted`), any invalid state marks it, still with no text
+   * of its own.
    */
   #report(submitted = false): string {
     const input = this.#input;
@@ -346,8 +346,7 @@ export class JusUpload extends JusElement {
     const { validity } = input;
     const message = validity.customError ? input.validationMessage : '';
     setInvalid(input, submitted ? !validity.valid : validity.customError);
-    this.#error.textContent = message;
-    this.#error.hidden = message === '';
+    setFieldError(input, this, message);
 
     return message;
   }

@@ -19,8 +19,12 @@ interface Mounted {
   input: HTMLInputElement;
 }
 
-/** Mounts the markup the form theme renders (label, the element around the native input, a button). */
-function mount(inputAttributes = ''): Mounted {
+/** What Symfony's Bootstrap theme renders after the widget for a value the server refused, with the help text. */
+const SERVER_FEEDBACK = '<div class="form-text" id="numero_help">Informe o número.</div><div class="invalid-feedback d-block" id="numero_error1">Número recusado pelo servidor.</div>';
+const SERVER_ATTRIBUTES = 'value="0000001392" class="form-control is-invalid" aria-invalid="true" aria-describedby="numero_help numero_error1"';
+
+/** Mounts the markup the form theme renders (label, the element around the native input, what follows it, a button). */
+function mount(inputAttributes = '', following = ''): Mounted {
   const main = document.createElement('main');
   main.setHTMLUnsafe(`
     <form>
@@ -28,6 +32,7 @@ function mount(inputAttributes = ''): Mounted {
       <jus-numero-processo>
         <input type="text" id="numero" name="numero" inputmode="numeric" autocomplete="off" ${inputAttributes}>
       </jus-numero-processo>
+      ${following}
       <button>Buscar</button>
     </form>
   `);
@@ -84,6 +89,22 @@ async function nextTask(): Promise<void> {
   await new Promise((resolve) => {
     setTimeout(resolve, 0);
   });
+}
+
+function errorOf(): HTMLElement | null {
+  return document.getElementById('numero-client-error');
+}
+
+/** The reason the person can read under the field: its text while it shows, otherwise nothing. */
+function errorText(): string {
+  const error = errorOf();
+
+  return error === null || error.hidden ? '' : error.textContent;
+}
+
+/** The ids the input is described by. */
+function describedBy(input: HTMLInputElement): string[] {
+  return (input.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((id) => id !== '');
 }
 
 /** The field is marked invalid for assistive technology (aria-invalid) and for the eye (Bootstrap's is-invalid border and icon), together. */
@@ -396,12 +417,36 @@ describe('<jus-numero-processo>', () => {
       expectMarkedInvalid(input, true);
     });
 
-    it('marks a required field that was left empty when the form is checked', () => {
+    it('marks a required field that was left empty when the form is checked, without text of its own', () => {
       const { form, input } = mount('required');
 
       expect(form.checkValidity()).toBe(false);
 
       expectMarkedInvalid(input, true);
+      expect(errorText()).toBe('');
+      expect(input.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('does not mark a required field that was left empty when it loses focus: the browser says so when the form is submitted', async () => {
+      const { input } = mount('required');
+      input.focus();
+
+      await userEvent.tab();
+
+      expect(input.validity.valueMissing).toBe(true);
+      expectMarkedInvalid(input, false);
+      expect(errorText()).toBe('');
+    });
+
+    it('does not mark a required field emptied again either', async () => {
+      const { input } = mount('required');
+      await typeInto(input, '1');
+      await userEvent.keyboard('{Backspace}');
+
+      await userEvent.tab();
+
+      expectMarkedInvalid(input, false);
+      expect(errorText()).toBe('');
     });
 
     it('removes the error state the server rendered once the value is valid', async () => {
@@ -419,6 +464,211 @@ describe('<jus-numero-processo>', () => {
       await typeInto(input, '0');
 
       expectMarkedInvalid(input, true);
+    });
+  });
+
+  describe('error text', () => {
+    it('writes the reason as text after the element when the field loses focus, linked to the input by aria-describedby', async () => {
+      const { element, input } = mount('aria-describedby="numero_help"', '<div class="form-text" id="numero_help">Ajuda</div>');
+      await typeInto(input, '0000001392');
+      expect(errorOf()).toBeNull();
+
+      await userEvent.tab();
+
+      const error = required(errorOf());
+      expect(error.textContent).toBe(INCOMPLETE_MESSAGE);
+      expect(error.localName).toBe('div');
+      expect(error.classList.contains('invalid-feedback')).toBe(true);
+      expect(error.classList.contains('d-block')).toBe(true);
+      expect(error.checkVisibility()).toBe(true);
+      expect(element.nextElementSibling).toBe(error);
+      expect(error.contains(input)).toBe(false);
+      expect(describedBy(input)).toEqual(['numero_help', 'numero-client-error']);
+    });
+
+    it('names wrong check digits as well', async () => {
+      const { input } = mount();
+      await typeInto(input, WRONG_CHECK_DIGITS);
+
+      await userEvent.tab();
+
+      expect(errorText()).toBe(INVALID_MESSAGE);
+    });
+
+    it('writes nothing while the number is still being typed', async () => {
+      const { input } = mount();
+
+      await typeInto(input, '0000001392');
+
+      expect(errorOf()).toBeNull();
+      expect(input.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('goes away, and is unlinked, once the number is corrected', async () => {
+      const { input } = mount('aria-describedby="numero_help"', '<div class="form-text" id="numero_help">Ajuda</div>');
+      await typeInto(input, '0000001392');
+      await userEvent.tab();
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+
+      await typeInto(input, DIGITS.slice(10));
+
+      expect(input.validity.valid).toBe(true);
+      expect(errorText()).toBe('');
+      expect(required(errorOf()).hidden).toBe(true);
+      expect(describedBy(input)).toEqual(['numero_help']);
+    });
+
+    it('follows the number while it is shown, naming what is wrong now', async () => {
+      const { input } = mount();
+      await typeInto(input, '0000001402');
+      await userEvent.tab();
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+
+      await typeInto(input, WRONG_CHECK_DIGITS.slice(10));
+
+      expect(input.validationMessage).toBe(INVALID_MESSAGE);
+      expect(errorText()).toBe(INVALID_MESSAGE);
+      expectMarkedInvalid(input, true);
+    });
+
+    it('goes away when the field is emptied and is optional', async () => {
+      const { input } = mount();
+      await typeInto(input, '123');
+      await userEvent.tab();
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+
+      await userEvent.clear(input);
+
+      expect(input.validity.valid).toBe(true);
+      expect(errorText()).toBe('');
+      expectMarkedInvalid(input, false);
+    });
+
+    it('goes away when the field is emptied and required, which is left to the browser', async () => {
+      const { input } = mount('required');
+      await typeInto(input, '123');
+      await userEvent.tab();
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+
+      await userEvent.clear(input);
+
+      expect(input.validity.valueMissing).toBe(true);
+      expect(errorText()).toBe('');
+      expect(input.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('writes the reason when the browser reports the number as invalid, as it does when the form is submitted', () => {
+      const { form, input } = mount();
+      input.value = '123';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(errorOf()).toBeNull();
+
+      expect(form.checkValidity()).toBe(false);
+
+      expectMarkedInvalid(input, true);
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+      expect(describedBy(input)).toEqual(['numero-client-error']);
+    });
+
+    it('writes a reason as soon as a required field the browser reported empty gets a number that is not valid', async () => {
+      const { form, input } = mount('required');
+      form.checkValidity();
+      expectMarkedInvalid(input, true);
+      expect(errorText()).toBe('');
+
+      await typeInto(input, '12');
+
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+      expectMarkedInvalid(input, true);
+    });
+
+    it('writes no reason of its own for a native state, even when the field is reported invalid', () => {
+      const { form, input } = mount('required');
+      form.checkValidity();
+
+      expectMarkedInvalid(input, true);
+      expect(errorOf()).toBeNull();
+    });
+
+    it('takes the text away with the marks when a reset brings back a valid value', async () => {
+      const { form, input } = mount(`value="${DIGITS}"`);
+      await userEvent.clear(input);
+      await typeInto(input, '123');
+      await userEvent.tab();
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+
+      form.reset();
+      await nextTask();
+
+      expect(errorText()).toBe('');
+      expect(input.hasAttribute('aria-describedby')).toBe(false);
+    });
+  });
+
+  describe('feedback rendered by the server', () => {
+    it('stays as it is when the element connects', () => {
+      const { input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+
+      const feedback = required(document.getElementById('numero_error1'));
+      expect(feedback.hidden).toBe(false);
+      expect(feedback.checkVisibility()).toBe(true);
+      expect(feedback.classList.contains('d-block')).toBe(true);
+      expect(describedBy(input)).toEqual(['numero_help', 'numero_error1']);
+      expectMarkedInvalid(input, true);
+    });
+
+    it('stays while the value is not changed, even when the field loses focus or the form is checked', async () => {
+      const { form, input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+      input.focus();
+
+      await userEvent.tab();
+      form.checkValidity();
+
+      expect(required(document.getElementById('numero_error1')).hidden).toBe(false);
+      expect(describedBy(input)).toContain('numero_error1');
+    });
+
+    it('is hidden and unlinked at the first change, because it describes the value that was submitted; the help stays', async () => {
+      const { input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+
+      await typeInto(input, '0');
+
+      const feedback = required(document.getElementById('numero_error1'));
+      expect(feedback.hidden).toBe(true);
+      expect(feedback.checkVisibility()).toBe(false);
+      expect(describedBy(input)).toContain('numero_help');
+      expect(describedBy(input)).not.toContain('numero_error1');
+      expect(required(document.getElementById('numero_help')).hidden).toBe(false);
+    });
+
+    it('goes together with the invalid state once the number is valid', async () => {
+      const { input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+
+      await typeInto(input, DIGITS.slice(10));
+
+      expect(required(document.getElementById('numero_error1')).hidden).toBe(true);
+      expectMarkedInvalid(input, false);
+      expect(errorText()).toBe('');
+      expect(describedBy(input)).toEqual(['numero_help']);
+    });
+
+    it('is replaced by the reason of the browser while the value stays invalid', async () => {
+      const { input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+
+      await typeInto(input, '0');
+
+      expectMarkedInvalid(input, true);
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+      expect(describedBy(input)).toEqual(['numero_help', 'numero-client-error']);
+    });
+
+    it('leaves the help text alone when there is no feedback to retire', async () => {
+      const { input } = mount('aria-describedby="numero_help"', '<div class="form-text" id="numero_help">Ajuda</div>');
+
+      await typeInto(input, '12');
+
+      expect(describedBy(input)).toEqual(['numero_help']);
+      expect(required(document.getElementById('numero_help')).hidden).toBe(false);
     });
   });
 
@@ -443,6 +693,18 @@ describe('<jus-numero-processo>', () => {
 
       expect(input.value).toBe('processo 123');
       expect(input.validationMessage).toBe(INCOMPLETE_MESSAGE);
+    });
+
+    it('does not rewrite a value with more than 20 digits that the server sent back', () => {
+      const { input } = mount('value="0000001-39.2024.8.26.0100-123"');
+
+      expect(input.value).toBe('0000001-39.2024.8.26.0100-123');
+      expect(input.validity.customError).toBe(true);
+    });
+
+    it('still masks a value of exactly 20 digits, with or without separators', () => {
+      expect(mount(`value="${DIGITS}"`).input.value).toBe(MASKED);
+      expect(mount(`value="${MASKED}"`).input.value).toBe(MASKED);
     });
 
     it('does not mark the initial value as invalid before the person interacts', () => {
@@ -532,6 +794,41 @@ describe('<jus-numero-processo>', () => {
       await userEvent.clear(input);
       await typeInto(input, '123');
       await userEvent.tab();
+      expectMarkedInvalid(input, true);
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+      await expectNoAxeViolations(main);
+
+      await userEvent.clear(input);
+      await typeInto(input, WRONG_CHECK_DIGITS);
+      await userEvent.tab();
+      expect(errorText()).toBe(INVALID_MESSAGE);
+      await expectNoAxeViolations(main);
+
+      await userEvent.clear(input);
+      expect(errorText()).toBe('');
+      await expectNoAxeViolations(main);
+    });
+
+    it('has no accessibility violations with the server feedback, and after it is retired', async () => {
+      const { main, input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+      await expectNoAxeViolations(main);
+
+      await typeInto(input, '0');
+      expect(required(document.getElementById('numero_error1')).hidden).toBe(true);
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+      await expectNoAxeViolations(main);
+
+      await userEvent.clear(input);
+      await typeInto(input, DIGITS);
+      expectMarkedInvalid(input, false);
+      await expectNoAxeViolations(main);
+    });
+
+    it('has no accessibility violations with a required empty field the browser reported invalid', async () => {
+      const { main, form, input } = mount('required');
+
+      form.checkValidity();
+
       expectMarkedInvalid(input, true);
       await expectNoAxeViolations(main);
     });

@@ -20,8 +20,17 @@ interface Mounted {
 
 const pages: HTMLElement[] = [];
 
+/**
+ * How long the test fade lasts. The tests look at the alert while it is still fading out, so it has to outlast a slow
+ * machine running the checks in between.
+ */
+const FADE_MS = 1000;
+
 /** Bootstrap's fade, slowed down enough for the tests to see the alert while it fades out. */
-const FADE = '.fade { transition: opacity 300ms linear; } .fade:not(.show) { opacity: 0; }';
+const FADE = `.fade { transition: opacity ${String(FADE_MS)}ms linear; } .fade:not(.show) { opacity: 0; }`;
+
+/** The most a test waits for something that ends with the fade, well past it. */
+const AFTER_FADE = { timeout: 5 * FADE_MS };
 
 /**
  * Builds the layout the page has: the flash alerts first, then the rest of the content, all inside main#conteudo
@@ -93,7 +102,7 @@ describe('installAlertFocus', () => {
     // Fading out, the alert is still there and so is the focus.
     expect(alert.isConnected).toBe(true);
     expect(document.activeElement).toBe(closeButtonOf(alert));
-    await expect.poll(() => document.activeElement).toBe(main);
+    await expect.poll(() => document.activeElement, AFTER_FADE).toBe(main);
     expect(alert.isConnected).toBe(false);
   });
 
@@ -108,7 +117,7 @@ describe('installAlertFocus', () => {
     await closeWithKeyboard(alert);
     field.focus();
 
-    await expect.poll(() => alert.isConnected).toBe(false);
+    await expect.poll(() => alert.isConnected, AFTER_FADE).toBe(false);
     expect(document.activeElement).toBe(field);
   });
 

@@ -33,9 +33,11 @@ const baseSheet = sheet(`
     border: 0 !important;
   }
 
+  /* The border is the muted text colour (about 5.4:1 on white), not --jus-color-border (about 1.5:1, a decoration): a
+     button needs a boundary that identifies it as a control. */
   .jus-button {
     padding: var(--jus-space-1) var(--jus-space-2);
-    border: 1px solid var(--jus-color-border);
+    border: 1px solid var(--jus-color-muted);
     border-radius: var(--jus-radius-base);
     background: var(--jus-color-surface);
     color: var(--jus-color-body);
@@ -46,6 +48,15 @@ const baseSheet = sheet(`
   .jus-button[aria-pressed="true"] {
     background: var(--jus-color-primary);
     color: var(--jus-color-surface);
+  }
+
+  /* Disabled controls are exempt from the contrast minimums, but the text stays legible (muted on the light fill is
+     about 4.9:1); the fill and the decorative border are what say it is not available. */
+  .jus-button:disabled {
+    border-color: var(--jus-color-border);
+    background: var(--jus-color-light);
+    color: var(--jus-color-muted);
+    cursor: not-allowed;
   }
 
   :focus-visible {

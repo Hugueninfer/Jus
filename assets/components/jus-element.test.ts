@@ -54,6 +54,29 @@ function rootToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+/** The colour a design token resolves to, as the browser reports computed colours. */
+function colorOf(token: string): string {
+  const probe = document.createElement('span');
+  probe.style.color = `var(${token})`;
+  document.body.append(probe);
+  const { color } = getComputedStyle(probe);
+  probe.remove();
+
+  return color;
+}
+
+/** The CSS of every sheet a component adopts (the shared base sheet first), as one text. */
+function stylesOf(tag: string): string {
+  return sheetsOf(mount(tag)).map((styleSheet) => cssOf(styleSheet)).join('\n');
+}
+
+/** The components with a shadow root: the plain test element has the base sheet only, the others add their own. */
+const SHADOW_COMPONENTS = ['jus-plain-element', 'jus-filtro-timeline', 'jus-upload'];
+
+function shadowButton(): HTMLButtonElement {
+  return required(required(mount('jus-test-element').shadowRoot).querySelector('button'));
+}
+
 /** Mounts the test element and moves keyboard focus onto the button in its shadow root. */
 async function focusButtonIn(parent: HTMLElement): Promise<HTMLButtonElement> {
   const element = document.createElement('jus-test-element');
@@ -119,15 +142,12 @@ describe('JusElement', () => {
     expect(sheets[2]).toBe(otherSheet);
   });
 
-  it('writes no literal hex, rgb or hsl colour in the base sheet', () => {
-    const css = cssOf(sheetsOf(mount('jus-plain-element'))[0]);
-
-    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
+  it.each(SHADOW_COMPONENTS)('writes no literal hex, rgb or hsl colour in the sheets of %s', (tag) => {
+    expect(stylesOf(tag)).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
   });
 
-  it('refers only to tokens the page defines, apart from the focus ring colour it falls back from', () => {
-    const css = cssOf(sheetsOf(mount('jus-plain-element'))[0]);
-    const names = new Set(Array.from(css.matchAll(/--jus-[a-z0-9-]+/g), (match) => match[0]));
+  it.each(SHADOW_COMPONENTS)('refers only to tokens the page defines in the sheets of %s, apart from the focus ring colour it falls back from', (tag) => {
+    const names = new Set(Array.from(stylesOf(tag).matchAll(/--jus-[a-z0-9-]+/g), (match) => match[0]));
     // The page sets --jus-focus-ring in base/_focus.scss; the base sheet always gives it a token fallback.
     names.delete('--jus-focus-ring');
 
@@ -135,6 +155,45 @@ describe('JusElement', () => {
     for (const name of names) {
       expect(rootToken(name), name).not.toBe('');
     }
+  });
+
+  it.each(SHADOW_COMPONENTS)('uses no custom property of another family in the sheets of %s', (tag) => {
+    const referenced = Array.from(stylesOf(tag).matchAll(/var\(\s*(--[a-z0-9-]+)/g), (match) => match[1] ?? '');
+
+    expect(referenced.length).toBeGreaterThan(5);
+    for (const name of referenced) {
+      expect(name).toMatch(/^--jus-/);
+    }
+  });
+
+  it('draws the button with a muted border, dark enough to identify it as a control', () => {
+    const style = getComputedStyle(shadowButton());
+
+    expect(style.borderTopColor).toBe(colorOf('--jus-color-muted'));
+    expect(style.borderTopStyle).toBe('solid');
+    expect(style.cursor).toBe('pointer');
+  });
+
+  it('draws a disabled button as such: not-allowed cursor, muted text on the light fill, the decorative border', () => {
+    const button = shadowButton();
+    button.disabled = true;
+
+    const style = getComputedStyle(button);
+    expect(style.cursor).toBe('not-allowed');
+    expect(style.color).toBe(colorOf('--jus-color-muted'));
+    expect(style.backgroundColor).toBe(colorOf('--jus-color-light'));
+    expect(style.borderTopColor).toBe(colorOf('--jus-color-border'));
+  });
+
+  it('gives a button back its look when it is enabled again', () => {
+    const button = shadowButton();
+    button.disabled = true;
+    button.disabled = false;
+
+    const style = getComputedStyle(button);
+    expect(style.cursor).toBe('pointer');
+    expect(style.backgroundColor).toBe(colorOf('--jus-color-surface'));
+    expect(style.borderTopColor).toBe(colorOf('--jus-color-muted'));
   });
 
   it('draws the focus ring with the page ring colour', async () => {
