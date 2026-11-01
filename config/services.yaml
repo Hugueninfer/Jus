@@ -7,6 +7,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    # Case documents live outside public/, one folder per environment so the tests never touch the development files.
+    app.documents_dir: '%kernel.project_dir%/var/uploads/%kernel.environment%'
 
 services:
     # default configuration for services in *this* file
@@ -32,6 +34,11 @@ when@test:
         # Functional tests hash passwords through the container to create users.
         Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface:
             alias: security.user_password_hasher
+            public: true
+
+        # Integration tests fetch the storage from the container. when@ blocks do not inherit the _defaults above.
+        App\Filing\DocumentStorage:
+            autowire: true
             public: true
 
         # Lets integration tests count the SELECTs a repository method runs (see tests/Support/QueryRecorder.php).
