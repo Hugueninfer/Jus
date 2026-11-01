@@ -81,8 +81,9 @@
 
     <section aria-labelledby="andamento-titulo">
         <h2 class="h4" id="andamento-titulo">Andamento</h2>
-        {# Plain links, so the tabs work without JavaScript: the server renders only the active panel. #}
-        <nav id="andamento" aria-label="Andamento do processo" tabindex="-1">
+        {# Plain links, so the tabs work without JavaScript: the server renders only the active panel. The tabs are also where the focus
+           goes when the confirmation below them is dismissed (data-jus-focus-target, see assets/behaviours/alert-focus.ts). #}
+        <nav id="andamento" aria-label="Andamento do processo" tabindex="-1" data-jus-focus-target>
             <ul class="nav nav-tabs mb-3">
                 {% for key, title in {movimentacoes: 'Movimentações', documentos: 'Documentos'} %}
                     <li class="nav-item">

@@ -13,7 +13,8 @@
             {{ encore_entry_script_tags('app') }}
         {% endblock %}
         {# The off-canvas menu opens with a Bootstrap script, so with scripts off the links of the navbar would be out of reach on
-           a phone. There the panel is shown where it is, a block under the brand, as Bootstrap itself does from md up. #}
+           a phone. There the panel is shown where it is, as a block under the brand (from md up Bootstrap already shows it
+           inline, beside the brand, and never opens it). #}
         <noscript>
             <style>
                 .navbar .navbar-toggler, .navbar .offcanvas-header { display: none; }
@@ -68,7 +69,7 @@
             </nav>
         </header>
 
-        <main id="conteudo" class="container flex-grow-1 py-4" tabindex="-1">
+        <main id="conteudo" class="container flex-grow-1 py-4" tabindex="-1" data-jus-focus-target>
             {% for type, messages in app.flashes %}
                 {% for message in messages %}
                     <twig:Alert :type="type" dismissible>{{ message }}</twig:Alert>

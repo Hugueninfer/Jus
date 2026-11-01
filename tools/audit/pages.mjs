@@ -12,11 +12,15 @@
  * data, as a person would; `composer setup` puts the data back. It is not part of `composer ci` because it needs the
  * application running.
  *
+ * It refuses a `--base-url` that is not on this machine (localhost, 127.x.x.x, [::1]) unless `--allow-remote` is passed,
+ * since it signs in with the demo account and files petitions.
+ *
  * The exit code is 1 when anything fails (a violation, a horizontal scroll, a failed check) and 2 when the audit itself
- * could not run.
+ * could not run (the server is not reachable, the demo account cannot sign in, a wrong argument).
  */
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath, URL } from 'node:url';
 import { chromium } from 'playwright';
 
@@ -34,22 +38,45 @@ const TIMEOUT_MS = 15_000;
 
 /** What went wrong, per page and width, for the report. */
 const findings = [];
-/** Every line the report prints, in order. */
-const lines = [];
+
+/** The audit could not run (as opposed to the pages failing it): the message says what to do, no stack needed. */
+class AuditError extends Error {}
 
 function log(text = '') {
-  lines.push(text);
   console.log(text);
 }
 
+const USAGE = 'Usage: npm run audit:pages -- --base-url=http://127.0.0.1:8000 [--allow-remote]';
+
+/** The audit signs in with the demo account and files petitions, so it only runs against this machine unless told to. */
+function isLoopback(hostname) {
+  return hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '[::1]' || /^127(\.\d{1,3}){3}$/.test(hostname);
+}
+
 function parseArguments(argv) {
-  const options = { baseUrl: 'http://127.0.0.1:8000' };
+  const options = { baseUrl: 'http://127.0.0.1:8000', allowRemote: false };
   for (const argument of argv) {
     const match = /^--base-url=(.+)$/.exec(argument);
-    if (match === null) {
-      throw new Error(`Unknown argument "${argument}". Usage: npm run audit:pages -- --base-url=http://127.0.0.1:8000`);
+    if (argument === '--allow-remote') {
+      options.allowRemote = true;
+    } else if (match === null) {
+      throw new AuditError(`Unknown argument "${argument}". ${USAGE}`);
+    } else {
+      options.baseUrl = match[1].replace(/\/+$/, '');
     }
-    options.baseUrl = match[1].replace(/\/+$/, '');
+  }
+
+  let url;
+  try {
+    url = new URL(options.baseUrl);
+  } catch {
+    throw new AuditError(`"${options.baseUrl}" is not a URL. ${USAGE}`);
+  }
+  if (!isLoopback(url.hostname) && !options.allowRemote) {
+    throw new AuditError(
+      `Refusing to audit ${url.origin}: it is not on this machine, and the audit signs in with the demo account and files petitions. ` +
+        'Pass --allow-remote if that server is yours to change.',
+    );
   }
 
   return options;
@@ -195,7 +222,13 @@ async function tabTo(page, matches, limit = 60) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 async function open(page, baseUrl, path) {
-  const response = await page.goto(`${baseUrl}${path}`, { waitUntil: 'load' });
+  let response;
+  try {
+    response = await page.goto(`${baseUrl}${path}`, { waitUntil: 'load' });
+  } catch (error) {
+    const reason = error instanceof Error ? (error.message.split('\n')[0] ?? '') : String(error);
+    throw new AuditError(`Could not open ${baseUrl}${path} (${reason}). Is the application running at that address?`);
+  }
 
   return response?.status();
 }
@@ -204,7 +237,12 @@ async function signIn(page, baseUrl) {
   await open(page, baseUrl, '/login');
   await page.fill('#username', DEMO_USER.email);
   await page.fill('#password', DEMO_USER.password);
-  await Promise.all([page.waitForURL(/\/processos/), page.click('button[type="submit"]')]);
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('button[type="submit"]')]);
+  if (!new URL(page.url()).pathname.startsWith('/processos')) {
+    throw new AuditError(
+      `Signing in as ${DEMO_USER.email} did not work (the browser ended on ${page.url()}). Is the demo data missing? Run "composer setup".`,
+    );
+  }
 }
 
 /** The first case, from the search results, where the demo lawyer can file (the case page offers "Peticionar"). */
@@ -218,7 +256,7 @@ async function findFilingCase(page, baseUrl) {
       return href;
     }
   }
-  throw new Error('No case in the search results lets the demo lawyer file a petition. Did `composer setup` run?');
+  throw new AuditError('No case in the search results lets the demo lawyer file a petition. Is the demo data missing? Run "composer setup".');
 }
 
 /** A small fixture is enough for the server: it checks the content, so the sample PDF is sent under other names too. */
@@ -372,7 +410,6 @@ async function keyboardPass(page, baseUrl, caseHref, mode) {
   await open(page, baseUrl, `${caseHref}/peticionar`);
   await submitEmptyFiling(page);
   await page.locator('#resumo-erros a').last().focus();
-  const reached = [];
   for (const [label, matches] of [
     ['the type select', (element) => element.id === 'filing_type'],
     ['the description', (element) => element.id === 'filing_description'],
@@ -380,7 +417,6 @@ async function keyboardPass(page, baseUrl, caseHref, mode) {
     ['the submit button', (element) => element.tag === 'button' && element.type === 'submit'],
   ]) {
     const visited = await tabTo(page, matches, 6);
-    reached.push(visited === null ? `${label}: not reached` : visited.map(nameOf).join(' > '));
     check(`filing: Tab reaches ${label}`, visited !== null, visited === null ? '' : visited.map(nameOf).join(' > '));
   }
 
@@ -430,24 +466,63 @@ async function auditAsServed(plain, views, label, { status, expectedStatus } = {
   // A browser with scripting off treats what is inside <noscript> as markup, and serializes it so; a page that runs scripts
   // would take it for text. Unwrapping it keeps the styles that exist for the no-JS case in effect.
   const html = (await plain.content()).replace(/<\/?noscript[^>]*>/g, '');
+  // The same matcher and handler that added the route remove it: unrouting by the URL would not find a route made with a function.
+  const matches = (candidate) => candidate.href === url;
+  const serve = (route) => route.fulfill({ status: status ?? 200, contentType: 'text/html; charset=utf-8', body: html });
   for (const view of views) {
-    await view.page.route((candidate) => candidate.href === url, (route) =>
-      route.fulfill({ status: status ?? 200, contentType: 'text/html; charset=utf-8', body: html }),
-    );
-    await view.page.goto(url, { waitUntil: 'load' });
-    await auditPage(view.page, label, `${view.name} px, as served`, { expectedStatus, status });
-    if (label === 'search · results') {
-      const links = view.page.locator('#menu-principal a.nav-link');
-      const hidden = [];
-      for (const link of await links.all()) {
-        if (!(await link.isVisible())) {
-          hidden.push(((await link.textContent()) ?? '').trim());
-        }
-      }
-      check(`${view.name} px, as served: the main navigation links can be reached`, hidden.length === 0, hidden.length === 0 ? '' : `not visible: ${hidden.join(', ')}`);
+    await view.page.route(matches, serve);
+    try {
+      await view.page.goto(url, { waitUntil: 'load' });
+      await auditPage(view.page, label, `${view.name} px, as served`, { expectedStatus, status });
+    } finally {
+      await view.page.unroute(matches, serve);
     }
-    await view.page.unroute(url);
   }
+}
+
+/**
+ * The box an element occupies once it stops moving: a resize can start a CSS transition (Bootstrap slides the off-canvas
+ * panel for 0.3 s), and a box read in the middle of one says nothing about where the element ends up.
+ */
+async function settledBox(locator) {
+  let previous = await locator.boundingBox();
+  for (let attempt = 0; attempt < 30; attempt++) {
+    await sleep(100);
+    const current = await locator.boundingBox();
+    if (JSON.stringify(current) === JSON.stringify(previous)) {
+      return current;
+    }
+    previous = current;
+  }
+
+  return previous;
+}
+
+/**
+ * With scripts really off, at each width: every link of the main navigation lies inside the window, by the box it
+ * occupies (a panel that is "visible" but slid out of the window does not pass). The window goes back to desktop size.
+ */
+async function checkMenuInsideWindow(page) {
+  for (const viewport of VIEWPORTS) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const links = await page.locator('#menu-principal a.nav-link').all();
+    const outside = [];
+    for (const link of links) {
+      const box = await settledBox(link);
+      const name = ((await link.textContent()) ?? '').trim();
+      const inside = box !== null && box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height;
+      if (!inside) {
+        const where = box === null ? 'no box' : `x ${String(Math.round(box.x))}, y ${String(Math.round(box.y))}, ${String(Math.round(box.width))}x${String(Math.round(box.height))}`;
+        outside.push(`${name}: ${where}`);
+      }
+    }
+    check(
+      `no JS, ${viewport.name} px: the main navigation links (${String(links.length)}) are inside the window`,
+      links.length >= 3 && outside.length === 0,
+      outside.join('; '),
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
 }
 
 async function auditWithoutScripts(browser, baseUrl, state) {
@@ -476,6 +551,7 @@ async function auditWithoutScripts(browser, baseUrl, state) {
   // Search: a plain GET form.
   status = await open(plain, baseUrl, '/processos');
   await auditAsServed(plain, views, 'search · results', { expectedStatus: 200, status });
+  await checkMenuInsideWindow(plain);
   await plain.fill('#parte', 'zzzz-ninguem');
   await Promise.all([plain.waitForURL(/parte=zzzz/), plain.click('form[role="search"] button[type="submit"]')]);
   const empty = await plain.getByText('Nenhum processo encontrado.').count();
@@ -547,7 +623,7 @@ main().then(
     process.exitCode = code;
   },
   (error) => {
-    console.error(error);
+    console.error(error instanceof AuditError ? `\n${error.message}` : error);
     process.exitCode = 2;
   },
 );

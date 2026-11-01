@@ -21,6 +21,8 @@ final class LayoutTest extends WebTestCase
         self::assertSame('Pular para o conteúdo', trim($crawler->filter('a[href="#conteudo"]')->text()));
         self::assertCount(1, $crawler->filter('main#conteudo'));
         self::assertSame('-1', $crawler->filter('main#conteudo')->attr('tabindex'));
+        // The place the focus goes to when a dismissed alert had it (assets/behaviours/alert-focus.ts).
+        self::assertCount(1, $crawler->filter('main#conteudo[data-jus-focus-target]'));
         self::assertSame('Navegação principal', $crawler->filter('nav')->attr('aria-label'));
         self::assertSelectorExists('meta[name="viewport"]');
         self::assertSelectorTextContains('title', 'Entrar · Jus');
