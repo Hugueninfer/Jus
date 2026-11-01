@@ -36,8 +36,13 @@ when@test:
             alias: security.user_password_hasher
             public: true
 
-        # Integration tests fetch the storage from the container. when@ blocks do not inherit the _defaults above.
+        # Integration tests fetch the storage and the filing service from the container. when@ blocks do not inherit the
+        # _defaults above.
         App\Filing\DocumentStorage:
+            autowire: true
+            public: true
+
+        App\Filing\FilingService:
             autowire: true
             public: true
 

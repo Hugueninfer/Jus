@@ -9,7 +9,9 @@ use App\Domain\LegalCase\CaseStatus;
 use App\Domain\LegalCase\EventType;
 use App\Domain\LegalCase\FilingType;
 use App\Domain\LegalCase\PartySide;
+use App\Entity\Deadline;
 use App\Entity\LegalCase;
+use App\Entity\Party;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -68,6 +70,24 @@ final readonly class TestCases
         $this->em->flush();
 
         return $case;
+    }
+
+    /**
+     * A deadline of $party, opened by a new summons of its case on $summonsAt (a business-day count of 15 unless told
+     * otherwise) and fulfilled on $fulfilledAt when one is given.
+     */
+    public function deadline(Party $party, string $summonsAt = '2024-03-05 08:00', ?string $fulfilledAt = null, int $businessDays = 15): Deadline
+    {
+        $summons = $party->getLegalCase()->record(EventType::Summons, 'Intimação para manifestação.', new \DateTimeImmutable($summonsAt));
+        $deadline = new Deadline($party, $summons, $businessDays);
+        if (null !== $fulfilledAt) {
+            $deadline->fulfil(new \DateTimeImmutable($fulfilledAt));
+        }
+
+        $this->em->persist($deadline);
+        $this->em->flush();
+
+        return $deadline;
     }
 
     private function persist(User $user): User
