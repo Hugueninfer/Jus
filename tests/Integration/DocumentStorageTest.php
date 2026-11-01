@@ -6,7 +6,9 @@ namespace App\Tests\Integration;
 
 use App\Filing\DocumentStorage;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresOperatingSystemFamily;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
 
@@ -14,6 +16,10 @@ final class DocumentStorageTest extends KernelTestCase
 {
     private const string UUID_PDF = '/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.pdf$/';
     private const string SAMPLE = __DIR__.'/../fixtures/sample.pdf';
+
+    // Planted one level above the documents directory, where "../<name>" would reach them.
+    private const string CANARY = 'canary.pdf';
+    private const string UUID_CANARY = '0194f1c0-0000-7000-8000-00000000c0de.pdf';
 
     private DocumentStorage $storage;
     private string $directory;
@@ -26,11 +32,17 @@ final class DocumentStorageTest extends KernelTestCase
         $this->directory = self::getContainer()->getParameter('app.documents_dir');
 
         $this->storage->clear();
+
+        $filesystem = new Filesystem();
+        foreach ([self::CANARY, self::UUID_CANARY] as $canary) {
+            $filesystem->copy(self::SAMPLE, $this->outside($canary), true);
+            self::assertFileExists(Path::join($this->directory, '..', $canary), 'The traversal names must point at real files.');
+        }
     }
 
     protected function tearDown(): void
     {
-        (new Filesystem())->remove([$this->canary(), $this->directory]);
+        (new Filesystem())->remove([$this->outside(self::CANARY), $this->outside(self::UUID_CANARY), $this->directory]);
         parent::tearDown();
     }
 
@@ -81,6 +93,16 @@ final class DocumentStorageTest extends KernelTestCase
         self::assertNotNull($this->storage->pathOf($stored->name));
     }
 
+    #[RequiresOperatingSystemFamily('Linux')]
+    public function testTheDirectoryIsClosedToEveryoneOutsideTheOwnerAndGroup(): void
+    {
+        (new Filesystem())->remove($this->directory);
+
+        $this->storage->copyFrom(self::SAMPLE);
+
+        self::assertSame(0, fileperms($this->directory) & 0o007);
+    }
+
     public function testTwoStoresDoNotCollide(): void
     {
         $first = $this->storage->store(new \SplFileInfo(self::SAMPLE));
@@ -89,6 +111,58 @@ final class DocumentStorageTest extends KernelTestCase
         self::assertNotSame($first->name, $second->name);
         self::assertNotNull($this->storage->pathOf($first->name));
         self::assertNotNull($this->storage->pathOf($second->name));
+    }
+
+    public function testCopyingAMissingFileThrowsAndLeavesNoPdfBehind(): void
+    {
+        try {
+            $this->storage->copyFrom(Path::join($this->directory, 'missing.pdf'));
+            self::fail('Copying a file that does not exist must throw.');
+        } catch (IOException) {
+            self::assertSame([], glob(Path::join($this->directory, '*.pdf')));
+        }
+    }
+
+    public function testACopyThatFailsHalfWayLeavesNoPdfBehind(): void
+    {
+        $failsAfterCopying = new class extends Filesystem {
+            public function copy(string $originFile, string $targetFile, bool $overwriteNewerFiles = false): void
+            {
+                parent::copy($originFile, $targetFile, $overwriteNewerFiles);
+
+                throw new IOException('The disk went away.');
+            }
+        };
+
+        try {
+            (new DocumentStorage($this->directory, $failsAfterCopying))->copyFrom(self::SAMPLE);
+            self::fail('The failure of the copy must reach the caller.');
+        } catch (IOException $e) {
+            self::assertSame('The disk went away.', $e->getMessage());
+            self::assertSame([], glob(Path::join($this->directory, '*.pdf')));
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function nonLocalSources(): iterable
+    {
+        // Loopback on the discard port: should the guard ever go missing, nothing leaves the machine.
+        yield 'http' => ['http://127.0.0.1:9/sample.pdf'];
+        yield 'https' => ['https://127.0.0.1:9/sample.pdf'];
+        yield 'ftp' => ['ftp://127.0.0.1:9/sample.pdf'];
+    }
+
+    #[DataProvider('nonLocalSources')]
+    public function testItOnlyCopiesFromLocalFiles(string $source): void
+    {
+        try {
+            $this->storage->copyFrom($source);
+            self::fail('A source that is not a local file must be refused.');
+        } catch (\InvalidArgumentException) {
+            self::assertSame([], glob(Path::join($this->directory, '*.pdf')));
+        }
     }
 
     public function testPathOfResolvesInsideTheDirectoryOnly(): void
@@ -107,18 +181,23 @@ final class DocumentStorageTest extends KernelTestCase
     }
 
     /**
+     * Names the storage must never turn into a path. The two canaries planted in setUp() are what the first group
+     * would reach if the guard went missing (Path::join turns "\" into "/" on every OS, so the backslash variants
+     * traverse as well).
+     *
      * @return iterable<string, array{string}>
      */
     public static function namesOutsideThePattern(): iterable
     {
         $valid = '0194f1c0-0000-7000-8000-000000000000.pdf';
 
+        yield 'a file one level up' => ['../'.self::CANARY];
+        yield 'a file one level up, with a backslash' => ['..\\'.self::CANARY];
+        yield 'a UUID-named file one level up' => ['../'.self::UUID_CANARY];
+        yield 'a UUID-named file one level up, with a backslash' => ['..\\'.self::UUID_CANARY];
         yield 'parent directory' => ['../x.pdf'];
-        yield 'parent directory with a valid name' => ['../'.$valid];
-        yield 'a file that exists one level up' => ['../canary.pdf'];
         yield 'a short name' => ['x.pdf'];
         yield 'a backslash' => ['a\\b.pdf'];
-        yield 'a backslash traversal' => ['..\\x.pdf'];
         yield 'a subdirectory' => ['a/'.substr($valid, 2)];
         yield 'another extension' => [substr($valid, 0, -4).'.txt'];
         yield 'no extension' => [substr($valid, 0, -4)];
@@ -132,6 +211,29 @@ final class DocumentStorageTest extends KernelTestCase
     public function testPathOfIsNullForNamesOutsideThePattern(string $name): void
     {
         self::assertNull($this->storage->pathOf($name));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function namesThatAreNotUuids(): iterable
+    {
+        yield 'thirty-six dashes' => [str_repeat('-', 36).'.pdf'];
+        yield 'the groups in the wrong places' => ['0194f1c000-00-7000-8000-000000000000.pdf'];
+        yield 'not hexadecimal' => ['0194f1c0-0000-7000-8000-00000000000g.pdf'];
+    }
+
+    #[DataProvider('namesThatAreNotUuids')]
+    public function testFilesWhoseNameIsNotAUuidAreIgnoredEvenWhenTheyExist(string $name): void
+    {
+        $path = Path::join($this->directory, $name);
+        (new Filesystem())->copy(self::SAMPLE, $path, true);
+
+        self::assertNull($this->storage->pathOf($name));
+
+        $this->storage->delete($name);
+
+        self::assertFileExists($path);
     }
 
     public function testDeleteRemovesTheFile(): void
@@ -157,13 +259,12 @@ final class DocumentStorageTest extends KernelTestCase
     #[DataProvider('namesOutsideThePattern')]
     public function testDeleteIgnoresNamesOutsideThePattern(string $name): void
     {
-        // The canary sits one level above the documents directory: that is what '../canary.pdf' would reach.
-        (new Filesystem())->copy(self::SAMPLE, $this->canary(), true);
         $stored = $this->storage->copyFrom(self::SAMPLE);
 
         $this->storage->delete($name);
 
-        self::assertFileExists($this->canary());
+        self::assertFileExists($this->outside(self::CANARY));
+        self::assertFileExists($this->outside(self::UUID_CANARY));
         self::assertNotNull($this->storage->pathOf($stored->name));
     }
 
@@ -176,18 +277,26 @@ final class DocumentStorageTest extends KernelTestCase
 
         self::assertNull($this->storage->pathOf($first->name));
         self::assertNull($this->storage->pathOf($second->name));
-        self::assertSame([], glob($this->directory.'/*.pdf'));
+        self::assertSame([], glob(Path::join($this->directory, '*.pdf')));
     }
 
     public function testClearLeavesOtherFilesAlone(): void
     {
         $this->storage->copyFrom(self::SAMPLE);
-        $keep = $this->directory.'/notes.txt';
+        $keep = Path::join($this->directory, 'notes.txt');
         (new Filesystem())->dumpFile($keep, 'keep me');
 
         $this->storage->clear();
 
         self::assertFileExists($keep);
+    }
+
+    public function testClearLeavesTheFilesOutsideTheDirectoryAlone(): void
+    {
+        $this->storage->clear();
+
+        self::assertFileExists($this->outside(self::CANARY));
+        self::assertFileExists($this->outside(self::UUID_CANARY));
     }
 
     public function testClearWorksWhenTheDirectoryDoesNotExist(): void
@@ -208,8 +317,11 @@ final class DocumentStorageTest extends KernelTestCase
         self::assertLessThan(2048, \strlen($contents));
     }
 
-    private function canary(): string
+    /**
+     * A path one level above the documents directory.
+     */
+    private function outside(string $name): string
     {
-        return Path::join(Path::getDirectory(Path::canonicalize($this->directory)), 'canary.pdf');
+        return Path::join(Path::getDirectory(Path::canonicalize($this->directory)), $name);
     }
 }

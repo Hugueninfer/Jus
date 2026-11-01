@@ -18,8 +18,8 @@ use Symfony\Component\Uid\Uuid;
  */
 final readonly class DocumentStorage
 {
-    // \z, not $: "$" would also accept a trailing line feed.
-    private const string NAME_PATTERN = '/^[0-9a-f-]{36}\.pdf\z/';
+    // The shape of a UUID, 8-4-4-4-12 lower case hex digits. \z, not $: "$" would also accept a trailing line feed.
+    private const string NAME_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf\z/';
 
     public function __construct(
         #[Autowire('%app.documents_dir%')]
@@ -33,20 +33,30 @@ final readonly class DocumentStorage
         return $this->copyFrom($file->getPathname());
     }
 
+    /**
+     * @throws \InvalidArgumentException when the source is not a local file (Filesystem::copy() would happily download a URL)
+     * @throws IOException               when the copy fails; no partial file is left behind
+     */
     public function copyFrom(string $sourcePath): StoredDocument
     {
+        if (!stream_is_local($sourcePath)) {
+            throw new \InvalidArgumentException('Documents can only be copied from a local file.');
+        }
+
         $name = Uuid::v7()->toRfc4122().'.pdf';
         $target = Path::join($this->directory, $name);
 
-        $this->filesystem->mkdir($this->directory);
-        $this->filesystem->copy($sourcePath, $target, true);
+        $this->filesystem->mkdir($this->directory, 0o750);
 
-        $size = filesize($target);
-        if (false === $size) {
-            throw new IOException(\sprintf('Could not read the size of "%s".', $target), 0, null, $target);
+        try {
+            $this->filesystem->copy($sourcePath, $target, true);
+
+            return new StoredDocument($name, (new \SplFileInfo($target))->getSize());
+        } catch (\Throwable $failure) {
+            $this->filesystem->remove($target);
+
+            throw $failure;
         }
-
-        return new StoredDocument($name, $size);
     }
 
     /**
