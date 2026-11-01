@@ -69,7 +69,9 @@ final class FilingController extends AbstractController
             // already removed again.
             $filing->file($case, $lawyer, $data->type, $data->description, $data->files);
 
-            $this->addFlash('success', 'Petição juntada ao processo.');
+            // Its own kind of message: the redirect lands on #andamento, far from the top of the case page, so the case page
+            // shows this one there (the other kinds keep the area at the top of every page).
+            $this->addFlash('filing', 'Petição juntada ao processo.');
 
             return $this->redirectToRoute('case_show', ['numero' => $case->getNumber()->formatted(), 'aba' => 'movimentacoes', '_fragment' => 'andamento'], Response::HTTP_SEE_OTHER);
         }

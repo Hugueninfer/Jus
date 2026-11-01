@@ -12,6 +12,7 @@ use App\Entity\Document;
 use App\Tests\Support\QueryRecorder;
 use App\Tests\Support\TestCases;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -19,6 +20,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 
 final class FilingPageTest extends WebTestCase
 {
@@ -70,6 +72,8 @@ final class FilingPageTest extends WebTestCase
         self::assertSame('post', strtolower((string) $form->attr('method')));
         self::assertSame('multipart/form-data', $form->attr('enctype'));
         self::assertCount(1, $crawler->filter('input[type="hidden"][name="filing[_token]"]'));
+        // With JavaScript, a second click cannot send the petition again while the first is on its way.
+        self::assertNotNull($form->attr('data-jus-submit-once'));
 
         // The type: every kind of filing but the initial petition, which only opens a case.
         self::assertSame('Tipo de petição', trim($crawler->filter('label[for="filing_type"]')->text()));
@@ -132,7 +136,7 @@ final class FilingPageTest extends WebTestCase
         $crawler = $this->client->followRedirect();
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Petição juntada ao processo.', $crawler->filter('main .alert-success')->text());
+        $this->assertConfirmedInTheAndamento($crawler);
         $filing = $crawler->filter('[data-event-type="filing"]')->first()->text();
         self::assertStringContainsString('Juntada de petição — Contestação', $filing);
         self::assertStringContainsString('Contestação e procuração.', $filing);
@@ -155,6 +159,50 @@ final class FilingPageTest extends WebTestCase
             self::assertFileExists(Path::join($this->documentsDirectory, $document->getStoredFilename()));
             self::assertSame($ana->getId(), $document->getUploadedBy()->getId());
         }
+    }
+
+    public function testTheConfirmationIsShownWhereTheRedirectLands(): void
+    {
+        $this->signIn();
+
+        $this->submit();
+        $crawler = $this->client->followRedirect();
+
+        // The redirect lands on #andamento, far below the top of the case page: the confirmation is there, between the tabs
+        // and the panel, and not in the area at the top of the page that the other pages use for their messages.
+        $this->assertConfirmedInTheAndamento($crawler);
+        self::assertCount(0, $crawler->filter('main > .alert'));
+
+        // It is shown once: the next visit has no trace of it.
+        $again = $this->client->request('GET', self::CASE_URL.'?aba=movimentacoes');
+        self::assertCount(0, $again->filter('main .alert'));
+        self::assertStringNotContainsString('Petição juntada ao processo.', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testTheOtherMessagesKeepTheAreaAtTheTopOfThePage(): void
+    {
+        $this->signIn();
+        $this->flash('warning', 'Aviso para a página.');
+
+        $crawler = $this->client->request('GET', self::CASE_URL);
+
+        $notice = $crawler->filter('main > .alert-warning');
+        self::assertCount(1, $notice);
+        self::assertStringContainsString('Aviso para a página.', $notice->text());
+        // The confirmation of a filing has a place of its own: it is not waiting for the page of a filing.
+        self::assertCount(0, $crawler->filter('#andamento ~ .alert'));
+    }
+
+    public function testTheConfirmationOfAFilingWaitsForTheCasePageWhateverOtherMessagesCameFirst(): void
+    {
+        $this->signIn();
+        $this->flash('filing', 'Petição juntada ao processo.');
+        $this->flash('info', 'Outro aviso.');
+
+        $crawler = $this->client->request('GET', self::CASE_URL.'?aba=movimentacoes');
+
+        self::assertCount(1, $crawler->filter('main > .alert-info'));
+        $this->assertConfirmedInTheAndamento($crawler);
     }
 
     public function testEveryFilingTypeButTheInitialPetitionIsAccepted(): void
@@ -469,11 +517,18 @@ final class FilingPageTest extends WebTestCase
         // The error page of a production kernel: with debug on, Symfony shows the exception instead.
         $this->boot(['debug' => false]);
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
-        $case = $this->data->legalCase('0000001', $ana);
-        // A summons dated far ahead: today's filing cannot fulfil that deadline, so the transaction fails after the PDFs
-        // were stored, and the entity manager is closed. Nothing may touch it after that.
-        $this->data->deadline($case->getParties()[0], '2099-01-05 08:00');
+        $this->data->legalCase('0000001', $ana);
         $this->client->loginUser($ana);
+        // The database fails when the filing is written, after the PDFs were stored: the transaction is rolled back and the
+        // entity manager is closed. Nothing may touch it after that. (The same kernel serves the page and the filing, so
+        // that the failure planted here is still in place for the second request.)
+        $this->client->disableReboot();
+        $this->em->getEventManager()->addEventListener([Events::onFlush], new class {
+            public function onFlush(): never
+            {
+                throw new \RuntimeException('The database went away.');
+            }
+        });
 
         // The kernel logs the failure through PHP's error log; a file keeps it out of the test output, and shows it was logged.
         $log = $this->temporary('log', '');
@@ -487,9 +542,9 @@ final class FilingPageTest extends WebTestCase
         self::assertResponseStatusCodeSame(500);
         self::assertSame('Algo deu errado', trim($crawler->filter('main h1')->text()));
         $body = (string) $this->client->getResponse()->getContent();
-        self::assertStringNotContainsString('cannot be fulfilled', $body);
+        self::assertStringNotContainsString('The database went away', $body);
         self::assertStringNotContainsString('Exception', $body);
-        self::assertStringContainsString('A deadline that starts on 2099-01-05 cannot be fulfilled', (string) file_get_contents($log));
+        self::assertStringContainsString('The database went away.', (string) file_get_contents($log));
         // Neither the event nor the documents were kept, and the stored PDFs were removed again.
         $this->assertNothingWasFiled();
     }
@@ -691,6 +746,38 @@ final class FilingPageTest extends WebTestCase
         $values = array_replace(['_token' => $token, 'type' => 'answer', 'description' => 'Contestação e procuração.'], $fields);
 
         return $this->client->request('POST', self::URL, ['filing' => $values], ['filing' => ['files' => $files ?? [$this->pdf()]]]);
+    }
+
+    /**
+     * Leaves a flash message in the session of the signed-in user, for the next page to show.
+     */
+    private function flash(string $type, string $message): void
+    {
+        $session = self::getContainer()->get('session.factory')->createSession();
+        self::assertInstanceOf(FlashBagAwareSessionInterface::class, $session);
+        $cookie = $this->client->getCookieJar()->get($session->getName());
+        self::assertNotNull($cookie, 'Sign in first: the session is the one the login created.');
+
+        $session->setId($cookie->getValue());
+        $session->start();
+        $session->getFlashBag()->add($type, $message);
+        $session->save();
+    }
+
+    /**
+     * The confirmation of a filing is inside the Andamento section, right after the tabs and before the panel they open,
+     * once, and nowhere else on the page.
+     */
+    private function assertConfirmedInTheAndamento(Crawler $page): void
+    {
+        $message = 'Petição juntada ao processo.';
+
+        $confirmation = $page->filter('section[aria-labelledby="andamento-titulo"] > #andamento + .alert-success');
+        self::assertCount(1, $confirmation);
+        self::assertStringContainsString($message, $confirmation->text());
+        self::assertSame('Sucesso: '.$message, trim($confirmation->text()));
+        self::assertSame(1, substr_count($page->filter('main')->text(), $message));
+        self::assertCount(1, $page->filter('main .alert-success'));
     }
 
     private function signIn(): void

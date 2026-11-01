@@ -53,9 +53,12 @@ final class DocumentDownloadTest extends WebTestCase
         self::assertResponseHeaderSame('Content-Disposition', 'attachment; filename=peticao.pdf');
         self::assertResponseHeaderSame('X-Content-Type-Options', 'nosniff');
         self::assertResponseHeaderSame('Content-Length', (string) filesize(self::SAMPLE));
-        // Only the browser of the person who asked may keep it: no shared cache.
-        self::assertStringContainsString('private', (string) $this->client->getResponse()->headers->get('Cache-Control'));
-        self::assertStringNotContainsString('public', (string) $this->client->getResponse()->headers->get('Cache-Control'));
+        // A confidential PDF is kept by no cache at all: not a shared one, and not the browser's own either, which is
+        // still there on a shared machine after the person has logged out.
+        $cacheControl = $this->client->getResponse()->headers;
+        self::assertTrue($cacheControl->hasCacheControlDirective('private'));
+        self::assertTrue($cacheControl->hasCacheControlDirective('no-store'));
+        self::assertFalse($cacheControl->hasCacheControlDirective('public'));
         self::assertSame(file_get_contents(self::SAMPLE), $this->client->getInternalResponse()->getContent());
     }
 
@@ -240,6 +243,10 @@ final class DocumentDownloadTest extends WebTestCase
         yield 'path separators' => ['..\\..\\etc/passwd', 'attachment; filename=.._.._etc_passwd.pdf'];
         yield 'control characters' => ["a\r\nX-Injected: 1\0.pdf", 'attachment; filename="a__X-Injected: 1_.pdf"'];
         yield 'empty' => ['', 'attachment; filename=documento.pdf'];
+        yield 'only the extension' => ['.pdf', 'attachment; filename=documento.pdf'];
+        yield 'only the extension, capitals' => ['.PDF', 'attachment; filename=documento.pdf'];
+        yield 'only the extension, with spaces' => ['  .Pdf  ', 'attachment; filename=documento.pdf'];
+        yield 'only blanks' => ['   ', 'attachment; filename=documento.pdf'];
     }
 
     public function testTheDownloadUsesAFixedNumberOfQueries(): void

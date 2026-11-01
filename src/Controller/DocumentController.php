@@ -40,7 +40,10 @@ final class DocumentController extends AbstractController
 
         // Not public: the constructor makes the response cacheable by shared caches unless told otherwise.
         $response = new BinaryFileResponse($path, public: false);
+        // And kept by nobody: "private" alone would leave a confidential PDF in the browser's own cache, where the next
+        // person on a shared machine finds it after this one has logged out.
         $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
         // Always a PDF, never what the bytes look like to the browser: it is saved, not shown.
         $response->headers->set('Content-Type', 'application/pdf');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
@@ -53,13 +56,14 @@ final class DocumentController extends AbstractController
     /**
      * The name the file is saved under: the one it was sent with, made safe for a header and with its ".pdf" extension.
      * The stored name was cut to 255 characters (which can drop the extension) and comes from the sender, so a path
-     * separator or a control character (a line break would split the header) becomes an underscore.
+     * separator or a control character (a line break would split the header) becomes an underscore. A name with nothing
+     * but the extension (".pdf", in any case) is no better than an empty one.
      */
     private static function downloadName(string $originalFilename): string
     {
         $name = trim(preg_replace('/[\x00-\x1f\x7f\/\\\\]/', '_', $originalFilename) ?? '');
 
-        if ('' === $name) {
+        if ('' === $name || '.pdf' === strtolower($name)) {
             return 'documento.pdf';
         }
 

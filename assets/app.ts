@@ -9,5 +9,5 @@ import 'bootstrap/js/dist/tab';
 // The Web Components (registered as custom elements on load).
 import './components';
 
-// Layout behaviours: focus after a dismissed alert, scroll regions as tab stops only while they overflow.
+// Layout behaviours: focus after a dismissed alert, scroll regions as tab stops only while they overflow, forms sent once.
 import './behaviours';

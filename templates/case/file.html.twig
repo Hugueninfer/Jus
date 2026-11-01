@@ -38,7 +38,8 @@
                 <p class="alert alert-warning" id="arquivos-novamente">Selecione os arquivos novamente.</p>
             {% endif %}
 
-            {{ form_start(form) }}
+            {# Marked so that, with JavaScript, a second click cannot send the petition again while the first is still on its way. #}
+            {{ form_start(form, {attr: {'data-jus-submit-once': ''}}) }}
                 {{ form_widget(form) }}
                 <button type="submit" class="btn btn-primary">Juntar petição</button>
             {{ form_end(form) }}

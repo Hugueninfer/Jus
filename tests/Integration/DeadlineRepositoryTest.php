@@ -43,7 +43,7 @@ final class DeadlineRepositoryTest extends KernelTestCase
         $second = $this->data->deadline($plaintiff, '2024-03-12 08:00');
         $this->data->deadline($this->data->legalCase('0000002', $this->ana)->getParties()[0], '2024-03-05 08:00'); // another case
 
-        $found = $this->deadlines->findOpenForLawyer($this->case, $this->ana);
+        $found = $this->deadlines->findOpenForLawyer($this->case, $this->ana, self::now());
 
         self::assertSame([$first->getId(), $second->getId()], array_map(static fn (Deadline $deadline): ?int => $deadline->getId(), $found));
     }
@@ -54,7 +54,7 @@ final class DeadlineRepositoryTest extends KernelTestCase
         $this->data->deadline($this->party(PartySide::Defendant));
         $stranger = $this->data->lawyer('rui@jus.test', 'Rui Lima');
 
-        self::assertSame([], $this->deadlines->findOpenForLawyer($this->case, $stranger));
+        self::assertSame([], $this->deadlines->findOpenForLawyer($this->case, $stranger, self::now()));
     }
 
     public function testFindsTheDeadlinesOfEverySideTheLawyerRepresents(): void
@@ -63,7 +63,20 @@ final class DeadlineRepositoryTest extends KernelTestCase
         $this->data->deadline($this->party(PartySide::Plaintiff));
         $this->data->deadline($this->party(PartySide::Defendant));
 
-        self::assertCount(2, $this->deadlines->findOpenForLawyer($this->case, $this->ana));
+        self::assertCount(2, $this->deadlines->findOpenForLawyer($this->case, $this->ana, self::now()));
+    }
+
+    public function testLeavesOutTheDeadlinesThatHaveNotStartedYet(): void
+    {
+        $plaintiff = $this->party(PartySide::Plaintiff);
+        $earlier = $this->data->deadline($plaintiff, '2024-03-05 08:00');
+        $today = $this->data->deadline($plaintiff, '2024-03-20 15:00'); // starts at midnight of the day: already started at 11:30
+        $this->data->deadline($plaintiff, '2024-03-21 08:00'); // starts tomorrow: fulfilling it now would be refused
+        $this->data->deadline($plaintiff, '2024-06-01 08:00');
+
+        $found = $this->deadlines->findOpenForLawyer($this->case, $this->ana, self::now());
+
+        self::assertSame([$earlier->getId(), $today->getId()], array_map(static fn (Deadline $deadline): ?int => $deadline->getId(), $found));
     }
 
     public function testRunsASingleQuery(): void
@@ -80,13 +93,19 @@ final class DeadlineRepositoryTest extends KernelTestCase
         $queries = QueryRecorder::instance();
         $queries->reset();
 
-        $found = $this->deadlines->findOpenForLawyer($case, $ana);
+        $found = $this->deadlines->findOpenForLawyer($case, $ana, self::now());
         foreach ($found as $deadline) {
-            $deadline->fulfil(new \DateTimeImmutable('2024-03-20 11:30'));
+            $deadline->fulfil(self::now());
         }
 
         self::assertCount(2, $found);
         self::assertCount(1, $queries->selects(), 'the lawyer is matched in SQL, with no lazy load of parties or lawyers');
+    }
+
+    /** The moment of the filing the tests look at the deadlines from. */
+    private static function now(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2024-03-20 11:30');
     }
 
     private function party(PartySide $side): Party
