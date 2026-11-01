@@ -310,6 +310,7 @@ final class CasePageTest extends WebTestCase
         self::assertStringContainsString('active', (string) $current->attr('class'));
 
         self::assertCount(1, $crawler->filter('ol.jus-timeline'));
+        self::assertCount(1, $crawler->filter('jus-filtro-timeline > ol.jus-timeline'));
         self::assertCount(2, $crawler->filter('li.jus-timeline-event'));
         self::assertCount(0, $crawler->filter('table.jus-data-table'));
     }
@@ -329,6 +330,7 @@ final class CasePageTest extends WebTestCase
         self::assertSame('page', $current->attr('aria-current'));
 
         self::assertCount(0, $crawler->filter('ol.jus-timeline'));
+        self::assertCount(0, $crawler->filter('jus-filtro-timeline'));
         self::assertCount(1, $crawler->filter('table.jus-data-table'));
         self::assertSame('Documentos do processo', trim($crawler->filter('table.jus-data-table caption')->text()));
         $cells = $crawler->filter('table.jus-data-table tbody tr')->eq(0)->filter('td')->each(static fn (Crawler $td): string => trim($td->text()));
@@ -373,7 +375,7 @@ final class CasePageTest extends WebTestCase
         self::assertSame('Nenhum documento.', trim($crawler->filter('table.jus-data-table tbody td')->text()));
 
         $crawler = $this->client->request('GET', self::URL);
-        self::assertSame('Nenhuma movimentação.', trim($crawler->filter('ol.jus-timeline')->text()));
+        self::assertSame('Nenhuma movimentação.', trim($crawler->filter('jus-filtro-timeline > ol.jus-timeline')->text()));
     }
 
     public function testAnUnknownTabIsTheTimeline(): void
@@ -386,7 +388,7 @@ final class CasePageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Movimentações', trim($crawler->filter('nav[aria-label="Andamento do processo"] [aria-current]')->text()));
-        self::assertCount(1, $crawler->filter('ol.jus-timeline'));
+        self::assertCount(1, $crawler->filter('jus-filtro-timeline > ol.jus-timeline'));
     }
 
     #[DataProvider('provideValuesThatAreNotText')]

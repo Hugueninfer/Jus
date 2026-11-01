@@ -87,7 +87,10 @@
         {% if tab == 'documentos' %}
             <twig:DataTable :columns="documentColumns" :rows="documentRows" :sort="sort" :direction="direction" caption="Documentos do processo" anchor="andamento" emptyMessage="Nenhum documento." />
         {% else %}
-            <twig:Timeline :events="case.events" />
+            {# The element adds the filter by event type; without JavaScript it is inert and the whole list shows. #}
+            <jus-filtro-timeline>
+                <twig:Timeline :events="case.events" />
+            </jus-filtro-timeline>
         {% endif %}
     </section>
 {% endblock %}
