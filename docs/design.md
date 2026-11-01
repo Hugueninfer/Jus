@@ -44,6 +44,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 
 - PHP 8.4 (x64) com as extensões `intl`, `pdo_sqlite`, `sqlite3`, `fileinfo`, `mbstring`, `openssl`, `curl`, `zip`.
 - Composer 2, Git e Node.js 24 LTS.
+- Google Chrome instalado: `npm test` (e, portanto, `composer ci`) roda os testes do front-end nele, em modo headless, e não baixa navegador nenhum. No CI o pipeline instala o Chromium do Playwright (seção 10).
 - Servidor de desenvolvimento: `php -S localhost:8000 -t public` (Symfony CLI é opcional).
 - Um `Dockerfile` não faz parte do MVP; o ambiente é reproduzível pelas instruções do README e pelo CI.
 
@@ -104,7 +105,7 @@ assets/
     base/                  # _focus.scss: anel de foco do teclado
     components/            # estilos próprios dos componentes (_timeline.scss, _data-table.scss, _case-card.scss)
     app.scss
-  components/              # os Web Components; cada arquivo tem um .test.ts ao lado
+  components/              # os Web Components; cada arquivo tem um .test.ts ao lado, menos o index.ts (que só registra)
     jus-element.ts         # JusElement: Shadow DOM + folha base compartilhada; sheet()
     jus-numero-processo.ts # aprimora o input nativo no lugar (sem Shadow DOM)
     jus-filtro-timeline.ts
@@ -430,7 +431,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 - O número de consultas de cada tela é fixo e verificado com `QueryRecorder`: 5 na busca (com 10 cartões, metade sem movimentações) e 3 na página do processo, em qualquer aba.
 
 **Vitest 5 em modo browser (Playwright)**
-- Localmente os testes rodam no Google Chrome instalado (canal `chrome` do Playwright), sem baixar navegador; no CI (variável `CI` ou `TF_BUILD`) rodam no Chromium do Playwright, que o pipeline instala. A configuração está em `vitest.config.ts`, e `npm test` é o comando nos dois casos.
+- Localmente os testes rodam no Google Chrome instalado (canal `chrome` do Playwright), sem baixar navegador; no CI (variável `CI` ou `TF_BUILD`) rodam no Chromium do Playwright, que o pipeline instala, pelo canal `chromium` (o navegador completo em modo headless novo, mais próximo do Chrome do que o headless shell). A configuração está em `vitest.config.ts`, e `npm test` é o comando nos dois casos.
 - `shared/cnj.ts` com o mesmo JSON do PHPUnit, inclusive os 25 pontos de código que o `trim()` do JavaScript remove (seção 5.3); `shared/bytes.ts` com os mesmos casos do filtro Twig `bytes`; `shared/validity.ts`.
 - Cada Web Component: comportamento, integração com o `<form>` (envio, validação nativa, `reset`), foco, ciclo de vida (mover, remover da página, reconectar) e acessibilidade. Os comportamentos de layout são testados com o Bootstrap e o `ResizeObserver` reais.
 - **axe-core em todo teste de componente**, com a paleta real: `installTokens()` (`test-support/tokens.ts`) compila o `_custom-properties.scss` com os mesmos arquivos Sass da página e o coloca no documento, de modo que o contraste é medido com os tokens verdadeiros e os testes não mantêm uma segunda cópia da paleta. `expectNoAxeViolations()` (`test-support/axe.ts`) falha listando a regra e o seletor de cada violação, também dentro de um Shadow DOM.
@@ -458,7 +459,7 @@ Stage Test (depois do Quality)
 - O job "Web Components" é o único que precisa de navegador: instala o Chromium do Playwright e roda `npm test`, que no pipeline (`TF_BUILD` definida) usa esse Chromium. O job de qualidade do front-end roda `npm run ci:quality`, a mesma sequência de `npm run ci` sem os testes.
 - Localmente, `composer ci` reúne as verificações dos dois estágios, com `npm run ci` (lint, tipos, testes no Chrome instalado e build) no fim.
 - PHPStan no nível max **sem baseline** e sem `ignoreErrors`. A única exceção de configuração é tirar da análise os stubs dos polyfills `intl` do Symfony (`vendor/symfony/polyfill-intl-*/Resources/stubs/`): o projeto exige a extensão `intl`, e esses stubs em PHP puro, no classmap do Composer, esconderiam dela os tipos reais (por exemplo, `NumberFormatter::formatCurrency()` como `string|false`).
-- O repositório fica no GitHub (público) com o Azure Pipelines conectado; o badge de status vai no README.
+- O repositório fica no GitHub (público). O pipeline está definido em `azure-pipelines.yml`; a conexão dele com o Azure DevOps ainda está pendente, e o badge de status vai no README quando estiver.
 
 ## 11. Documentação e fluxo de Git
 
