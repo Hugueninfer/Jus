@@ -93,6 +93,7 @@ src/
     Deadline/              # DeadlineCalculator, HolidayCalendar, NationalHolidayCalendar, Easter
   Entity/                  # entidades Doctrine: LegalCase, Party, CaseEvent, Document, Deadline, User
   Doctrine/Type/           # CnjNumberDoctrineType (tipo Doctrine `cnj_number`)
+  EventListener/           # SecurityHeadersListener: os cabeçalhos de segurança de toda resposta
   Filing/                  # peticionamento: FilingService, DocumentStorage (a única classe que toca o disco), StoredDocument e FilingLimits (os limites de um envio, em um lugar só)
   Form/                    # form types (CnjNumberType, CaseSearchType, FilingFormType, UploadType), FilingData (o que o formulário de peticionamento coleta) e transformers
   Presentation/            # EnumLabels (rótulos em português dos enums), CaseDeadlines e CaseDocumentsTable (dados da página do processo)
@@ -136,10 +137,10 @@ assets/
     index.ts               # instala os três quando o documento está pronto
   test-support/            # ajudas dos testes: axe.ts (axe-core), tokens.ts (paleta real), required.ts
 tests/
-  Unit/                    # domínio, entidades, voter, form types e extensão Twig, sem kernel
+  Unit/                    # domínio, entidades, voter, form types, extensão Twig e o listener de cabeçalhos, sem kernel
   Component/               # Twig Components renderizados (InteractsWithTwigComponents)
   Integration/             # kernel e banco: persistência, busca (inclusive a paridade de visibilidade com o Voter), peticionamento (FilingService, DocumentStorage, FilingData), fixtures, form theme, filtros, mensagens em pt-BR
-  Functional/              # requests HTTP: login, layout, catálogo, busca, página do processo, peticionamento, download, páginas de erro
+  Functional/              # requests HTTP: login, layout, catálogo, busca, página do processo, peticionamento, download, páginas de erro, cabeçalhos de segurança
   Support/                 # TestCases (usuários e processos de teste), QueryRecorder (conta as consultas SQL)
   fixtures/cnj-numbers.json    # casos compartilhados entre PHPUnit e Vitest
   fixtures/sample.pdf          # PDF mínimo (menos de 2 KB): o arquivo dos testes de envio e download e dos documentos das fixtures de demonstração
@@ -166,6 +167,8 @@ vitest.config.ts           # Vitest em modo browser (seção 9)
 Request → Controller → Voter → Repository / Domain → template Twig
         → Twig Components → HTML completo → navegador → Web Components aprimoram
 ```
+
+Toda resposta da requisição principal passa pelo `SecurityHeadersListener` (`kernel.response`) antes de sair, e leva quatro cabeçalhos: `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `X-Frame-Options: DENY` e `Content-Security-Policy: frame-ancestors 'none'` (a política tem só essa diretiva: nenhuma regra de script ou de estilo, que seria uma decisão à parte). O que a resposta já definiu não é sobrescrito: o download, por exemplo, define o próprio `X-Content-Type-Options`. Páginas, redirects, páginas de erro e o download levam os mesmos cabeçalhos; testes funcionais conferem uma amostra de cada um.
 
 ## 5. Domínio
 
@@ -416,7 +419,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 
 **Download (`/documentos/{id}`)**
 - O documento chega junto com a movimentação, o processo, as partes e os advogados, em uma consulta (`DocumentRepository::findOneWithCase()`), que é tudo o que o Voter lê. A decisão (seção 5.5) vem antes de o disco ser tocado: sem `VIEW`, o mesmo 404 de um documento que não existe. O disco só é consultado depois, por `DocumentStorage::pathOf()`, e um arquivo que sumiu dá o mesmo 404.
-- A resposta é o arquivo (`BinaryFileResponse`) com `Content-Type: application/pdf` sempre, e nunca o que os bytes pareçam ao navegador; `Content-Disposition: attachment`, porque o PDF é salvo e não aberto na página; `X-Content-Type-Options: nosniff`; `Content-Length`; e um `Cache-Control` `private, no-store`: nenhum cache compartilhado guarda a resposta, e o próprio navegador também não, para que um PDF sigiloso não fique no cache de uma máquina compartilhada depois que a pessoa saiu da sessão.
+- A resposta é o arquivo (`BinaryFileResponse`) com `Content-Type: application/pdf` sempre, e nunca o que os bytes pareçam ao navegador; `Content-Disposition: attachment`, porque o PDF é salvo e não aberto na página; `X-Content-Type-Options: nosniff` (definido pelo controlador; os demais cabeçalhos de segurança de toda resposta, da seção 4.4, vêm do listener); `Content-Length`; e um `Cache-Control` `private, no-store`: nenhum cache compartilhado guarda a resposta, e o próprio navegador também não, para que um PDF sigiloso não fique no cache de uma máquina compartilhada depois que a pessoa saiu da sessão.
 - O nome do arquivo salvo é o que foi enviado (`originalFilename`), com barras e caracteres de controle trocados por `_` (uma quebra de linha dividiria o cabeçalho) e a extensão `.pdf` garantida: o nome guardado é cortado em 255 caracteres, o que pode tirar a extensão, e um nome vazio vira `documento.pdf`. O que não é ASCII vai em `filename*` (UTF-8), e o `filename` leva a versão ASCII para clientes antigos ("Procuração.PDF" fica `Procura__o.PDF`).
 - Número fixo de consultas: 2 (atualização do usuário e o documento com o processo). Um teste confere.
 

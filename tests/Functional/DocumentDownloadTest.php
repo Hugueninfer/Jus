@@ -62,6 +62,27 @@ final class DocumentDownloadTest extends WebTestCase
         self::assertSame(file_get_contents(self::SAMPLE), $this->client->getInternalResponse()->getContent());
     }
 
+    public function testTheDownloadKeepsItsOwnHeadersAndCarriesTheBaselineOnesToo(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $document = $this->documentOf($this->data->legalCase('0000001', $ana), $ana, 'peticao.pdf');
+        $this->client->loginUser($ana);
+
+        $this->client->request('GET', $this->urlOf($document));
+
+        self::assertResponseIsSuccessful();
+        // What the controller set is not overwritten (and not doubled): one nosniff, the PDF type, the attachment.
+        $headers = $this->client->getResponse()->headers;
+        self::assertSame(['nosniff'], $headers->all('X-Content-Type-Options'));
+        self::assertSame('application/pdf', $headers->get('Content-Type'));
+        self::assertSame('attachment; filename=peticao.pdf', $headers->get('Content-Disposition'));
+        self::assertTrue($headers->hasCacheControlDirective('no-store'));
+        // What it did not set comes from the application-wide listener.
+        self::assertSame('same-origin', $headers->get('Referrer-Policy'));
+        self::assertSame('DENY', $headers->get('X-Frame-Options'));
+        self::assertSame("frame-ancestors 'none'", $headers->get('Content-Security-Policy'));
+    }
+
     public function testALawyerWhoDoesNotRepresentAPartyDownloadsFromAPublicCase(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
