@@ -52,6 +52,23 @@ function mount(alertCount = 1, withMain = true): Mounted {
   };
 }
 
+/**
+ * Mounts the markup given, inside the document: the alert(s) of the markup are returned in order. The markup decides where
+ * the focus targets (`tabindex="-1"`) are, before or after the alert.
+ */
+function mountMarkup(markup: string): { page: HTMLElement; alerts: HTMLElement[] } {
+  const page = document.createElement('div');
+  page.setHTMLUnsafe(markup);
+  document.body.append(page);
+  pages.push(page);
+
+  return { page, alerts: Array.from(page.querySelectorAll<HTMLElement>('.alert')) };
+}
+
+function byId(page: HTMLElement, id: string): HTMLElement {
+  return required(page.querySelector<HTMLElement>(`#${id}`));
+}
+
 function closeButtonOf(alert: HTMLElement): HTMLButtonElement {
   return required(alert.querySelector('button'));
 }
@@ -181,6 +198,133 @@ describe('installAlertFocus', () => {
     await expect.poll(() => alert.isConnected).toBe(false);
     expect(document.activeElement).toBe(document.body);
     expect(document.activeElement).not.toBe(main);
+  });
+
+  describe('with a focus target of its own before the alert', () => {
+    it('moves the focus to the nearest one that precedes the alert, not to the top of the main content', async () => {
+      const { page, alerts } = mountMarkup(`
+        <main id="conteudo" tabindex="-1">
+          <h2 id="resumo" tabindex="-1">Resumo</h2>
+          <nav id="andamento" tabindex="-1"><a href="#a">Movimentações</a></nav>
+          ${ALERT('Petição juntada.')}
+          <p>Linha do tempo</p>
+        </main>`);
+      const alert = required(alerts[0]);
+
+      await closeWithKeyboard(alert);
+
+      await expect.poll(() => alert.isConnected).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'andamento'));
+    });
+
+    it('takes one that holds the alert, if no other is nearer', async () => {
+      const { page, alerts } = mountMarkup(`
+        <main id="conteudo" tabindex="-1">
+          <section id="secao" tabindex="-1">${ALERT('Petição juntada.')}<p>Linha do tempo</p></section>
+        </main>`);
+      const alert = required(alerts[0]);
+
+      await closeWithKeyboard(alert);
+
+      await expect.poll(() => alert.isConnected).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'secao'));
+    });
+
+    it('ignores one that comes after the alert', async () => {
+      const { page, alerts } = mountMarkup(`
+        <main id="conteudo" tabindex="-1">
+          ${ALERT('Petição juntada.')}
+          <h2 id="depois" tabindex="-1">Mais abaixo</h2>
+        </main>`);
+      const alert = required(alerts[0]);
+
+      await closeWithKeyboard(alert);
+
+      await expect.poll(() => alert.isConnected).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'conteudo'));
+    });
+
+    it('ignores one inside the alert that is closing', async () => {
+      const { page, alerts } = mountMarkup(`
+        <main id="conteudo" tabindex="-1">
+          ${ALERT('Petição juntada.')}
+        </main>`);
+      const alert = required(alerts[0]);
+      const inside = document.createElement('span');
+      inside.tabIndex = -1;
+      alert.append(inside);
+
+      await closeWithKeyboard(alert);
+
+      await expect.poll(() => alert.isConnected).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'conteudo'));
+    });
+
+    it('skips one that is not shown, and uses the nearest one that is', async () => {
+      const { page, alerts } = mountMarkup(`
+        <main id="conteudo" tabindex="-1">
+          <h2 id="visivel" tabindex="-1">Visível</h2>
+          <h2 id="oculto" tabindex="-1" hidden>Oculto</h2>
+          ${ALERT('Petição juntada.')}
+        </main>`);
+      const alert = required(alerts[0]);
+
+      await closeWithKeyboard(alert);
+
+      await expect.poll(() => alert.isConnected).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'visivel'));
+    });
+
+    it('uses only what is in the main content: an element outside it (the header menu) is not a place to land', async () => {
+      const { page, alerts } = mountMarkup(`
+        <header><div id="menu" tabindex="-1">Menu</div></header>
+        <main id="conteudo" tabindex="-1">${ALERT('Petição juntada.')}</main>`);
+      const alert = required(alerts[0]);
+
+      await closeWithKeyboard(alert);
+
+      await expect.poll(() => alert.isConnected).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'conteudo'));
+    });
+
+    it('falls back to the main content when the target is gone by the time the alert is', async () => {
+      const style = document.createElement('style');
+      style.id = 'test-fade';
+      style.textContent = FADE;
+      document.head.append(style);
+      const { page, alerts } = mountMarkup(`
+        <main id="conteudo" tabindex="-1">
+          <nav id="andamento" tabindex="-1"><a href="#a">Movimentações</a></nav>
+          ${ALERT('Petição juntada.')}
+        </main>`);
+      const alert = required(alerts[0]);
+
+      await closeWithKeyboard(alert);
+      byId(page, 'andamento').remove();
+
+      await expect.poll(() => alert.isConnected, AFTER_FADE).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'conteudo'));
+    });
+
+    it('keeps the focus where the user moved it while the alert was fading out', async () => {
+      const style = document.createElement('style');
+      style.id = 'test-fade';
+      style.textContent = FADE;
+      document.head.append(style);
+      const { page, alerts } = mountMarkup(`
+        <main id="conteudo" tabindex="-1">
+          <nav id="andamento" tabindex="-1"><a href="#a">Movimentações</a></nav>
+          ${ALERT('Petição juntada.')}
+          <input id="campo" type="text">
+        </main>`);
+      const alert = required(alerts[0]);
+
+      await closeWithKeyboard(alert);
+      byId(page, 'campo').focus();
+
+      await expect.poll(() => alert.isConnected, AFTER_FADE).toBe(false);
+      expect(document.activeElement).toBe(byId(page, 'campo'));
+    });
   });
 
   it('does nothing without a main content element', async () => {
