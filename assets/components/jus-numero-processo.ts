@@ -1,4 +1,5 @@
 import { assessCnj, maskPartial, type CnjAssessment } from '../shared/cnj';
+import { setInvalid } from '../shared/validity';
 
 /** What the native validation shows for each assessment; empty is left to `required`. */
 const MESSAGES: Record<CnjAssessment, string> = {
@@ -63,19 +64,6 @@ function maskInitialValue(input: HTMLInputElement): void {
 
 function validate(input: HTMLInputElement): void {
   input.setCustomValidity(MESSAGES[assessCnj(input.value)]);
-}
-
-/**
- * Marks the field invalid (or not) for everyone at once: aria-invalid for assistive technology and Bootstrap's
- * is-invalid for the red border and icon, the same state the server renders when it refuses the number.
- */
-function setInvalid(input: HTMLInputElement, invalid: boolean): void {
-  if (invalid) {
-    input.setAttribute('aria-invalid', 'true');
-  } else {
-    input.removeAttribute('aria-invalid');
-  }
-  input.classList.toggle('is-invalid', invalid);
 }
 
 /** After a change: re-checks the number, and clears the invalid state (the server's included) once it is valid. */

@@ -42,17 +42,23 @@ interface Mounted {
   input: HTMLInputElement;
 }
 
+interface MountOptions {
+  /** More attributes for the input, like the classes and state the server renders. */
+  input?: string;
+  /** Wraps the label and the element in a fieldset with these attributes. */
+  fieldset?: string;
+}
+
 /**
  * Mounts the element around the native input, in a form and under a label, the way the filing form will use it.
  * `selected` is put in the input before it is connected, like a browser that restores the files of a form.
  */
-function mount(attributes = LIMITS, selected: File[] = []): Mounted {
+function mount(attributes = LIMITS, selected: File[] = [], options: MountOptions = {}): Mounted {
   const main = document.createElement('main');
-  main.setHTMLUnsafe(`
-    <form>
+  const content = `
       <label for="docs">Documentos em PDF</label>
-      <jus-upload ${attributes}><input type="file" id="docs" name="arquivos[]" multiple accept="application/pdf"></jus-upload>
-    </form>`);
+      <jus-upload ${attributes}><input type="file" id="docs" name="arquivos[]" multiple accept="application/pdf" ${options.input ?? ''}></jus-upload>`;
+  main.setHTMLUnsafe(`<form>${options.fieldset === undefined ? content : `<fieldset ${options.fieldset}>${content}</fieldset>`}</form>`);
   const input = required(main.querySelector('input'));
   if (selected.length > 0) {
     input.files = transferOf(selected).files;
@@ -81,6 +87,17 @@ function listOf(element: JusUpload): HTMLElement {
 
 function statusOf(element: JusUpload): HTMLElement {
   return required(shadowOf(element).querySelector<HTMLElement>('[aria-live]'));
+}
+
+/** The visible text of the validation error, drawn in the shadow root. */
+function errorOf(element: JusUpload): HTMLElement {
+  return required(shadowOf(element).querySelector<HTMLElement>('.jus-upload-error'));
+}
+
+/** The field is marked invalid for assistive technology (aria-invalid) and for the eye (Bootstrap's is-invalid), together. */
+function expectMarked(input: HTMLInputElement, marked: boolean): void {
+  expect(input.getAttribute('aria-invalid')).toBe(marked ? 'true' : null);
+  expect(input.classList.contains('is-invalid')).toBe(marked);
 }
 
 function removeButtons(element: JusUpload): HTMLButtonElement[] {
@@ -126,6 +143,18 @@ function listen(target: EventTarget, type: string): Event[] {
   });
 
   return events;
+}
+
+/** The types of the events as they arrive, in order. */
+function listenInOrder(target: EventTarget, types: string[]): string[] {
+  const arrived: string[] = [];
+  for (const type of types) {
+    target.addEventListener(type, () => {
+      arrived.push(type);
+    });
+  }
+
+  return arrived;
 }
 
 function formFiles(form: HTMLFormElement): File[] {
@@ -207,15 +236,19 @@ describe('<jus-upload>', () => {
       expect(zone.textContent.trim()).toBe(HINT);
     });
 
-    it('has the zone, the list of files and the announcement in the shadow root, in this order', () => {
+    it('has the zone, the error, the list of files and the announcement in the shadow root, in this order', () => {
       const { element } = mount();
 
-      expect(Array.from(shadowOf(element).children, (child) => child.localName)).toEqual(['div', 'ul', 'p']);
+      expect(Array.from(shadowOf(element).children, (child) => child.localName)).toEqual(['div', 'p', 'ul', 'p']);
+      expect(shadowOf(element).children[1]).toBe(errorOf(element));
     });
 
-    it('starts without files: the list is hidden and the live region is polite, visually hidden and empty', () => {
+    it('starts without files: no error, the list is hidden and the live region is polite, visually hidden and empty', () => {
       const { element } = mount();
 
+      expect(errorOf(element).hidden).toBe(true);
+      expect(errorOf(element).textContent).toBe('');
+      expect(errorOf(element).hasAttribute('aria-live')).toBe(false);
       expect(listOf(element).hidden).toBe(true);
       expect(listOf(element).checkVisibility()).toBe(false);
       const status = statusOf(element);
@@ -225,10 +258,11 @@ describe('<jus-upload>', () => {
       expect(status.textContent).toBe('');
     });
 
-    it('names the list of files', () => {
+    it('names the list of files and says it is a list, which list-style: none would otherwise take away from some screen readers', () => {
       const { element } = mount();
 
       expect(listOf(element).getAttribute('aria-label')).toBe('Arquivos selecionados');
+      expect(listOf(element).getAttribute('role')).toBe('list');
     });
   });
 
@@ -795,6 +829,391 @@ describe('<jus-upload>', () => {
     });
   });
 
+  describe('showing the validation error', () => {
+    const FOUR = [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf')];
+    const OVER_LIMIT = 'Envie no máximo 3 arquivos.';
+
+    it('marks the input invalid and writes the message as text when a choice breaks a rule', () => {
+      const { element, input } = mount(LIMITS, [], { input: 'class="form-control"' });
+      expectMarked(input, false);
+
+      choose(input, FOUR);
+
+      expectMarked(input, true);
+      expect(input.classList.contains('form-control')).toBe(true);
+      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+      expect(errorOf(element).hidden).toBe(false);
+      expect(errorOf(element).checkVisibility()).toBe(true);
+    });
+
+    it('does the same for what was dropped', () => {
+      const { element, input } = mount();
+
+      drop(element, FOUR);
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+    });
+
+    it.each([
+      { name: 'a file over the size', files: [fileOf('grande.pdf', MB + 1)], message: 'O arquivo grande.pdf passa do limite de 1 MB.' },
+      { name: 'a file that is not a PDF', files: [fileOf('notas.txt', KB, 'text/plain')], message: 'Envie apenas arquivos PDF.' },
+    ])('shows the message for $name', ({ files, message }) => {
+      const { element, input } = mount();
+
+      choose(input, files);
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe(message);
+    });
+
+    it('takes the marks and the text off once a new choice fixes it', () => {
+      const { element, input } = mount();
+      choose(input, FOUR);
+
+      choose(input, [fileOf('a.pdf')]);
+
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+      expect(errorOf(element).hidden).toBe(true);
+    });
+
+    it('takes the marks and the text off once a removal fixes it', async () => {
+      const { element, input } = mount();
+      choose(input, FOUR);
+
+      await userEvent.click(removeButtonOf(element, 'd.pdf'));
+
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+      expect(errorOf(element).hidden).toBe(true);
+    });
+
+    it('keeps the error after a drop, which only adds files', () => {
+      const { element, input } = mount();
+      choose(input, FOUR);
+
+      drop(element, [fileOf('e.pdf')]);
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+    });
+
+    it('keeps the error while a removal leaves the choice invalid', async () => {
+      const { element, input } = mount();
+      choose(input, [...FOUR, fileOf('e.pdf')]);
+
+      await userEvent.click(removeButtonOf(element, 'e.pdf'));
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+    });
+
+    it('announces the message after the count when it arises', () => {
+      const { element, input } = mount();
+
+      choose(input, FOUR);
+
+      expect(statusOf(element).textContent).toBe(`4 arquivos selecionados. ${OVER_LIMIT}`);
+    });
+
+    it('announces it again while a removal still leaves the choice invalid, and not once it is fixed', async () => {
+      const { element, input } = mount();
+      choose(input, [...FOUR, fileOf('e.pdf')]);
+
+      await userEvent.click(removeButtonOf(element, 'e.pdf'));
+      expect(statusOf(element).textContent).toBe(`4 arquivos selecionados. ${OVER_LIMIT}`);
+
+      await userEvent.click(removeButtonOf(element, 'd.pdf'));
+      expect(statusOf(element).textContent).toBe('3 arquivos selecionados.');
+    });
+
+    it('announces what a drop ignored, then the count, then the message', () => {
+      const { element, input } = mount();
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf')]);
+
+      drop(element, [fileOf('d.pdf'), fileOf('notas.txt', KB, 'text/plain')]);
+
+      expect(input.validationMessage).toBe(OVER_LIMIT);
+      expect(statusOf(element).textContent).toBe(`Somente arquivos PDF: notas.txt foi ignorado. 4 arquivos selecionados. ${OVER_LIMIT}`);
+    });
+
+    it('draws the message in the danger colour and as text, so it does not depend on the colour', () => {
+      const { element, input } = mount();
+
+      choose(input, FOUR);
+
+      expect(getComputedStyle(errorOf(element)).color).toBe(colorOf('--jus-color-danger'));
+      expect(errorOf(element).textContent.trim()).not.toBe('');
+    });
+
+    it('marks it when the browser reports the field as invalid, as it does when the form is submitted', () => {
+      const { element, input, form } = mount();
+      choose(input, [fileOf('a.pdf')]);
+      element.setAttribute('max-size', '512');
+      expect(input.validationMessage).toBe('O arquivo a.pdf passa do limite de 512 B.');
+      expectMarked(input, false);
+
+      expect(form.checkValidity()).toBe(false);
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe('O arquivo a.pdf passa do limite de 512 B.');
+      expect(errorOf(element).hidden).toBe(false);
+    });
+
+    it('leaves the state the server rendered alone when it connects', () => {
+      const { element, input } = mount(LIMITS, [], { input: 'class="form-control is-invalid" aria-invalid="true"' });
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe('');
+    });
+
+    it('does not mark the input when it connects over files that are not valid, either: the next change or the submit does', () => {
+      const { element, input } = mount(LIMITS, [fileOf('notas.txt', KB, 'text/plain')], { input: 'class="form-control"' });
+
+      expect(input.validationMessage).toBe('Envie apenas arquivos PDF.');
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+    });
+
+    it('leaves the state alone when an attribute changes, too', () => {
+      const { element, input } = mount();
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf')]);
+
+      element.setAttribute('max-files', '1');
+
+      expect(input.validationMessage).toBe('Envie no máximo 1 arquivo.');
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+
+      input.classList.add('is-invalid');
+      input.setAttribute('aria-invalid', 'true');
+      element.setAttribute('max-files', '5');
+
+      expect(input.validationMessage).toBe('');
+      expectMarked(input, true);
+    });
+
+    it('takes the server-rendered invalid state off, as the CNJ field does, once the person makes a valid choice', () => {
+      const { input } = mount(LIMITS, [], { input: 'class="form-control is-invalid" aria-invalid="true"' });
+
+      choose(input, [fileOf('a.pdf')]);
+
+      expectMarked(input, false);
+    });
+
+    it('takes the marks and the text off after a reset', async () => {
+      const { element, input, form } = mount();
+      choose(input, FOUR);
+      expectMarked(input, true);
+
+      form.reset();
+      await nextTask();
+
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+      expect(errorOf(element).hidden).toBe(true);
+    });
+  });
+
+  describe('events', () => {
+    it('fires input and then change on the input, both bubbling, when a drop writes the files, like the browser does for a chosen file', () => {
+      const { element, input } = mount();
+      const arrived = listenInOrder(input, ['input', 'change']);
+      const inputEvents = listen(input, 'input');
+      const changeEvents = listen(input, 'change');
+
+      drop(element, [fileOf('a.pdf')]);
+
+      expect(arrived).toEqual(['input', 'change']);
+      expect(inputEvents[0]?.bubbles).toBe(true);
+      expect(inputEvents[0]?.composed).toBe(true);
+      expect(changeEvents[0]?.bubbles).toBe(true);
+    });
+
+    it('does the same when a removal writes the files, and tells the form around the input', async () => {
+      const { element, input, form } = mount();
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf')]);
+      const arrived = listenInOrder(input, ['input', 'change']);
+      const atTheForm = listenInOrder(form, ['input', 'change']);
+
+      await userEvent.click(removeButtonOf(element, 'a.pdf'));
+
+      expect(arrived).toEqual(['input', 'change']);
+      expect(atTheForm).toEqual(['input', 'change']);
+    });
+
+    it('fires nothing when a drop adds nothing', () => {
+      const { element, input } = mount();
+      choose(input, [fileOf('a.pdf', 100)]);
+      const arrived = listenInOrder(input, ['input', 'change']);
+
+      drop(element, [fileOf('a.pdf', 100), fileOf('notas.txt', KB, 'text/plain')]);
+
+      expect(arrived).toEqual([]);
+    });
+  });
+
+  describe('when the input is disabled', () => {
+    it.each([
+      { name: 'the input is disabled', options: { input: 'disabled' } },
+      { name: 'a fieldset around it is disabled', options: { fieldset: 'disabled' } },
+    ])('ignores a drop, but still keeps the browser from opening the file, when $name', ({ options }) => {
+      const { element, input } = mount(LIMITS, [], options);
+      expect(input.matches(':disabled')).toBe(true);
+      const arrived = listenInOrder(input, ['input', 'change']);
+
+      const event = drop(element, [fileOf('a.pdf')]);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(input.files).toHaveLength(0);
+      expect(arrived).toEqual([]);
+      expect(itemsOf(element)).toEqual([]);
+      expect(statusOf(element).textContent).toBe('');
+    });
+
+    it('does not mark the zone for a drag over it, and does not announce what a drop would have ignored', () => {
+      const { element } = mount(LIMITS, [], { input: 'disabled' });
+
+      const over = dragEvent('dragover', [fileOf('a.pdf')]);
+      element.dispatchEvent(over);
+      element.dispatchEvent(dragEvent('dragenter', [fileOf('a.pdf')]));
+
+      expect(zoneOf(element).classList.contains('is-dragging')).toBe(false);
+      expect(over.defaultPrevented).toBe(true);
+
+      drop(element, [fileOf('notas.txt', KB, 'text/plain')]);
+      expect(statusOf(element).textContent).toBe('');
+    });
+
+    it.each([
+      { name: 'the input is disabled', options: { input: 'disabled' } },
+      { name: 'a fieldset around it is disabled', options: { fieldset: 'disabled' } },
+    ])('disables the remove buttons of the files it already holds when $name', ({ options }) => {
+      const { element } = mount(LIMITS, [fileOf('a.pdf'), fileOf('b.pdf')], options);
+
+      expect(removeButtons(element)).toHaveLength(2);
+      for (const button of removeButtons(element)) {
+        expect(button.disabled).toBe(true);
+      }
+    });
+
+    it('leaves the remove buttons enabled when it is not', () => {
+      const { element } = mount(LIMITS, [fileOf('a.pdf')]);
+
+      expect(removeButtons(element)[0]?.disabled).toBe(false);
+    });
+
+    it('follows the input being disabled and enabled again, and a fieldset around it', async () => {
+      const { element, input, main } = mount(LIMITS, [], { fieldset: '' });
+      choose(input, [fileOf('a.pdf')]);
+      const fieldset = required(main.querySelector('fieldset'));
+      expect(removeButtons(element)[0]?.disabled).toBe(false);
+
+      input.disabled = true;
+      await nextTask();
+      expect(removeButtons(element)[0]?.disabled).toBe(true);
+
+      input.disabled = false;
+      await nextTask();
+      expect(removeButtons(element)[0]?.disabled).toBe(false);
+
+      fieldset.disabled = true;
+      await nextTask();
+      expect(removeButtons(element)[0]?.disabled).toBe(true);
+      expect(drop(element, [fileOf('b.pdf')]).defaultPrevented).toBe(true);
+      expect(namesOf(input)).toEqual(['a.pdf']);
+
+      fieldset.disabled = false;
+      await nextTask();
+      expect(removeButtons(element)[0]?.disabled).toBe(false);
+      drop(element, [fileOf('b.pdf')]);
+      expect(namesOf(input)).toEqual(['a.pdf', 'b.pdf']);
+      expect(removeButtons(element).every((button) => !button.disabled)).toBe(true);
+    });
+
+    it('stops watching the fieldset once the element is removed from the page', async () => {
+      const { main, element } = mount(LIMITS, [fileOf('a.pdf')], { fieldset: 'disabled' });
+      const fieldset = required(main.querySelector('fieldset'));
+      expect(removeButtons(element)[0]?.disabled).toBe(true);
+
+      element.remove();
+      fieldset.disabled = false;
+      await nextTask();
+
+      expect(removeButtons(element)[0]?.disabled).toBe(true);
+    });
+  });
+
+  describe('the focus when the list is redrawn', () => {
+    it('stays on the same remove button when a drop adds files while it has the focus', () => {
+      const { element, input } = mount();
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf')]);
+      removeButtonOf(element, 'b.pdf').focus();
+      expect(shadowOf(element).activeElement).toBe(removeButtonOf(element, 'b.pdf'));
+
+      drop(element, [fileOf('c.pdf')]);
+
+      expect(shadowOf(element).activeElement).toBe(removeButtonOf(element, 'b.pdf'));
+      expect(shadowOf(element).activeElement?.isConnected).toBe(true);
+    });
+
+    it('stays on the remove button when a drop adds nothing, and only announces', () => {
+      const { element, input } = mount();
+      choose(input, [fileOf('a.pdf', 100)]);
+      removeButtonOf(element, 'a.pdf').focus();
+
+      drop(element, [fileOf('a.pdf', 100), fileOf('notas.txt', KB, 'text/plain')]);
+
+      expect(shadowOf(element).activeElement).toBe(removeButtonOf(element, 'a.pdf'));
+      expect(statusOf(element).textContent).toBe('Somente arquivos PDF: notas.txt foi ignorado. 1 arquivo selecionado.');
+    });
+
+    it('does not take the focus from the input when a drop adds files', () => {
+      const { element, input } = mount();
+      input.focus();
+
+      drop(element, [fileOf('a.pdf')]);
+
+      expect(document.activeElement).toBe(input);
+    });
+
+    it('does not take the focus from anywhere else when the list is redrawn', () => {
+      const { element, input, main } = mount();
+      const other = document.createElement('button');
+      other.textContent = 'Outro';
+      main.append(other);
+      other.focus();
+
+      drop(element, [fileOf('a.pdf')]);
+      choose(input, [fileOf('b.pdf')]);
+
+      expect(document.activeElement).toBe(other);
+    });
+
+    it('goes to the input, not to another button, when the new list has no button at that place', () => {
+      const { element, input } = mount();
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf')]);
+      removeButtonOf(element, 'c.pdf').focus();
+
+      choose(input, [fileOf('d.pdf')]);
+
+      expect(document.activeElement).toBe(input);
+      expect(shadowOf(element).activeElement).toBeNull();
+    });
+
+    it('goes to the input when a reset empties the list while a remove button has the focus', async () => {
+      const { element, input, form } = mount();
+      choose(input, [fileOf('a.pdf')]);
+      removeButtonOf(element, 'a.pdf').focus();
+
+      form.reset();
+      await nextTask();
+
+      expect(document.activeElement).toBe(input);
+    });
+  });
+
   describe('resetting the form', () => {
     it('empties the list and clears the message, once the form has put the default value back', async () => {
       const { element, input, form } = mount();
@@ -809,6 +1228,15 @@ describe('<jus-upload>', () => {
       expect(listOf(element).hidden).toBe(true);
       expect(input.validationMessage).toBe('');
       expect(statusOf(element).textContent).toBe('Nenhum arquivo selecionado.');
+    });
+
+    it('says nothing when there was nothing in the list to empty', async () => {
+      const { element, form } = mount();
+
+      form.reset();
+      await nextTask();
+
+      expect(statusOf(element).textContent).toBe('');
     });
   });
 
@@ -908,17 +1336,25 @@ describe('<jus-upload>', () => {
 
   describe('accessibility', () => {
     it('has no accessibility violations, empty, with files, with an invalid choice and while dragging, with the real palette', async () => {
-      const { main, element, input } = mount();
+      const { main, element, input } = mount(LIMITS, [], { input: 'class="form-control"' });
       await expectNoAxeViolations(main);
 
       choose(input, [fileOf('peticao.pdf', 1536), fileOf('procuracao.pdf', 512)]);
       await expectNoAxeViolations(main);
 
       choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf'), fileOf('notas.txt', KB, 'text/plain')]);
+      expectMarked(input, true);
+      expect(errorOf(element).checkVisibility()).toBe(true);
       await expectNoAxeViolations(main);
 
       element.dispatchEvent(dragEvent('dragenter', [fileOf('a.pdf')]));
       expect(zoneOf(element).classList.contains('is-dragging')).toBe(true);
+      await expectNoAxeViolations(main);
+    });
+
+    it('has no accessibility violations while disabled, with files in the list', async () => {
+      const { main } = mount(LIMITS, [fileOf('a.pdf')], { input: 'class="form-control" disabled' });
+
       await expectNoAxeViolations(main);
     });
 

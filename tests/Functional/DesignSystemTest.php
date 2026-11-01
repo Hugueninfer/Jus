@@ -63,6 +63,13 @@ final class DesignSystemTest extends WebTestCase
         self::assertSame('arquivos[]', $input->attr('name'));
         self::assertSame('application/pdf', $input->attr('accept'));
         self::assertNotNull($input->attr('multiple'));
+        self::assertStringContainsString('form-control', (string) $input->attr('class'));
+        // The limits are stated for everyone, and tied to the input.
+        self::assertSame('exemplo-upload-ajuda', $input->attr('aria-describedby'));
+        $help = $crawler->filter('section#upload figure #exemplo-upload-ajuda');
+        self::assertCount(1, $help);
+        self::assertStringContainsString('5 arquivos', $help->text());
+        self::assertStringContainsString('10 MB', $help->text());
         self::assertCount(1, $crawler->filter('section#upload figure label[for="exemplo-upload"]'));
         self::assertCount(0, $crawler->filter('section#upload figure form'));
         self::assertStringContainsString('<jus-upload max-size="10485760" max-files="5">', $crawler->filter('section#upload pre code')->text());

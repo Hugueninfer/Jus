@@ -1,4 +1,5 @@
 import { formatBytes } from '../shared/bytes';
+import { setInvalid } from '../shared/validity';
 import { JusElement, sheet } from './jus-element';
 
 const PDF = 'application/pdf';
@@ -24,6 +25,12 @@ const styles = sheet(`
     border-style: solid;
     border-color: var(--jus-color-primary);
     background: var(--jus-color-light);
+  }
+
+  /* The message is text, so it does not depend on its colour; the input carries the invalid border and icon besides. */
+  .jus-upload-error {
+    margin: var(--jus-space-2) 0 0;
+    color: var(--jus-color-danger);
   }
 
   ::slotted(input) {
@@ -126,13 +133,20 @@ function carriesFiles(event: DragEvent): boolean {
  * JavaScript this is an unknown element and the plain input works on its own.
  *
  * The input is the only state: the list is drawn from `input.files`, and a drop or a removal writes the new
- * list back to it with a `DataTransfer` and fires `change`, exactly as choosing files in the dialog does. The
+ * list back to it with a `DataTransfer` and fires `input` and `change`, as choosing files in the dialog does. The
  * dialog replaces the selection, as it does natively; a drop adds to it.
+ *
+ * When a change leaves the choice invalid the problem is shown (the input gets aria-invalid and Bootstrap's
+ * is-invalid, and the message is written as text under the zone) and announced after the count; when it leaves it
+ * valid both marks go. Connecting and changing the limit attributes only check the choice, they never touch the
+ * marks the server may have rendered. A disabled input (or one in a disabled fieldset) takes no drops and its
+ * remove buttons are disabled.
  */
 export class JusUpload extends JusElement {
   static readonly observedAttributes = ['max-size', 'max-files'];
 
   readonly #zone = document.createElement('div');
+  readonly #error = document.createElement('p');
   readonly #list = document.createElement('ul');
   readonly #status = document.createElement('p');
   #input: HTMLInputElement | undefined;
@@ -148,13 +162,19 @@ export class JusUpload extends JusElement {
     hint.textContent = HINT;
     this.#zone.append(document.createElement('slot'), hint);
 
+    // Not a live region: the announcement is the status below, which carries the message after the count.
+    this.#error.className = 'jus-upload-error';
+    this.#error.hidden = true;
+
+    // The role keeps the list a list for screen readers that drop it with list-style: none.
+    this.#list.setAttribute('role', 'list');
     this.#list.setAttribute('aria-label', LIST_LABEL);
     this.#list.hidden = true;
 
     this.#status.setAttribute('aria-live', 'polite');
     this.#status.className = 'visually-hidden';
 
-    this.root.append(this.#zone, this.#list, this.#status);
+    this.root.append(this.#zone, this.#error, this.#list, this.#status);
   }
 
   protected override styles(): CSSStyleSheet[] {
@@ -173,23 +193,32 @@ export class JusUpload extends JusElement {
     const { signal } = controller;
 
     input.addEventListener('change', () => {
-      this.#refresh(true);
+      this.#settle(true);
     }, { signal });
-    // The reset puts the default value back after the event, so what the list shows would outlive it.
+    // The browser reports the field as invalid when the form is submitted (or checked). That is when a choice that
+    // became invalid without a change, through the limit attributes, is shown.
+    input.addEventListener('invalid', () => {
+      this.#report();
+    }, { signal });
+    // The reset puts the default value back after the event, so what the list shows would outlive it. It is only
+    // worth announcing when there was something in the list to empty.
     input.form?.addEventListener('reset', () => {
       setTimeout(() => {
         if (!signal.aborted) {
-          this.#refresh(true);
+          this.#settle(this.#list.childElementCount > 0);
         }
       }, 0);
     }, { signal });
+    this.#watchDisabled(input, signal);
 
     // Dragover is prevented for files, which is what makes the element a place where they can be dropped.
     for (const type of ['dragenter', 'dragover'] as const) {
       this.addEventListener(type, (event) => {
         if (carriesFiles(event)) {
           event.preventDefault();
-          this.#zone.classList.add(DRAGGING);
+          if (!this.#disabled()) {
+            this.#zone.classList.add(DRAGGING);
+          }
         }
       }, { signal });
     }
@@ -203,13 +232,15 @@ export class JusUpload extends JusElement {
     this.addEventListener('drop', (event) => {
       this.#zone.classList.remove(DRAGGING);
       if (carriesFiles(event)) {
-        // The browser would otherwise open the file in place of the page.
+        // The browser would otherwise open the file in place of the page, disabled field or not.
         event.preventDefault();
-        this.#add(Array.from(event.dataTransfer?.files ?? []));
+        if (!this.#disabled()) {
+          this.#add(Array.from(event.dataTransfer?.files ?? []));
+        }
       }
     }, { signal });
 
-    this.#refresh(false);
+    this.#render();
   }
 
   disconnectedCallback(): void {
@@ -227,18 +258,80 @@ export class JusUpload extends JusElement {
     return Array.from(this.#input?.files ?? []);
   }
 
-  /** Redraws the list and checks the selection; says what changed unless it is only being read for the first time. */
-  #refresh(announce: boolean): void {
-    const files = this.#selected();
-    this.#validate();
-    this.#list.replaceChildren(...files.map((file) => this.#item(file)));
-    this.#list.hidden = files.length === 0;
+  /** Whether the input is disabled, by itself or by a fieldset around it. */
+  #disabled(): boolean {
+    return this.#input?.matches(':disabled') === true;
+  }
+
+  /** Keeps the remove buttons in step with the input being disabled or enabled, it or a fieldset around it. */
+  #watchDisabled(input: HTMLInputElement, signal: AbortSignal): void {
+    const observer = new MutationObserver(() => {
+      const disabled = this.#disabled();
+      for (const button of this.#list.querySelectorAll('button')) {
+        button.disabled = disabled;
+      }
+    });
+    for (let node: Element | null = input; node !== null; node = node.parentElement) {
+      if (node === input || node instanceof HTMLFieldSetElement) {
+        observer.observe(node, { attributes: true, attributeFilter: ['disabled'] });
+      }
+    }
+    signal.addEventListener('abort', () => {
+      observer.disconnect();
+    });
+  }
+
+  /**
+   * After a change: redraws the list, checks the choice, shows the problem (or takes it off) and, when asked, says what
+   * changed: the notice, the count and the message. Connecting only reads the choice (#render), and silently.
+   */
+  #settle(announce: boolean): void {
+    this.#render();
+    const message = this.#report();
 
     if (announce) {
       // A new text node each time, so that the same words twice in a row are still noticed.
-      this.#status.textContent = [this.#notice, countMessage(files.length)].filter((text) => text !== '').join(' ');
+      const count = countMessage(this.#selected().length);
+      this.#status.textContent = [this.#notice, count, message].filter((text) => text !== '').join(' ');
     }
     this.#notice = '';
+  }
+
+  /** Checks the choice and redraws the list, keeping the focus on the remove button it was on. */
+  #render(): void {
+    const input = this.#input;
+    if (input === undefined) {
+      return;
+    }
+
+    const files = this.#selected();
+    this.#validate();
+    const focused = this.root.activeElement;
+    const focusedIndex = focused instanceof HTMLButtonElement ? Array.from(this.#list.querySelectorAll('button')).indexOf(focused) : -1;
+
+    const disabled = this.#disabled();
+    this.#list.replaceChildren(...files.map((file) => this.#item(file, disabled)));
+    this.#list.hidden = files.length === 0;
+
+    // The redraw replaces the button that had the focus: the one now at its place takes it, or the input if there is none.
+    if (focusedIndex >= 0) {
+      (this.#list.querySelectorAll('button')[focusedIndex] ?? input).focus();
+    }
+  }
+
+  /** Marks the input invalid and writes the message under the zone, or takes both off; returns the message. */
+  #report(): string {
+    const input = this.#input;
+    if (input === undefined) {
+      return '';
+    }
+
+    const { validationMessage: message } = input;
+    setInvalid(input, message !== '');
+    this.#error.textContent = message;
+    this.#error.hidden = message === '';
+
+    return message;
   }
 
   #validate(): void {
@@ -247,7 +340,7 @@ export class JusUpload extends JusElement {
     );
   }
 
-  #item(file: File): HTMLLIElement {
+  #item(file: File, disabled: boolean): HTMLLIElement {
     const name = document.createElement('span');
     name.className = 'jus-upload-name';
     name.textContent = file.name;
@@ -259,6 +352,7 @@ export class JusUpload extends JusElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'jus-button';
+    button.disabled = disabled;
     button.textContent = REMOVE_LABEL;
     button.setAttribute('aria-label', `${REMOVE_LABEL} ${file.name}`);
     button.addEventListener('click', () => {
@@ -288,14 +382,17 @@ export class JusUpload extends JusElement {
 
     this.#notice = ignored.map((file) => `Somente arquivos PDF: ${file.name} foi ignorado.`).join(' ');
     if (added.length === 0) {
-      this.#refresh(true);
+      this.#settle(true);
 
       return;
     }
     this.#write([...selected, ...added]);
   }
 
-  /** Takes the file out and puts the focus on the next remove button, or on the input when there is none. */
+  /**
+   * Takes the file out and puts the focus on the next remove button, or on the input when there is none. The redraw
+   * keeps the focus by position, but not every browser focuses a button when it is clicked, so it is set here too.
+   */
   #remove(file: File): void {
     const selected = this.#selected();
     this.#write(selected.filter((candidate) => candidate !== file));
@@ -304,7 +401,10 @@ export class JusUpload extends JusElement {
     (buttons[selected.indexOf(file)] ?? this.#input)?.focus();
   }
 
-  /** Puts the files in the input the way the browser does when they are chosen, and says so: the input fires `change`. */
+  /**
+   * Puts the files in the input the way the browser does when they are chosen, and says so: the input fires `input`
+   * and then `change`, which the page and the form around the input may be listening to.
+   */
   #write(files: readonly File[]): void {
     const input = this.#input;
     if (input === undefined) {
@@ -316,6 +416,7 @@ export class JusUpload extends JusElement {
       transfer.items.add(file);
     }
     input.files = transfer.files;
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }
