@@ -23,4 +23,11 @@ export default defineConfig([
       globals: { process: 'readonly' },
     },
   },
+  {
+    // The page audit prints to the console and hands functions to Playwright that run in the page, where the DOM globals exist.
+    files: ['tools/audit/**/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', document: 'readonly', window: 'readonly' },
+    },
+  },
 ]);
