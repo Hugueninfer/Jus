@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
+import { required } from '../test-support/required';
 import { installTokens } from '../test-support/tokens';
 import './index';
 import { JusUpload } from './jus-upload';
@@ -12,14 +13,6 @@ const HINT = 'ou arraste os arquivos PDF para cá';
 
 /** Small limits, so the files the tests build stay light: 1 MB each and three at most. */
 const LIMITS = 'max-size="1048576" max-files="3"';
-
-function required<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) {
-    throw new Error('Expected a value, got nothing.');
-  }
-
-  return value;
-}
 
 /** A file of the given size filled with zeroes; a PDF unless told otherwise. */
 function fileOf(name: string, size = KB, type = PDF): File {

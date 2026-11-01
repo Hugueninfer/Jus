@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
+import { required } from '../test-support/required';
 import { installTokens } from '../test-support/tokens';
 import { define } from './index';
 import { JusElement, sheet } from './jus-element';
@@ -33,14 +34,6 @@ class TwoSheetsElement extends JusElement {
 define('jus-test-element', TestElement);
 define('jus-plain-element', PlainElement);
 define('jus-two-sheets-element', TwoSheetsElement);
-
-function required<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) {
-    throw new Error('Expected a value, got nothing.');
-  }
-
-  return value;
-}
 
 function mount(tag: string): HTMLElement {
   const element = document.createElement(tag);

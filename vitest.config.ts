@@ -6,9 +6,9 @@ import { defineConfig } from 'vitest/config';
 const onCi = Boolean(process.env.CI || process.env.TF_BUILD);
 
 export default defineConfig({
-  // Pre-bundled up front, otherwise Vite discovers it mid-run and reloads the test page on a clean checkout.
+  // Pre-bundled up front, otherwise Vite discovers them mid-run and reloads the test page on a clean checkout.
   optimizeDeps: {
-    include: ['axe-core'],
+    include: ['axe-core', 'bootstrap/js/dist/alert'],
   },
   test: {
     include: ['assets/**/*.test.ts'],
