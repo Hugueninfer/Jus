@@ -128,6 +128,10 @@ final class DesignSystemTest extends WebTestCase
             self::assertSame('region', $region->attr('role'));
             self::assertSame('0', $region->attr('tabindex'));
             self::assertSame(trim($table->filter('caption')->text()), $region->attr('aria-label'));
+            // The tabindex is the default without JavaScript; the script drops it from regions that do not overflow.
+            self::assertSame('', $region->attr('data-jus-scroll-region'));
+            // The hidden caption sticks out 1px, which would make Chrome put the region in the tab order by itself.
+            self::assertStringContainsString('overflow-y-hidden', (string) $region->attr('class'));
         });
     }
 
