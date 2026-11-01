@@ -26,6 +26,25 @@ final class LayoutTest extends WebTestCase
         self::assertSelectorTextContains('title', 'Entrar · Jus');
     }
 
+    public function testTheMenuStaysInReachWithoutJavaScript(): void
+    {
+        $client = self::createClient();
+
+        $client->request('GET', '/login');
+
+        // The off-canvas menu opens with a Bootstrap script. With scripts off, the page says to show it as a plain block
+        // instead (the audit, `npm run audit:pages`, checks the result in the browser at phone width).
+        $content = (string) $client->getResponse()->getContent();
+        $head = substr($content, 0, (int) strpos($content, '</head>'));
+        self::assertMatchesRegularExpression('#<noscript>\s*<style>.*</style>\s*</noscript>#s', $head);
+
+        preg_match('#<noscript>\s*<style>(.*?)</style>#s', $head, $noscript);
+        $rules = $noscript[1] ?? '';
+        // The panel is shown where it is, not slid in from the side, and a toggle that would do nothing is not offered.
+        self::assertMatchesRegularExpression('#\.navbar \.offcanvas \{[^}]*visibility: visible[^}]*transform: none#', $rules);
+        self::assertMatchesRegularExpression('#\.navbar \.navbar-toggler[^{]*\{[^}]*display: none#', $rules);
+    }
+
     public function testTheNavbarOffersTheCatalogAndSignInToVisitors(): void
     {
         $client = self::createClient();
