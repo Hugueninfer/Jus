@@ -201,9 +201,11 @@ final class FilingServiceTest extends KernelTestCase
             $this->service->file($this->case, $this->lawyer, FilingType::Statement, 'Manifestação.', [$this->upload('primeiro.pdf'), $vanished]);
             self::fail('A file that cannot be copied must stop the filing.');
         } catch (IOException) {
-            self::assertSame([], $this->storedPdfs());
-            self::assertSame($before, $this->rowCounts());
+            // expected: the assertions below check what the failure left behind
         }
+
+        self::assertSame([], $this->storedPdfs());
+        self::assertSame($before, $this->rowCounts());
     }
 
     public function testACleanupThatFailsDoesNotHideTheOriginalError(): void
@@ -241,6 +243,8 @@ final class FilingServiceTest extends KernelTestCase
     public static function clientNames(): iterable
     {
         yield 'an upper case extension' => ['Contestação Final.PDF', FilingType::Answer, 'Contestação Final', 'Contestação Final.PDF'];
+        // The three path rows pin Symfony's contract: UploadedFile cuts the client name down to its last segment, and
+        // the service relies on that instead of doing it again.
         yield 'a Windows path' => ['C:\\fakepath\\a.pdf', FilingType::Answer, 'a', 'a.pdf'];
         yield 'a Unix path' => ['/home/ana/docs/b.pdf', FilingType::Answer, 'b', 'b.pdf'];
         yield 'both kinds of separator' => ['C:/dir\\sub/c.pdf', FilingType::Answer, 'c', 'c.pdf'];

@@ -37,13 +37,16 @@ final readonly class FilingService
     }
 
     /**
-     * When anything fails, the stored files are removed again and the failure is rethrown. A failure inside the
-     * transaction (including the domain refusing the filing) also closes the entity manager, as Doctrine does when a
-     * transaction is rolled back: the caller must not use it afterwards.
+     * When anything fails, the stored files are removed again and the failure is rethrown. Every failure inside the
+     * transaction (the domain refusing the filing, a deadline that cannot be fulfilled, the database) leaves the entity
+     * manager closed, as Doctrine does when it rolls a transaction back: the caller must not use it afterwards. A file
+     * that cannot be stored fails before the transaction, so the entity manager stays open.
      *
      * @param list<UploadedFile> $files
      *
-     * @throws \InvalidArgumentException when the lawyer represents no party of the case, or for a second initial petition
+     * @throws \InvalidArgumentException when the lawyer represents no party of the case, for a second initial petition,
+     *                                   or when an open deadline starts after the filing (Deadline::fulfil())
+     * @throws IOException               when a file cannot be stored
      */
     public function file(LegalCase $case, User $lawyer, FilingType $type, string $description, array $files): CaseEvent
     {
@@ -59,7 +62,8 @@ final readonly class FilingService
             return $this->entityManager->wrapInTransaction(function () use ($case, $lawyer, $type, $description, $stored, $now): CaseEvent {
                 $event = $case->file($type, $description, $now, $lawyer);
                 foreach ($stored as [$file, $document]) {
-                    $name = $this->lastSegment($file->getClientOriginalName());
+                    // UploadedFile has already cut the client path down to its last segment.
+                    $name = $file->getClientOriginalName();
                     $event->attach($this->titleOf($name, $type), mb_substr($name, 0, self::NAME_MAX_LENGTH), $document->name, $document->sizeInBytes, $lawyer, $now);
                 }
 
@@ -80,16 +84,6 @@ final readonly class FilingService
 
             throw $failure;
         }
-    }
-
-    /**
-     * Browsers may send the whole client path ("C:\fakepath\a.pdf"), so only what follows the last separator is a name.
-     */
-    private function lastSegment(string $clientName): string
-    {
-        $segments = explode('/', str_replace('\\', '/', $clientName));
-
-        return end($segments);
     }
 
     /**
