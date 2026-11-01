@@ -249,7 +249,7 @@ final class FilingPageTest extends WebTestCase
         $crawler = $this->submit(files: array_map(fn (int $number): UploadedFile => $this->pdf(\sprintf('peca-%d.pdf', $number)), range(1, 6)));
 
         self::assertResponseStatusCodeSame(422);
-        $this->assertFieldRefused($crawler, 'files', 'Anexe no máximo 5 arquivos.');
+        $this->assertFieldRefused($crawler, 'files', 'Envie no máximo 5 arquivos.');
         $this->assertNothingWasFiled();
     }
 
@@ -449,7 +449,7 @@ final class FilingPageTest extends WebTestCase
         $crawler = $this->submit(['_token' => 'invalid']);
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('O token CSRF é inválido. Por favor, tente reenviar o formulário.', trim($crawler->filter('main form .alert-danger')->text()));
+        $this->assertRootError($crawler, 'O token CSRF é inválido. Por favor, tente reenviar o formulário.');
         self::assertSelectorTextContains('title', 'Erro: Peticionar');
         $this->assertNothingWasFiled();
     }
@@ -462,7 +462,7 @@ final class FilingPageTest extends WebTestCase
         $crawler = $this->submit(['_token' => 'invalid'], files: [$this->pdf()]);
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('O token CSRF é inválido. Por favor, tente reenviar o formulário.', trim($crawler->filter('main form .alert-danger')->text()));
+        $this->assertRootError($crawler, 'O token CSRF é inválido. Por favor, tente reenviar o formulário.');
         self::assertCount(0, $crawler->filter('main #resumo-erros'));
         $note = $crawler->filter('main #arquivos-novamente');
         self::assertCount(1, $note);
@@ -497,11 +497,9 @@ final class FilingPageTest extends WebTestCase
         // One error that says what happened and the limit, and nothing else: the fields are empty because the body was
         // dropped, so an error on each of them would only bury it.
         $max = strtoupper(trim((string) \ini_get('post_max_size')));
-        $alerts = $crawler->filter('main form .alert-danger');
-        self::assertCount(1, $alerts);
-        self::assertSame(
+        $this->assertRootError(
+            $crawler,
             \sprintf('O envio passou do limite de %s e não foi recebido. Escolha arquivos menores ou menos arquivos.', $max),
-            trim($alerts->text()),
         );
         self::assertCount(0, $crawler->filter('main .invalid-feedback, main [aria-invalid], main .is-invalid, main #resumo-erros'));
         self::assertSelectorTextContains('title', 'Erro: Peticionar');
@@ -778,6 +776,22 @@ final class FilingPageTest extends WebTestCase
         self::assertSame('Sucesso: '.$message, trim($confirmation->text()));
         self::assertSame(1, substr_count($page->filter('main')->text(), $message));
         self::assertCount(1, $page->filter('main .alert-success'));
+    }
+
+    /**
+     * The one error of the form itself (the token, a request that was too large): the same alert as everywhere, with its
+     * icon and the "Erro:" that screen readers hear, and the only one on the page.
+     */
+    private function assertRootError(Crawler $page, string $message): void
+    {
+        $alert = $page->filter('main form .alert-danger');
+
+        self::assertCount(1, $alert);
+        self::assertSame('Erro: '.$message, trim($alert->text()));
+        self::assertSame('Erro:', trim($alert->filter('.visually-hidden')->text()));
+        self::assertCount(1, $alert->filter('i.bi-x-octagon-fill[aria-hidden="true"]'));
+        self::assertSame('alert', $alert->attr('role'));
+        self::assertSame('filing_error1', $alert->attr('id'));
     }
 
     private function signIn(): void

@@ -26,7 +26,7 @@ final class FilingData
         min: 1,
         max: FilingLimits::MAX_FILES,
         minMessage: 'Anexe pelo menos um arquivo PDF.',
-        maxMessage: 'Anexe no máximo {{ limit }} arquivos.',
+        maxMessage: 'Envie no máximo {{ limit }} arquivos.',
     )]
     #[Assert\All([
         new Assert\File(

@@ -2,6 +2,19 @@
 
 {# Accessibility wiring (aria-invalid, aria-describedby to the help text and each error) is native in Symfony 7.4. #}
 
+{# The errors of the form itself (the CSRF token, a request that was too large) are drawn with the alert component, like every
+   other message of the interface: an icon and the hidden "Erro:" so that the severity is not told by colour alone. The errors of
+   a field stay as they are. #}
+{%- block form_errors -%}
+    {%- if form is rootform -%}
+        {%- for error in errors -%}
+            <twig:Alert type="danger" :id="id ~ '_error' ~ loop.index">{{ error.message }}</twig:Alert>
+        {%- endfor -%}
+    {%- else -%}
+        {{- parent() -}}
+    {%- endif -%}
+{%- endblock form_errors -%}
+
 {# The native file input inside <jus-upload>: without JavaScript it is an ordinary input and the server checks the files; the
    element adds drag and drop, the list of the chosen files and the check against the limits. The limits are the field's
    options ("max_files", "max_size"), never numbers typed here; an unset limit leaves its attribute out. #}

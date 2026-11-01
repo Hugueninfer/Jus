@@ -37,9 +37,9 @@ final class PortugueseMessagesTest extends KernelTestCase
         $form->submit(['parte' => 'Maria', '_token' => 'bogus']);
 
         self::assertFalse($form->isValid());
-        // The CSRF error belongs to the form itself, not to a field.
+        // The CSRF error belongs to the form itself, not to a field, and is drawn as an alert (the "Erro:" is for screen readers).
         self::assertSame(
-            'O token CSRF é inválido. Por favor, tente reenviar o formulário.',
+            'Erro: O token CSRF é inválido. Por favor, tente reenviar o formulário.',
             trim($this->render($form)->filter('#contato_error1')->text()),
         );
     }

@@ -93,7 +93,7 @@ final class FilingDataTest extends KernelTestCase
         self::assertSame([], $this->violations($data));
 
         $data->files = array_map(fn (int $number): UploadedFile => $this->pdf(\sprintf('peca-%d.pdf', $number)), range(1, 6));
-        self::assertSame(['files' => 'Anexe no máximo 5 arquivos.'], $this->violations($data));
+        self::assertSame(['files' => 'Envie no máximo 5 arquivos.'], $this->violations($data));
     }
 
     public function testOnlyPdfFilesAreAccepted(): void
