@@ -25,6 +25,9 @@ class CaseEvent
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $documents;
 
+    /**
+     * @internal only created by LegalCase::record() and LegalCase::file(); public because Doctrine needs to reach it
+     */
     public function __construct(
         #[ORM\ManyToOne(inversedBy: 'events')]
         #[ORM\JoinColumn(nullable: false)]

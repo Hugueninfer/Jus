@@ -119,6 +119,59 @@ final class LegalCaseTest extends TestCase
         $case->file(FilingType::Statement, 'Manifestação.', new \DateTimeImmutable('2024-03-15 16:00'), User::lawyer('carla@jus.test', 'Carla Mendes', 'SP 654.321'));
     }
 
+    public function testTheInitialPetitionOpensTheCase(): void
+    {
+        $case = self::legalCase();
+        $lawyer = User::lawyer('ana@jus.test', 'Ana Ribeiro', 'SP 123.456');
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($lawyer);
+
+        $petition = $case->file(FilingType::InitialPetition, 'Petição inicial distribuída.', new \DateTimeImmutable('2024-03-04 10:00'), $lawyer);
+
+        self::assertSame(FilingType::InitialPetition, $petition->getFilingType());
+        self::assertSame([$petition], $case->getEvents());
+    }
+
+    public function testTheInitialPetitionCannotFollowAFiling(): void
+    {
+        $case = self::legalCase();
+        $lawyer = User::lawyer('ana@jus.test', 'Ana Ribeiro', 'SP 123.456');
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($lawyer);
+        $case->file(FilingType::Statement, 'Manifestação.', new \DateTimeImmutable('2024-03-15 16:00'), $lawyer);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The initial petition can only open a case.');
+
+        $case->file(FilingType::InitialPetition, 'Petição inicial.', new \DateTimeImmutable('2024-03-16 10:00'), $lawyer);
+    }
+
+    public function testTheInitialPetitionCannotFollowAnyOtherEvent(): void
+    {
+        $case = self::legalCase();
+        $lawyer = User::lawyer('ana@jus.test', 'Ana Ribeiro', 'SP 123.456');
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($lawyer);
+        $case->record(EventType::Order, 'Cite-se a parte ré.', new \DateTimeImmutable('2024-03-10 09:00'));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The initial petition can only open a case.');
+
+        $case->file(FilingType::InitialPetition, 'Petição inicial.', new \DateTimeImmutable('2024-03-04 10:00'), $lawyer);
+    }
+
+    public function testTheInitialPetitionCannotBeFiledTwice(): void
+    {
+        $case = self::legalCase();
+        $lawyer = User::lawyer('ana@jus.test', 'Ana Ribeiro', 'SP 123.456');
+        $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff)->addLawyer($lawyer);
+        $first = $case->file(FilingType::InitialPetition, 'Petição inicial.', new \DateTimeImmutable('2024-03-04 10:00'), $lawyer);
+
+        try {
+            $case->file(FilingType::InitialPetition, 'Outra petição inicial.', new \DateTimeImmutable('2024-03-05 10:00'), $lawyer);
+            self::fail('A second initial petition must be refused.');
+        } catch (\InvalidArgumentException) {
+            self::assertSame([$first], $case->getEvents(), 'the refused petition leaves no event behind');
+        }
+    }
+
     public function testListsDocumentsFromTheNewestEvent(): void
     {
         $case = self::legalCase();

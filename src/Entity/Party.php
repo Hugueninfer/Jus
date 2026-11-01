@@ -27,6 +27,9 @@ class Party
     #[ORM\Column(length: 160, options: ['default' => ''])]
     private string $searchName;
 
+    /**
+     * @internal only created by LegalCase::addParty(); public because Doctrine needs to reach it
+     */
     public function __construct(
         #[ORM\ManyToOne(inversedBy: 'parties')]
         #[ORM\JoinColumn(nullable: false)]

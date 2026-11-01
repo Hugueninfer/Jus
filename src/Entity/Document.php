@@ -14,6 +14,9 @@ class Document
     #[ORM\Column]
     private ?int $id = null;
 
+    /**
+     * @internal only created by CaseEvent::attach(); public because Doctrine needs to reach it
+     */
     public function __construct(
         #[ORM\ManyToOne(inversedBy: 'documents')]
         #[ORM\JoinColumn(nullable: false)]

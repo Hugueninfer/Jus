@@ -37,7 +37,7 @@ final class LegalCasePersistenceTest extends KernelTestCase
         $em->clear();
 
         $repository = self::getContainer()->get(LegalCaseRepository::class);
-        $reloaded = $repository->findOneByNumber(CnjNumber::fromString('00000013920248260100'));
+        $reloaded = $repository->findOneBy(['number' => CnjNumber::fromString('00000013920248260100')]);
 
         self::assertNotNull($reloaded);
         self::assertNotSame($case, $reloaded);
@@ -46,7 +46,7 @@ final class LegalCasePersistenceTest extends KernelTestCase
         self::assertTrue($reloaded->isRepresentedBy($lawyer));
         self::assertSame(EventType::Summons, $reloaded->getEvents()[0]->getType());
         self::assertSame('Mandado de intimação', $reloaded->getEvents()[0]->getDocuments()[0]->getTitle());
-        self::assertNull($repository->findOneByNumber(CnjNumber::fromString('0000003-09.2024.8.26.0100')));
+        self::assertNull($repository->findOneBy(['number' => CnjNumber::fromString('0000003-09.2024.8.26.0100')]));
     }
 
     public function testTheCnjNumberIsUnique(): void

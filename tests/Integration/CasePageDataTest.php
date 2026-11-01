@@ -123,7 +123,7 @@ final class CasePageDataTest extends KernelTestCase
         $this->deadline($other, $other->getParties()[0], '2026-03-04');
         $this->em->flush();
 
-        $first = $this->cases->findOneByNumber(CnjNumber::compose('0000001', '2024', '8', '26', '0100'));
+        $first = $this->cases->findOneForPage(CnjNumber::compose('0000001', '2024', '8', '26', '0100'));
         self::assertNotNull($first);
 
         self::assertSame([], $this->caseDeadlines()->forCase($first));
