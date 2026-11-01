@@ -301,6 +301,9 @@ final class CasePageTest extends WebTestCase
         $tabs = $crawler->filter('nav[aria-label="Andamento do processo"]');
         self::assertCount(1, $tabs);
         self::assertSame('andamento', $tabs->attr('id'));
+        // The place the focus goes to when the confirmation of a filing, right below the tabs, is dismissed.
+        self::assertSame('-1', $tabs->attr('tabindex'));
+        self::assertNotNull($tabs->attr('data-jus-focus-target'));
         self::assertCount(2, $tabs->filter('ul.nav.nav-tabs > li.nav-item > a.nav-link'));
         self::assertSame(['?aba=movimentacoes#andamento', '?aba=documentos#andamento'], $tabs->filter('a')->each(static fn (Crawler $a): ?string => $a->attr('href')));
         $current = $tabs->filter('[aria-current]');

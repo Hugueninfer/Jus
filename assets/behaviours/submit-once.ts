@@ -13,6 +13,12 @@ const disabledBy = new WeakMap<HTMLFormElement, (HTMLButtonElement | HTMLInputEl
  * the back-forward cache (the person went back to it) has them enabled again, since the page is shown with the state it
  * was left in, and nothing is on its way any more. Without JavaScript nothing changes: the form is sent as usual.
  *
+ * A send that is aborted (the person stops the page from loading, or the connection drops before the response) leaves the
+ * buttons disabled until the page is loaded again: the browser fires no event for an aborted navigation, and enabling them
+ * after some time would let the second click through exactly when a slow upload is still on its way, which is the case
+ * this exists for. That is an accepted trade-off: the person loads the page again, and looks at the case's timeline
+ * before filing again, as after any interrupted send (the server may have received it all).
+ *
  * The buttons are disabled after the event, in a task of their own, for two reasons. Whether the submit was prevented
  * is only settled once every handler has run, including the ones further up the page than this one. And a disabled
  * button takes its name and value out of the data sent, but the browser builds that data right after the event,

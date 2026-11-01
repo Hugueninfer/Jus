@@ -12,6 +12,17 @@
         {% block javascripts %}
             {{ encore_entry_script_tags('app') }}
         {% endblock %}
+        {# The off-canvas menu opens with a Bootstrap script, so with scripts off the links of the navbar would be out of reach on
+           a phone. There the panel is shown where it is, as a block under the brand (from md up Bootstrap already shows it
+           inline, beside the brand, and never opens it). #}
+        <noscript>
+            <style>
+                .navbar .navbar-toggler, .navbar .offcanvas-header { display: none; }
+                .navbar .offcanvas { position: static; width: auto !important; height: auto !important; visibility: visible !important; background-color: transparent !important; border: 0 !important; transform: none !important; transition: none; }
+                .navbar .offcanvas-body { padding: 0; overflow-y: visible; }
+                @media (max-width: 767.98px) { .navbar .offcanvas { flex-basis: 100%; } }
+            </style>
+        </noscript>
     </head>
     <body class="d-flex flex-column min-vh-100">
         <a class="jus-skip-link visually-hidden-focusable position-absolute z-3 top-0 start-0 m-2 p-2 bg-body rounded shadow" href="#conteudo">Pular para o conteúdo</a>
@@ -58,7 +69,7 @@
             </nav>
         </header>
 
-        <main id="conteudo" class="container flex-grow-1 py-4" tabindex="-1">
+        <main id="conteudo" class="container flex-grow-1 py-4" tabindex="-1" data-jus-focus-target>
             {% for type, messages in app.flashes %}
                 {% for message in messages %}
                     <twig:Alert :type="type" dismissible>{{ message }}</twig:Alert>
