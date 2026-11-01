@@ -76,6 +76,10 @@ function zoneOf(element: JusUpload): HTMLElement {
   return required(shadowOf(element).querySelector<HTMLElement>('.jus-upload-zone'));
 }
 
+function hintOf(element: JusUpload): HTMLElement {
+  return required(shadowOf(element).querySelector<HTMLElement>('.jus-upload-hint'));
+}
+
 function listOf(element: JusUpload): HTMLElement {
   return required(shadowOf(element).querySelector<HTMLElement>('ul'));
 }
@@ -1318,6 +1322,45 @@ describe('<jus-upload>', () => {
       expect(removeButtons(element)[0]?.disabled).toBe(false);
     });
 
+    it.each([
+      { name: 'the input is disabled', options: { input: 'disabled' } },
+      { name: 'a fieldset around it is disabled', options: { fieldset: 'disabled' } },
+    ])('hides the hint about dragging files, which a disabled field does not take, when $name', ({ options }) => {
+      const { element } = mount(LIMITS, [], options);
+
+      expect(hintOf(element).hidden).toBe(true);
+      expect(hintOf(element).checkVisibility()).toBe(false);
+    });
+
+    it('shows the hint while the input is enabled', () => {
+      const { element } = mount();
+
+      expect(hintOf(element).hidden).toBe(false);
+      expect(hintOf(element).checkVisibility()).toBe(true);
+      expect(hintOf(element).textContent).toBe(HINT);
+    });
+
+    it('shows and hides the hint as the input, or a fieldset around it, is enabled and disabled', async () => {
+      const { element, input, main } = mount(LIMITS, [], { fieldset: '' });
+      const fieldset = required(main.querySelector('fieldset'));
+
+      input.disabled = true;
+      await nextTask();
+      expect(hintOf(element).hidden).toBe(true);
+
+      input.disabled = false;
+      await nextTask();
+      expect(hintOf(element).hidden).toBe(false);
+
+      fieldset.disabled = true;
+      await nextTask();
+      expect(hintOf(element).hidden).toBe(true);
+
+      fieldset.disabled = false;
+      await nextTask();
+      expect(hintOf(element).hidden).toBe(false);
+    });
+
     it('follows the input being disabled and enabled again, and a fieldset around it', async () => {
       const { element, input, main } = mount(LIMITS, [], { fieldset: '' });
       choose(input, [fileOf('a.pdf')]);
@@ -1465,6 +1508,26 @@ describe('<jus-upload>', () => {
       expect(() => {
         element.dispatchEvent(dragEvent('drop', [fileOf('a.pdf')]));
       }).not.toThrow();
+    });
+
+    it('renders nothing extra without a file input inside: no zone, no hint, no space', () => {
+      const element = document.createElement('jus-upload');
+      document.body.append(element);
+
+      expect((element as JusUpload).shadowRoot?.querySelector('.jus-upload-zone')).toBeNull();
+      expect(hintOf(element as JusUpload).checkVisibility()).toBe(false);
+      expect(element.getBoundingClientRect().height).toBe(0);
+    });
+
+    it('lets what is inside show as it is, without a zone, when there is no file input', () => {
+      const main = document.createElement('main');
+      main.setHTMLUnsafe('<jus-upload><p id="outro">Outro conteúdo</p></jus-upload>');
+      document.body.append(main);
+      const element = required(main.querySelector<JusUpload>('jus-upload'));
+
+      expect(element.shadowRoot?.querySelector('.jus-upload-zone')).toBeNull();
+      expect(required(main.querySelector('#outro')).checkVisibility()).toBe(true);
+      expect(hintOf(element).checkVisibility()).toBe(false);
     });
 
     it('handles each event once when it is moved', async () => {

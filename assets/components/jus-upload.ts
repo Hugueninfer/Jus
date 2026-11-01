@@ -6,6 +6,7 @@ const PDF = 'application/pdf';
 const HINT = 'ou arraste os arquivos PDF para cá';
 const LIST_LABEL = 'Arquivos selecionados';
 const REMOVE_LABEL = 'Remover';
+const ZONE = 'jus-upload-zone';
 const DRAGGING = 'is-dragging';
 
 const styles = sheet(`
@@ -63,11 +64,6 @@ const styles = sheet(`
 
   .jus-upload-size {
     color: var(--jus-color-muted);
-  }
-
-  /* The base sheet's border is a decoration (about 1.5:1); the button needs a boundary that identifies it as a control. */
-  .jus-button {
-    border-color: var(--jus-color-muted);
   }
 `);
 
@@ -137,7 +133,8 @@ function carriesFiles(event: DragEvent): boolean {
  * leaves alone the marks and the errors the server may have rendered.
  * Changing a limit attribute checks it again and, only while the component is showing an error, updates or clears
  * that error to follow the new limit; with none shown the marks stay as they are until the next change or submit.
- * A disabled input (or one in a disabled fieldset) takes no drops and its remove buttons are disabled.
+ * A disabled input (or one in a disabled fieldset) takes no drops, its remove buttons are disabled and the hint about
+ * dragging files is hidden. Without an input inside the element renders nothing of its own (no zone, no hint).
  *
  * Consumers should read the validity on `change`, not on `input`: the component checks the choice when `change` arrives.
  */
@@ -145,6 +142,7 @@ export class JusUpload extends JusElement {
   static readonly observedAttributes = ['max-size', 'max-files'];
 
   readonly #zone = document.createElement('div');
+  readonly #hint = document.createElement('span');
   readonly #list = document.createElement('ul');
   readonly #status = document.createElement('p');
   #input: HTMLInputElement | undefined;
@@ -154,11 +152,12 @@ export class JusUpload extends JusElement {
 
   constructor() {
     super();
-    this.#zone.className = 'jus-upload-zone';
-    const hint = document.createElement('span');
-    hint.className = 'jus-upload-hint';
-    hint.textContent = HINT;
-    this.#zone.append(document.createElement('slot'), hint);
+    // Plain until there is an input to enhance: the zone gets its look (and its hint) when the element connects with one,
+    // so an element without it renders nothing extra and lets whatever is inside show as it is.
+    this.#hint.className = 'jus-upload-hint';
+    this.#hint.textContent = HINT;
+    this.#hint.hidden = true;
+    this.#zone.append(document.createElement('slot'), this.#hint);
 
     // The role keeps the list a list for screen readers that drop it with list-style: none.
     this.#list.setAttribute('role', 'list');
@@ -239,7 +238,9 @@ export class JusUpload extends JusElement {
       }
     }, { signal });
 
+    this.#zone.classList.add(ZONE);
     this.#render();
+    this.#syncDisabled();
   }
 
   disconnectedCallback(): void {
@@ -267,13 +268,19 @@ export class JusUpload extends JusElement {
     return this.#input?.matches(':disabled') === true;
   }
 
-  /** Keeps the remove buttons in step with the input being disabled or enabled, it or a fieldset around it. */
+  /** Shows the hint about dragging files only while the input takes them, and disables the remove buttons while it does not. */
+  #syncDisabled(): void {
+    const disabled = this.#disabled();
+    this.#hint.hidden = disabled;
+    for (const button of this.#list.querySelectorAll('button')) {
+      button.disabled = disabled;
+    }
+  }
+
+  /** Keeps the hint and the remove buttons in step with the input being disabled or enabled, it or a fieldset around it. */
   #watchDisabled(input: HTMLInputElement, signal: AbortSignal): void {
     const observer = new MutationObserver(() => {
-      const disabled = this.#disabled();
-      for (const button of this.#list.querySelectorAll('button')) {
-        button.disabled = disabled;
-      }
+      this.#syncDisabled();
     });
     for (let node: Element | null = input; node !== null; node = node.parentElement) {
       if (node === input || node instanceof HTMLFieldSetElement) {

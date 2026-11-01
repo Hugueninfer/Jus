@@ -11,12 +11,6 @@ const styles = sheet(`
     margin-block-end: var(--jus-space-3);
   }
 
-  /* The base sheet's border (--jus-color-border, about 1.5:1 on white) is a decoration: these buttons need a boundary that
-     identifies them as controls, so the unpressed ones take the muted text colour (about 5.4:1). */
-  .jus-button {
-    border-color: var(--jus-color-muted);
-  }
-
   .jus-button[aria-pressed="true"] {
     border-color: var(--jus-color-primary);
   }
