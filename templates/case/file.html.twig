@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Peticionar · Processo {{ case.number|cnj }} · Jus{% endblock %}
+
+{% block body %}
+    <p class="mb-2"><a href="{{ path('case_show', {numero: case.number|cnj}) }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar para o processo</a></p>
+
+    <header class="mb-4">
+        <h1 class="h3 mb-1">Peticionar</h1>
+        <p class="mb-0"><span class="font-monospace">{{ case.number|cnj }}</span> · {{ case.caseClass }}</p>
+    </header>
+
+    <div class="row">
+        <div class="col-lg-8">
+            {# Each field says what is wrong next to itself; this tells a reader who lands on the top of the page to look there. #}
+            {% if form.children|filter(field => not field.vars.valid) is not empty %}
+                <twig:Alert type="danger">Corrija os campos indicados e envie a petição de novo.</twig:Alert>
+            {% endif %}
+
+            {{ form_start(form) }}
+                {{ form_widget(form) }}
+                <button type="submit" class="btn btn-primary">Juntar petição</button>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

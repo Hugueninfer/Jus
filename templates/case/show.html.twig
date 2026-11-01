@@ -12,6 +12,9 @@
                 <span class="badge text-bg-dark"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
             {% endif %}
             <twig:StatusBadge :status="case.status" />
+            {% if is_granted('FILE', case) %}
+                <a class="btn btn-primary ms-sm-auto" href="{{ path('case_file', {numero: case.number|cnj}) }}"><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i> Peticionar</a>
+            {% endif %}
         </div>
         <dl class="row mb-0">
             <dt class="col-sm-3">Classe</dt><dd class="col-sm-9">{{ case.caseClass }}</dd>
