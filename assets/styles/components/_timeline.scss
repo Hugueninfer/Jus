@@ -9,6 +9,12 @@
   > .bi {
     color: var(--jus-color-primary);
   }
+
+  // The event filter (<jus-filtro-timeline>) hides events with the hidden attribute: say so here, since the display above
+  // would otherwise win over the browser's own [hidden] rule and not every page resets it.
+  &[hidden] {
+    display: none;
+  }
 }
 
 // A flex item does not shrink below its content: let long strings wrap instead of overflowing narrow screens.

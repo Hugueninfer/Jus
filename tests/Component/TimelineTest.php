@@ -27,6 +27,9 @@ final class TimelineTest extends KernelTestCase
 
         $days = $timeline->filter('ol.jus-timeline > li');
         self::assertCount(2, $days);
+        // <jus-filtro-timeline> finds the days and the events inside them by these classes.
+        self::assertCount(2, $timeline->filter('ol.jus-timeline > li.jus-timeline-day'));
+        self::assertCount(4, $timeline->filter('li.jus-timeline-day > ol > li.jus-timeline-event'));
         self::assertSame('2024-04-02', $days->eq(0)->filter('time')->attr('datetime'));
         self::assertSame('02/04/2024', trim($days->eq(0)->filter('h3 time')->text()));
         self::assertSame('2024-03-04', $days->eq(1)->filter('time')->attr('datetime'));

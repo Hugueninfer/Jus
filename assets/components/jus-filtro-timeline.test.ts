@@ -2,10 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
 import { installTokens } from '../test-support/tokens';
+import timelineCss from '../styles/components/_timeline.scss?inline';
 import './index';
+import { sheet } from './jus-element';
 import { JusFiltroTimeline } from './jus-filtro-timeline';
 
 const GROUP_LABEL = 'Filtrar movimentações por tipo';
+
+/** The page's own timeline styles, which make every event a flex box. */
+const timelineSheet = sheet(timelineCss);
 
 interface EventSample {
   type: string;
@@ -161,6 +166,7 @@ describe('<jus-filtro-timeline>', () => {
 
   afterEach(() => {
     removeTokens();
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((adopted) => adopted !== timelineSheet);
     document.body.replaceChildren();
   });
 
@@ -566,6 +572,19 @@ describe('<jus-filtro-timeline>', () => {
   });
 
   describe('style', () => {
+    it('hides an event by itself even where the timeline styles make events flex boxes, without relying on a global [hidden] rule', async () => {
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, timelineSheet];
+      const { element } = mount();
+      const decision = required(element.querySelector('.jus-timeline-event[data-event-type="decision"]'));
+      expect(getComputedStyle(decision).display).toBe('flex');
+
+      await filterBy(element, 'Despacho');
+
+      expect(decision.hasAttribute('hidden')).toBe(true);
+      expect(getComputedStyle(decision).display).toBe('none');
+      expect(getComputedStyle(required(element.querySelector('.jus-timeline-event[data-event-type="order"]'))).display).toBe('flex');
+    });
+
     it('draws the unpressed buttons with the muted colour, which is dark enough to tell them apart, and the pressed one with the primary colour', async () => {
       const { element } = mount();
       await filterBy(element, 'Despacho');
