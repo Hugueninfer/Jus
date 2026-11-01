@@ -104,6 +104,21 @@ final class FilingDataTest extends KernelTestCase
         self::assertSame(['files[1]' => 'Envie apenas arquivos PDF.'], $this->violations($data));
     }
 
+    public function testAFileOverPhpsUploadLimitIsReportedInBinaryUnits(): void
+    {
+        $data = $this->filing();
+        // What PHP hands over when a file is bigger than upload_max_filesize: the error code, no content.
+        $data->files = [new UploadedFile(__DIR__.'/../fixtures/sample.pdf', 'enorme.pdf', 'application/pdf', \UPLOAD_ERR_INI_SIZE, true)];
+
+        $violations = $this->violations($data);
+
+        // The limit is the server's own, whatever php.ini says, written in the units the rest of the page uses (1 MB = 1024 * 1024
+        // bytes) and not as "10485.76 kB".
+        self::assertSame(['files[0]'], array_keys($violations));
+        self::assertMatchesRegularExpression('/^O arquivo é muito grande\. O tamanho máximo permitido é de \d+(\.\d+)? (KiB|MiB|GiB)\.$/', $violations['files[0]']);
+        self::assertStringNotContainsString('kB', $violations['files[0]']);
+    }
+
     public function testTheKindOfFileIsTakenFromItsContentNotItsName(): void
     {
         $data = $this->filing();

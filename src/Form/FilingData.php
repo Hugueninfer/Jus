@@ -31,6 +31,9 @@ final class FilingData
     #[Assert\All([
         new Assert\File(
             maxSize: FilingLimits::MAX_FILE_SIZE,
+            // Sizes in 1024-based units ("10 MiB"), as the limit above is counted; this shows in the message about PHP's own
+            // upload limit, which the page cannot word itself (the limit is whatever php.ini says).
+            binaryFormat: true,
             mimeTypes: [FilingLimits::MIME_TYPE],
             maxSizeMessage: 'O arquivo {{ name }} passa do limite de '.FilingLimits::MAX_FILE_SIZE_IN_MEGABYTES.' MB.',
             mimeTypesMessage: 'Envie apenas arquivos PDF.',

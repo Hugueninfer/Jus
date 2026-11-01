@@ -406,6 +406,33 @@ final class FilingPageTest extends WebTestCase
         $this->assertNothingWasFiled();
     }
 
+    public function testTheFilesAreAskedForAgainWhenOnlyTheTokenWasRefused(): void
+    {
+        $this->signIn();
+
+        // Every field is fine, so there is no summary of fields; the files still arrived and are gone from the form.
+        $crawler = $this->submit(['_token' => 'invalid'], files: [$this->pdf()]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('O token CSRF é inválido. Por favor, tente reenviar o formulário.', trim($crawler->filter('main form .alert-danger')->text()));
+        self::assertCount(0, $crawler->filter('main #resumo-erros'));
+        $note = $crawler->filter('main #arquivos-novamente');
+        self::assertCount(1, $note);
+        self::assertSame('Selecione os arquivos novamente.', trim($note->text()));
+        $this->assertNothingWasFiled();
+    }
+
+    public function testNoFilesAreAskedForOnTheFormOrAfterAFiling(): void
+    {
+        $this->signIn();
+
+        $crawler = $this->client->request('GET', self::URL);
+        self::assertCount(0, $crawler->filter('#arquivos-novamente'));
+
+        $crawler = $this->submit(['description' => ''], files: []);
+        self::assertCount(0, $crawler->filter('#arquivos-novamente'));
+    }
+
     public function testARequestOverThePostLimitSaysSoInPortuguese(): void
     {
         if (\in_array(strtolower(trim((string) \ini_get('post_max_size'))), ['', '0'], true)) {

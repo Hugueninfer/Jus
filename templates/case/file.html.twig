@@ -3,6 +3,9 @@
 {# What went wrong: the fields that failed, and the errors of the form itself (the CSRF token, a request that was too large). #}
 {% set invalidFields = form.children|filter(field => not field.vars.valid) %}
 {% set refused = invalidFields is not empty or form.vars.errors|length > 0 %}
+{# A file input is never given its files back: when they arrived and are fine (the field itself says when they are not), they
+   still have to be chosen again, whatever else refused the form. #}
+{% set chooseFilesAgain = refused and form.vars.data.files is not empty and form.files.vars.valid %}
 
 {% block title %}{{ refused ? 'Erro: ' }}Peticionar · Processo {{ case.number|cnj }} · Jus{% endblock %}
 
@@ -26,11 +29,13 @@
                             <li><a class="alert-link" href="#{{ field.vars.id }}">{{ field.vars.label }}</a></li>
                         {% endfor %}
                     </ul>
-                    {# A file input is never given its files back: when they arrived and are fine, they still have to be chosen again. #}
-                    {% if form.vars.data.files is not empty and form.files.vars.valid %}
-                        <p class="mt-2 mb-0">Selecione os arquivos novamente.</p>
+                    {% if chooseFilesAgain %}
+                        <p class="mt-2 mb-0" id="arquivos-novamente">Selecione os arquivos novamente.</p>
                     {% endif %}
                 </div>
+            {% elseif chooseFilesAgain %}
+                {# No field failed (the token did), so there is no summary to hold it. #}
+                <p class="alert alert-warning" id="arquivos-novamente">Selecione os arquivos novamente.</p>
             {% endif %}
 
             {{ form_start(form) }}
