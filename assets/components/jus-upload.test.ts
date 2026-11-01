@@ -994,6 +994,23 @@ describe('<jus-upload>', () => {
       expectMarked(input, true);
     });
 
+    it('takes an error that is shown off when an attribute change makes the choice valid, and updates it when it makes another rule fail, without announcing', () => {
+      const { element, input } = mount();
+      choose(input, FOUR);
+      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+      const announced = statusOf(element).textContent;
+
+      element.setAttribute('max-files', '2');
+      expect(errorOf(element).textContent).toBe('Envie no máximo 2 arquivos.');
+      expectMarked(input, true);
+
+      element.setAttribute('max-files', '9');
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+      expect(errorOf(element).hidden).toBe(true);
+      expect(statusOf(element).textContent).toBe(announced);
+    });
+
     it('takes the server-rendered invalid state off, as the CNJ field does, once the person makes a valid choice', () => {
       const { input } = mount(LIMITS, [], { input: 'class="form-control is-invalid" aria-invalid="true"' });
 
@@ -1013,6 +1030,68 @@ describe('<jus-upload>', () => {
       expectMarked(input, false);
       expect(errorOf(element).textContent).toBe('');
       expect(errorOf(element).hidden).toBe(true);
+    });
+  });
+
+  describe('with a required input, whose native errors are left to the browser', () => {
+    const REQUIRED = { input: 'required class="form-control"' };
+
+    it('leaves the input unmarked and the text empty after a reset, which says only that nothing is selected', async () => {
+      const { element, input, form } = mount(LIMITS, [], REQUIRED);
+      choose(input, [fileOf('a.pdf')]);
+
+      form.reset();
+      await nextTask();
+
+      expect(input.validity.valueMissing).toBe(true);
+      expect(input.validity.customError).toBe(false);
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+      expect(errorOf(element).hidden).toBe(true);
+      expect(statusOf(element).textContent).toBe('Nenhum arquivo selecionado.');
+    });
+
+    it('shows no text and no mark when the last file is removed, and announces only the count', async () => {
+      const { element, input } = mount(LIMITS, [], REQUIRED);
+      choose(input, [fileOf('a.pdf')]);
+
+      await userEvent.click(removeButtonOf(element, 'a.pdf'));
+
+      expect(input.validity.valueMissing).toBe(true);
+      expectMarked(input, false);
+      expect(errorOf(element).textContent).toBe('');
+      expect(statusOf(element).textContent).toBe('Nenhum arquivo selecionado.');
+    });
+
+    it('marks an empty input when the browser reports it as invalid, without writing the browser text in the page', () => {
+      const { element, input, form } = mount(LIMITS, [], REQUIRED);
+
+      expect(form.checkValidity()).toBe(false);
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe('');
+      expect(errorOf(element).hidden).toBe(true);
+      expect(statusOf(element).textContent).toBe('');
+    });
+
+    it('takes that mark off once files are chosen', () => {
+      const { input, form } = mount(LIMITS, [], REQUIRED);
+      form.checkValidity();
+      expectMarked(input, true);
+
+      choose(input, [fileOf('a.pdf')]);
+
+      expectMarked(input, false);
+    });
+
+    it('still shows and announces the messages of its own rules', () => {
+      const { element, input } = mount(LIMITS, [], REQUIRED);
+
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf')]);
+
+      expectMarked(input, true);
+      expect(errorOf(element).textContent).toBe('Envie no máximo 3 arquivos.');
+      expect(statusOf(element).textContent).toBe('4 arquivos selecionados. Envie no máximo 3 arquivos.');
     });
   });
 
@@ -1084,6 +1163,22 @@ describe('<jus-upload>', () => {
 
       drop(element, [fileOf('notas.txt', KB, 'text/plain')]);
       expect(statusOf(element).textContent).toBe('');
+    });
+
+    it.each(['dragenter', 'dragover'])('tells the browser the drop is not allowed (%s), and leaves the effect alone when the input is enabled', (type) => {
+      // A DataTransfer built by a script ignores dropEffect, so a stand-in with the same shape records what is set.
+      const carrying = (): { types: string[]; files: File[]; dropEffect: string } => ({ types: ['Files'], files: [], dropEffect: 'copy' });
+      const fakeDrag = (transfer: object): Event => Object.defineProperty(new Event(type, { bubbles: true, cancelable: true }), 'dataTransfer', { value: transfer });
+      const disabled = mount(LIMITS, [], { input: 'disabled' });
+      const enabled = mount();
+      const refused = carrying();
+      const allowed = carrying();
+
+      disabled.element.dispatchEvent(fakeDrag(refused));
+      enabled.element.dispatchEvent(fakeDrag(allowed));
+
+      expect(refused.dropEffect).toBe('none');
+      expect(allowed.dropEffect).toBe('copy');
     });
 
     it.each([

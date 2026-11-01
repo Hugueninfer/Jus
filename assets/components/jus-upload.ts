@@ -141,6 +141,8 @@ function carriesFiles(event: DragEvent): boolean {
  * valid both marks go. Connecting and changing the limit attributes only check the choice, they never touch the
  * marks the server may have rendered. A disabled input (or one in a disabled fieldset) takes no drops and its
  * remove buttons are disabled.
+ *
+ * Consumers should read the validity on `change`, not on `input`: the component checks the choice when `change` arrives.
  */
 export class JusUpload extends JusElement {
   static readonly observedAttributes = ['max-size', 'max-files'];
@@ -196,9 +198,9 @@ export class JusUpload extends JusElement {
       this.#settle(true);
     }, { signal });
     // The browser reports the field as invalid when the form is submitted (or checked). That is when a choice that
-    // became invalid without a change, through the limit attributes, is shown.
+    // became invalid without a change, through the limit attributes, is marked, and so is a required field left empty.
     input.addEventListener('invalid', () => {
-      this.#report();
+      this.#report(true);
     }, { signal });
     // The reset puts the default value back after the event, so what the list shows would outlive it. It is only
     // worth announcing when there was something in the list to empty.
@@ -218,6 +220,9 @@ export class JusUpload extends JusElement {
           event.preventDefault();
           if (!this.#disabled()) {
             this.#zone.classList.add(DRAGGING);
+          } else if (event.dataTransfer !== null) {
+            // Still a target (so that the drop reaches the handler and is cancelled), but one that says it takes nothing.
+            event.dataTransfer.dropEffect = 'none';
           }
         }
       }, { signal });
@@ -252,6 +257,11 @@ export class JusUpload extends JusElement {
 
   attributeChangedCallback(): void {
     this.#validate();
+    // An error on show follows the new limits: it goes away, or names the rule that fails now. When none is shown the
+    // marks stay as they are (the server's included) until the next change or the submit.
+    if (!this.#error.hidden) {
+      this.#report();
+    }
   }
 
   #selected(): File[] {
@@ -319,15 +329,21 @@ export class JusUpload extends JusElement {
     }
   }
 
-  /** Marks the input invalid and writes the message under the zone, or takes both off; returns the message. */
-  #report(): string {
+  /**
+   * Marks the input invalid and writes the message under the zone, or takes both off; returns the message. Only the
+   * component's own messages (the custom error) are marked and written after a change: what the browser says by
+   * itself, such as a required field left empty, is in its language and stays with its bubble on submit. When the
+   * browser itself reports the field as invalid (`submitted`), any invalid state marks it, still with no text of its own.
+   */
+  #report(submitted = false): string {
     const input = this.#input;
     if (input === undefined) {
       return '';
     }
 
-    const { validationMessage: message } = input;
-    setInvalid(input, message !== '');
+    const { validity } = input;
+    const message = validity.customError ? input.validationMessage : '';
+    setInvalid(input, submitted ? !validity.valid : validity.customError);
     this.#error.textContent = message;
     this.#error.hidden = message === '';
 
