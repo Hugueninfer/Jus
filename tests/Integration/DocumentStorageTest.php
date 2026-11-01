@@ -143,6 +143,57 @@ final class DocumentStorageTest extends KernelTestCase
         }
     }
 
+    public function testTheCopyErrorSurvivesAFailedCleanup(): void
+    {
+        $failsAtEverything = new class extends Filesystem {
+            public function copy(string $originFile, string $targetFile, bool $overwriteNewerFiles = false): void
+            {
+                throw new IOException('The copy failed.');
+            }
+
+            /** @param string|iterable<string> $files */
+            public function remove(string|iterable $files): void
+            {
+                throw new IOException('The cleanup failed too.');
+            }
+        };
+
+        try {
+            (new DocumentStorage($this->directory, $failsAtEverything))->copyFrom(self::SAMPLE);
+            self::fail('The failure of the copy must reach the caller.');
+        } catch (IOException $e) {
+            self::assertSame('The copy failed.', $e->getMessage());
+        }
+    }
+
+    /**
+     * Runs on every OS, unlike the end-to-end check above (Windows ignores the mode). Filesystem::copy() asks for the
+     * parent directory with the default mode too, so it is the first request that has to carry the closed one.
+     */
+    public function testTheDirectoryIsCreatedWithAModeThatClosesItToOthers(): void
+    {
+        $recordsMkdir = new class extends Filesystem {
+            /** @var list<array{string, int}> */
+            public array $requests = [];
+
+            /** @param string|iterable<string> $dirs */
+            public function mkdir(string|iterable $dirs, int $mode = 0o777): void
+            {
+                $dirs = \is_string($dirs) ? [$dirs] : [...$dirs];
+                foreach ($dirs as $dir) {
+                    $this->requests[] = [$dir, $mode];
+                }
+
+                parent::mkdir($dirs, $mode);
+            }
+        };
+        (new Filesystem())->remove($this->directory);
+
+        (new DocumentStorage($this->directory, $recordsMkdir))->copyFrom(self::SAMPLE);
+
+        self::assertSame([$this->directory, 0o750], $recordsMkdir->requests[0] ?? null);
+    }
+
     /**
      * @return iterable<string, array{string}>
      */

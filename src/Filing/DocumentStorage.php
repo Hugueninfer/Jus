@@ -53,7 +53,11 @@ final readonly class DocumentStorage
 
             return new StoredDocument($name, (new \SplFileInfo($target))->getSize());
         } catch (\Throwable $failure) {
-            $this->filesystem->remove($target);
+            try {
+                $this->filesystem->remove($target);
+            } catch (IOException) {
+                // The copy's error is the one worth reporting; a leftover that cannot be removed adds nothing to it.
+            }
 
             throw $failure;
         }
