@@ -93,6 +93,12 @@ async function nextTask(): Promise<void> {
   });
 }
 
+/** The field is marked invalid for assistive technology (aria-invalid) and for the eye (Bootstrap's is-invalid border and icon), together. */
+function expectMarkedInvalid(input: HTMLInputElement, marked: boolean): void {
+  expect(input.getAttribute('aria-invalid')).toBe(marked ? 'true' : null);
+  expect(input.classList.contains('is-invalid')).toBe(marked);
+}
+
 describe('<jus-numero-processo>', () => {
   let removeTokens: () => void;
 
@@ -231,6 +237,31 @@ describe('<jus-numero-processo>', () => {
       expect(input.selectionStart).toBe(6);
     });
 
+    it('steps over a separator that is deleted forward, so the next Delete deletes the digit after it', async () => {
+      const { input } = mount();
+      await typeInto(input, '12345678');
+
+      await typeInto(input, '{Delete}', 7);
+
+      expect(input.value).toBe('1234567-8');
+      expect(input.selectionStart).toBe(8);
+
+      await userEvent.keyboard('{Delete}');
+
+      expect(input.value).toBe('1234567');
+      expect(input.selectionStart).toBe(7);
+    });
+
+    it('stays where it was when a digit is deleted forward in the middle', async () => {
+      const { input } = mount();
+      await typeInto(input, '123456789');
+
+      await typeInto(input, '{Delete}', 3);
+
+      expect(input.value).toBe('1235678-9');
+      expect(input.selectionStart).toBe(3);
+    });
+
     it('stays after the digits of a number pasted in the middle', async () => {
       const { input } = mount();
       await typeInto(input, '12345678');
@@ -326,40 +357,40 @@ describe('<jus-numero-processo>', () => {
     });
   });
 
-  describe('aria-invalid', () => {
+  describe('error state', () => {
     it('marks nothing while the number is still being typed', async () => {
       const { input } = mount();
 
       await typeInto(input, '0000001392');
 
       expect(input.validity.valid).toBe(false);
-      expect(input.hasAttribute('aria-invalid')).toBe(false);
+      expectMarkedInvalid(input, false);
     });
 
-    it('marks an invalid number when the field loses focus and clears it once the number is corrected', async () => {
+    it('marks an invalid number when the field loses focus (attribute and border) and clears it once the number is corrected', async () => {
       const { input } = mount();
       await typeInto(input, '0000001392');
 
       await userEvent.tab();
 
-      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expectMarkedInvalid(input, true);
 
       await typeInto(input, DIGITS.slice(10));
 
       expect(input.validity.valid).toBe(true);
-      expect(input.hasAttribute('aria-invalid')).toBe(false);
+      expectMarkedInvalid(input, false);
     });
 
     it('does not mark a valid number or an empty optional field on blur', async () => {
       const { input } = mount();
       input.focus();
       await userEvent.tab();
-      expect(input.hasAttribute('aria-invalid')).toBe(false);
+      expectMarkedInvalid(input, false);
 
       await typeInto(input, DIGITS);
       await userEvent.tab();
 
-      expect(input.hasAttribute('aria-invalid')).toBe(false);
+      expectMarkedInvalid(input, false);
     });
 
     it('marks the field when the form is checked and the number is invalid', () => {
@@ -369,7 +400,7 @@ describe('<jus-numero-processo>', () => {
 
       expect(form.checkValidity()).toBe(false);
 
-      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expectMarkedInvalid(input, true);
     });
 
     it('marks a required field that was left empty when the form is checked', () => {
@@ -377,24 +408,24 @@ describe('<jus-numero-processo>', () => {
 
       expect(form.checkValidity()).toBe(false);
 
-      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expectMarkedInvalid(input, true);
     });
 
-    it('removes the aria-invalid the server rendered once the value is valid', async () => {
-      const { input } = mount('value="0000001392" aria-invalid="true"');
-      expect(input.getAttribute('aria-invalid')).toBe('true');
+    it('removes the error state the server rendered once the value is valid', async () => {
+      const { input } = mount('value="0000001392" class="form-control is-invalid" aria-invalid="true"');
+      expectMarkedInvalid(input, true);
 
       await typeInto(input, DIGITS.slice(10));
 
-      expect(input.hasAttribute('aria-invalid')).toBe(false);
+      expectMarkedInvalid(input, false);
     });
 
-    it('keeps the aria-invalid the server rendered while the value is still invalid', async () => {
-      const { input } = mount('value="0000001392" aria-invalid="true"');
+    it('keeps the error state the server rendered while the value is still invalid', async () => {
+      const { input } = mount('value="0000001392" class="form-control is-invalid" aria-invalid="true"');
 
       await typeInto(input, '0');
 
-      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expectMarkedInvalid(input, true);
     });
   });
 
@@ -424,7 +455,7 @@ describe('<jus-numero-processo>', () => {
     it('does not mark the initial value as invalid before the person interacts', () => {
       const { input } = mount('value="0000001392"');
 
-      expect(input.hasAttribute('aria-invalid')).toBe(false);
+      expectMarkedInvalid(input, false);
     });
   });
 
@@ -471,17 +502,17 @@ describe('<jus-numero-processo>', () => {
       expect(form.checkValidity()).toBe(true);
     });
 
-    it('lets go of the aria-invalid when a reset brings back a valid value', async () => {
+    it('lets go of the error state when a reset brings back a valid value', async () => {
       const { form, input } = mount(`value="${DIGITS}"`);
       await userEvent.clear(input);
       await typeInto(input, '123');
       await userEvent.tab();
-      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expectMarkedInvalid(input, true);
 
       form.reset();
       await nextTask();
 
-      expect(input.hasAttribute('aria-invalid')).toBe(false);
+      expectMarkedInvalid(input, false);
     });
 
     it('clears the incomplete message when a reset empties an optional field', async () => {
@@ -508,7 +539,7 @@ describe('<jus-numero-processo>', () => {
       await userEvent.clear(input);
       await typeInto(input, '123');
       await userEvent.tab();
-      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expectMarkedInvalid(input, true);
       await expectNoAxeViolations(main);
     });
 

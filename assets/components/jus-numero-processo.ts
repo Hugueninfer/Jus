@@ -34,15 +34,22 @@ function caretAfterDigits(masked: string, digitCount: number): number {
   return masked.length;
 }
 
-/** Masks what was just typed or pasted, keeping the caret after the same digits so editing in the middle stays there. */
-function maskAtCaret(input: HTMLInputElement): void {
+/**
+ * Masks what was just typed, pasted or deleted, keeping the caret after the same digits so editing in the middle stays
+ * there. After a forward Delete the caret also steps over the separator that now follows, otherwise the mask would put
+ * that separator back and every further Delete would remove it again.
+ */
+function maskAtCaret(input: HTMLInputElement, event: Event): void {
   const { value } = input;
   const masked = maskPartial(value);
   if (masked === value) {
     return;
   }
 
-  const caret = caretAfterDigits(masked, countDigits(value.slice(0, input.selectionStart ?? value.length)));
+  let caret = caretAfterDigits(masked, countDigits(value.slice(0, input.selectionStart ?? value.length)));
+  if (event instanceof InputEvent && event.inputType === 'deleteContentForward' && /\D/.test(masked.charAt(caret))) {
+    caret++;
+  }
   input.value = masked;
   input.setSelectionRange(caret, caret);
 }
@@ -58,24 +65,38 @@ function validate(input: HTMLInputElement): void {
   input.setCustomValidity(MESSAGES[assessCnj(input.value)]);
 }
 
-/** After a change: re-checks the number, and drops the aria-invalid (the server's included) once it is valid. */
+/**
+ * Marks the field invalid (or not) for everyone at once: aria-invalid for assistive technology and Bootstrap's
+ * is-invalid for the red border and icon, the same state the server renders when it refuses the number.
+ */
+function setInvalid(input: HTMLInputElement, invalid: boolean): void {
+  if (invalid) {
+    input.setAttribute('aria-invalid', 'true');
+  } else {
+    input.removeAttribute('aria-invalid');
+  }
+  input.classList.toggle('is-invalid', invalid);
+}
+
+/** After a change: re-checks the number, and clears the invalid state (the server's included) once it is valid. */
 function update(input: HTMLInputElement): void {
   validate(input);
   if (input.validity.valid) {
-    input.removeAttribute('aria-invalid');
+    setInvalid(input, false);
   }
 }
 
 function flagIfInvalid(input: HTMLInputElement): void {
   if (!input.validity.valid) {
-    input.setAttribute('aria-invalid', 'true');
+    setInvalid(input, true);
   }
 }
 
 /**
  * Enhances the native input inside it, in place (no shadow root, the input stays the field the form submits):
- * a CNJ mask while typing, the check digits verified with the browser's own validation, and aria-invalid once the
- * person leaves the field or tries to submit. Without JavaScript the plain input and the server validation remain.
+ * a CNJ mask while typing, the check digits verified with the browser's own validation, and the invalid state
+ * (aria-invalid and the Bootstrap is-invalid class) once the person leaves the field or tries to submit.
+ * Without JavaScript the plain input and the server validation remain.
  */
 export class JusNumeroProcesso extends HTMLElement {
   #listeners: AbortController | undefined;
@@ -93,8 +114,8 @@ export class JusNumeroProcesso extends HTMLElement {
     maskInitialValue(input);
     validate(input);
 
-    input.addEventListener('input', () => {
-      maskAtCaret(input);
+    input.addEventListener('input', (event) => {
+      maskAtCaret(input, event);
       update(input);
     }, { signal });
     input.addEventListener('blur', () => {
