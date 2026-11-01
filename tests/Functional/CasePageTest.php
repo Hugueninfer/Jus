@@ -363,6 +363,35 @@ final class CasePageTest extends WebTestCase
         self::assertSame(['Despacho', 'Petição inicial'], $crawler->filter('table.jus-data-table tbody tr td:first-child')->each(static fn (Crawler $td): string => trim($td->text())));
     }
 
+    public function testEachDocumentTitleLinksToItsDownload(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $case = $this->data->legalCase('0000001', $ana);
+        $case->record(EventType::Order, 'Despacho com anexo.', new \DateTimeImmutable('2024-03-30 09:00'))
+            ->attach('Despacho', 'despacho.pdf', 'stored-despacho.pdf', 2048, $ana, new \DateTimeImmutable('2024-03-30 09:01'));
+        $this->em->flush();
+        $ids = [];
+        foreach ($case->getDocuments() as $document) {
+            $ids[$document->getTitle()] = $document->getId();
+        }
+        $this->client->loginUser($ana);
+
+        // Sorted both ways: every row keeps the link to its own document.
+        foreach (['title', 'size'] as $sort) {
+            $crawler = $this->client->request('GET', self::URL.'?aba=documentos&sort='.$sort.'&direction=desc');
+
+            self::assertResponseIsSuccessful();
+            $links = $crawler->filter('table.jus-data-table tbody tr td:first-child a');
+            self::assertSame(
+                ['Petição inicial' => '/documentos/'.$ids['Petição inicial'], 'Despacho' => '/documentos/'.$ids['Despacho']],
+                array_column($links->each(static fn (Crawler $a): array => [trim($a->text()), $a->attr('href')]), 1, 0),
+                $sort,
+            );
+            // Only the title is a link; the type, date and size are text.
+            self::assertCount(2, $crawler->filter('table.jus-data-table tbody a'), $sort);
+        }
+    }
+
     public function testTheDocumentsTabOfACaseWithoutDocumentsSaysSo(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
@@ -479,6 +508,8 @@ final class CasePageTest extends WebTestCase
             // user refresh, the case with everything it owns, the deadlines
             self::assertCount(3, QueryRecorder::instance()->selects(), $query.\PHP_EOL.implode(\PHP_EOL, QueryRecorder::instance()->selects()));
             self::assertCount(2, $crawler->filter('section[aria-labelledby="prazos"] [data-urgency]'));
+            // The download links come from the ids the case already loaded: the documents tab has them at the same count.
+            self::assertCount('' === $query ? 0 : 1, $crawler->filter('table.jus-data-table tbody a'), $query);
         }
     }
 

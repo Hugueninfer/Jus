@@ -35,6 +35,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 | Framework | Symfony 7.4 LTS |
 | Templates | Twig 3 + Symfony UX TwigComponent |
 | Persistência | Doctrine ORM + SQLite |
+| Documentos | PDFs em disco, fora de `public/`, com nome UUID v7 (Symfony Uid) e cópia pelo Symfony Filesystem (seção 5.6) |
 | Front-end | Webpack Encore, TypeScript, Sass, Bootstrap 5.3, Custom Elements puros (sem biblioteca de componentes) |
 | Testes | PHPUnit, Vitest 5 em modo browser (Playwright: Chrome instalado localmente, Chromium no CI), axe-core |
 | Qualidade | PHPStan (nível max + extensões Symfony/Doctrine), PHP-CS-Fixer (`@Symfony`), ESLint (typescript-eslint `strictTypeChecked`), Stylelint, `tsc --noEmit` |
@@ -45,7 +46,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 - PHP 8.4 (x64) com as extensões `intl`, `pdo_sqlite`, `sqlite3`, `fileinfo`, `mbstring`, `openssl`, `curl`, `zip`.
 - Composer 2, Git e Node.js 24 LTS.
 - Google Chrome instalado: `npm test` (e, portanto, `composer ci`) roda os testes do front-end nele, em modo headless, e não baixa navegador nenhum. No CI o pipeline instala o Chromium do Playwright (seção 10).
-- Servidor de desenvolvimento: `php -S localhost:8000 -t public` (Symfony CLI é opcional).
+- Servidor de desenvolvimento: o servidor embutido do PHP, com os limites de upload da seção 3.3 (Symfony CLI é opcional).
 - Um `Dockerfile` não faz parte do MVP; o ambiente é reproduzível pelas instruções do README e pelo CI.
 
 ### 3.3 Como rodar (meta do README)
@@ -53,9 +54,22 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 ```bash
 composer install
 npm ci && npm run build
-composer setup        # cria o banco SQLite, roda migrations e carrega fixtures
-php -S localhost:8000 -t public
+composer setup        # cria o banco SQLite, roda migrations e carrega fixtures (e os PDFs dos documentos de exemplo)
+php -d upload_max_filesize=10M -d post_max_size=60M -S localhost:8000 -t public
 ```
+
+**Limites de upload do PHP.** O peticionamento aceita até 5 PDFs de 10 MB cada (seção 6.4), e os padrões do PHP são menores (2 MB por arquivo e 8 MB por requisição). Por isso o comando acima passa os limites com `-d`, e quem usar outro `php.ini` ou outro servidor precisa de valores equivalentes:
+
+- `upload_max_filesize` de pelo menos `10M`, o tamanho de um arquivo (10M são exatamente os 10 MB que a aplicação aceita);
+- `post_max_size` grande o bastante para 5 × 10 MB mais os campos do formulário (`60M`).
+
+Com limites menores nada quebra: um arquivo acima do `upload_max_filesize` recebe o erro "O arquivo é muito grande…" e uma requisição acima do `post_max_size` recebe o aviso da seção 8. Mas um envio que o formulário anuncia como permitido seria recusado.
+
+**Diretório dos documentos.** Os PDFs ficam em `var/uploads/<ambiente>/` (parâmetro `app.documents_dir`, em `config/services.yaml`), fora de `public/` e fora do Git; cada ambiente tem o seu, para que os testes nunca toquem os arquivos de desenvolvimento. Quem grava primeiro cria o diretório (o `composer setup`, ao carregar as fixtures, ou o servidor web, no primeiro peticionamento), com o modo `0750`: o dono lê e escreve, o grupo só lê e entra, e os demais não têm acesso (a umask do processo só pode restringir mais; no Windows o modo é ignorado). Numa implantação em servidor:
+
+- o processo web precisa poder **escrever** nesse diretório (para peticionar) e ler (para os downloads);
+- o modo `0750` supõe que o CLI que carrega as fixtures e o processo web rodem com o mesmo usuário. Com usuários diferentes, o diretório precisa de um grupo em comum com permissão de escrita (por exemplo, `chmod 2770`), que o `0750` não dá;
+- recarregar as fixtures apaga o banco e também os PDFs do diretório (seção 7), então os dois andam juntos.
 
 ## 4. Arquitetura
 
@@ -79,12 +93,12 @@ src/
     Deadline/              # DeadlineCalculator, HolidayCalendar, NationalHolidayCalendar, Easter
   Entity/                  # entidades Doctrine: LegalCase, Party, CaseEvent, Document, Deadline, User
   Doctrine/Type/           # CnjNumberDoctrineType (tipo Doctrine `cnj_number`)
-  Form/                    # CnjNumberType (form type), CaseSearchType, FilingFormType, transformers
+  Filing/                  # peticionamento: FilingService, DocumentStorage (a única classe que toca o disco), StoredDocument e FilingLimits (os limites de um envio, em um lugar só)
+  Form/                    # form types (CnjNumberType, CaseSearchType, FilingFormType, UploadType), FilingData (o que o formulário de peticionamento coleta) e transformers
   Presentation/            # EnumLabels (rótulos em português dos enums), CaseDeadlines e CaseDocumentsTable (dados da página do processo)
   DesignSystem/            # SampleData: entidades em memória para o catálogo /design-system
   Repository/
   Security/                # LegalCaseVoter
-  Service/                 # FilingService, DocumentStorage
   Twig/
     Components/            # classes dos Twig Components
     Extension/             # filtros cnj, brl, bytes e label
@@ -95,8 +109,8 @@ templates/
   components/              # templates dos Twig Components (inclui anônimos)
   form/jus_theme.html.twig
   design_system/           # catálogo + examples/<componente>/<exemplo>.html.twig
-  case/                    # busca (search) e página do processo (show)
-  filing/ security/
+  case/                    # busca (search), página do processo (show) e peticionamento (file)
+  security/                # login
   bundles/TwigBundle/Exception/   # error403, error404, error
 assets/
   app.ts                   # entrada do Encore: estilos, Bootstrap (alert, offcanvas, tab), Web Components e comportamentos de layout
@@ -123,11 +137,13 @@ assets/
 tests/
   Unit/                    # domínio, entidades, voter, form types e extensão Twig, sem kernel
   Component/               # Twig Components renderizados (InteractsWithTwigComponents)
-  Integration/             # kernel e banco: persistência, busca (inclusive a paridade de visibilidade com o Voter), fixtures, form theme, filtros, mensagens em pt-BR
-  Functional/              # requests HTTP: login, layout, catálogo, busca, página do processo, páginas de erro
+  Integration/             # kernel e banco: persistência, busca (inclusive a paridade de visibilidade com o Voter), peticionamento (FilingService, DocumentStorage, FilingData), fixtures, form theme, filtros, mensagens em pt-BR
+  Functional/              # requests HTTP: login, layout, catálogo, busca, página do processo, peticionamento, download, páginas de erro
   Support/                 # TestCases (usuários e processos de teste), QueryRecorder (conta as consultas SQL)
   fixtures/cnj-numbers.json    # casos compartilhados entre PHPUnit e Vitest
-  fixtures/sample.pdf
+  fixtures/sample.pdf          # PDF mínimo (menos de 2 KB): o arquivo dos testes de envio e download e dos documentos das fixtures de demonstração
+var/
+  uploads/<env>/           # os PDFs dos documentos, um diretório por ambiente (seção 3.3): fora de public/ e do Git
 docs/
   design.md                # este documento
   adr/
@@ -159,8 +175,8 @@ Request → Controller → Voter → Repository / Domain → template Twig
 | `User` | email, name, password (hash), roles, oabNumber (nullable) |
 | `LegalCase` | number (`CnjNumber`, único), caseClass, subject, court, status (`CaseStatus`), confidential (bool), claimValueInCents (int), filedAt, parties, events |
 | `Party` | legalCase, name, searchName (nome normalizado para a busca), taxId (fictício), side (`PartySide`), lawyers (ManyToMany `User`) |
-| `CaseEvent` | legalCase, type (`EventType`), description, occurredAt, createdBy (nullable), filingType (`FilingType`, nullable; só nas juntadas de petição), documents |
-| `Document` | event, title, originalFilename, storedFilename (UUID + `.pdf`), sizeInBytes, uploadedBy, uploadedAt |
+| `CaseEvent` | legalCase, type (`EventType`), description, occurredAt, createdBy (nullable), filingType (`FilingType`, nullable; só nas juntadas de petição, e obrigatório nelas), documents |
+| `Document` | event, title, originalFilename (o nome com que o arquivo foi enviado), storedFilename (UUID v7 + `.pdf`, único; o nome em disco), sizeInBytes, uploadedBy, uploadedAt |
 | `Deadline` | party, summons (`CaseEvent` do tipo intimação), startDate, businessDays, fulfilledAt (nullable) |
 
 ```
@@ -171,7 +187,12 @@ User ──(advogado de)──► Party ◄── LegalCase ──► CaseEvent 
 
 As entidades Doctrine (`User`, `LegalCase`, `Party`, `CaseEvent`, `Document` e `Deadline`) ficam em `src/Entity/`, seguindo a convenção do Symfony. Assim `src/Domain/` continua PHP puro, sem Doctrine, e pode manter 100% de cobertura de linhas.
 
-As petições são registradas com `LegalCase::file()`, que exige um advogado que represente alguma parte do processo e grava o tipo da petição no `CaseEvent`; as demais movimentações usam `LegalCase::record()`.
+As regras que o modelo não deixa quebrar ficam nas próprias entidades (quem as viola recebe uma `\InvalidArgumentException`):
+
+- `LegalCase::file()` registra uma petição e grava o tipo dela no `CaseEvent`. Exige um advogado que represente alguma parte do processo, e só aceita a petição inicial enquanto o processo não tem nenhuma movimentação (é ela que o abre). As demais movimentações usam `LegalCase::record()`.
+- `CaseEvent`: só a juntada de petição (`FILING`) tem tipo de petição, e toda juntada tem. Por isso `record()` recusa uma juntada, e as petições só entram por `file()`. `CaseEvent::attach()` cria os `Document` da movimentação.
+- `Deadline`: nasce de uma intimação (`SUMMONS`) do mesmo processo da parte e com pelo menos um dia útil. `Deadline::fulfil()` recusa um momento anterior ao início do prazo e, se o prazo já foi cumprido, mantém a primeira data.
+- `Party::addLawyer()` só aceita usuário com perfil de advogado (e ignora um advogado que a parte já tem).
 
 `Party.searchName` é o nome sem acentos, em minúsculas e com espaços simples (`SearchText::normalize()`, em `src/Domain/Text/`), calculado no construtor. Existe porque o SQLite só ignora maiúsculas nas letras ASCII (`LIKE` e `lower()`) e nunca ignora acentos: a busca por nome de parte compara o termo, normalizado do mesmo jeito, com esse campo, e "joao" encontra "João".
 
@@ -182,7 +203,7 @@ As coleções do processo já vêm ordenadas pelo mapeamento: partes por id, mov
 - `CaseStatus`: `ACTIVE` (em andamento), `SUSPENDED` (suspenso), `ARCHIVED` (arquivado).
 - `PartySide`: `PLAINTIFF` (polo ativo), `DEFENDANT` (polo passivo).
 - `EventType`: `DECISION` (decisão), `ORDER` (despacho), `FILING` (juntada de petição), `SUMMONS` (intimação), `HEARING` (audiência).
-- `FilingType`: `INITIAL_PETITION` (petição inicial — usada na distribuição, nunca oferecida no formulário de peticionamento), `STATEMENT` (manifestação), `ANSWER` (contestação), `APPEAL` (recurso), `EXHIBITS` (juntada de documentos).
+- `FilingType`: `INITIAL_PETITION` (petição inicial — usada na distribuição, nunca oferecida no formulário de peticionamento e recusada pelo domínio depois da primeira movimentação, seção 5.1), `STATEMENT` (manifestação), `ANSWER` (contestação), `APPEAL` (recurso), `EXHIBITS` (juntada de documentos).
 
 Os enums são PHP puro e ficam em `src/Domain/LegalCase/`; as entidades de `src/Entity/` os referenciam.
 
@@ -211,7 +232,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
   - Móveis, a partir da Páscoa: Carnaval (segunda e terça, Páscoa − 48 e − 47), Sexta-feira Santa (Páscoa − 2), Corpus Christi (Páscoa + 60).
   - Páscoa calculada pelo algoritmo gregoriano anônimo (Meeus/Jones/Butcher), sem depender da extensão `calendar`.
 - O calendário é **ilustrativo** (tribunais têm calendários próprios); isso fica explícito no README e no ADR. A interface permite trocar o calendário.
-- A data de vencimento é sempre **calculada**, nunca armazenada.
+- A data de vencimento é sempre **calculada**, nunca armazenada. Quem preenche `fulfilledAt` (o cumprimento) é o peticionamento (seção 5.6).
 - As datas são tratadas como datas de calendário: a hora do dia é ignorada, e o "hoje" é lido no próprio fuso e comparado no fuso da data de início.
 - Dias úteis restantes: contados de hoje (exclusive) até o vencimento (inclusive).
 - Estados de urgência:
@@ -231,16 +252,21 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 | `VIEW` | Servidor (`ROLE_CLERK`): sempre. Advogado (`ROLE_LAWYER`): se o processo não for sigiloso **ou** se for advogado de alguma parte. |
 | `FILE` | Apenas advogado de alguma parte do processo, e o processo não pode estar `ARCHIVED`. |
 
-- O download de documento exige `VIEW` no processo do documento.
-- **Uma regra para toda rota de um processo** (a página, o peticionamento e o download de documento): quem não tem `VIEW` recebe o mesmo 404 de um número inexistente ou inválido. O 403 só vale quando o usuário **pode ver** o processo mas não pode agir sobre ele: `FILE` num processo arquivado, num processo público em que ele não representa nenhuma parte, ou o servidor, que vê tudo mas nunca peticiona. Por isso a checagem vem em duas etapas: primeiro `VIEW` (404), depois `FILE` (403). Se o 403 viesse antes, ou no lugar do 404, a resposta revelaria que o processo sigiloso existe (quem não vê o processo também não tem `FILE`). O peticionamento e o download chegam na etapa 8 da seção 13.
+- O download de documento exige `VIEW` no processo do documento, e só `VIEW`: quem vê o processo baixa os documentos, inclusive o servidor e o advogado que não representa nenhuma parte de um processo público.
+- **Uma regra para toda rota de um processo** (a página, o peticionamento e o download de documento): quem não tem `VIEW` recebe o mesmo 404 de um número inexistente ou inválido. O 403 só vale quando o usuário **pode ver** o processo mas não pode agir sobre ele: `FILE` num processo arquivado, num processo público em que ele não representa nenhuma parte, ou o servidor, que vê tudo mas nunca peticiona. Por isso a checagem vem em duas etapas: primeiro `VIEW` (404), depois `FILE` (403). Se o 403 viesse antes, ou no lugar do 404, a resposta revelaria que o processo sigiloso existe (quem não vê o processo também não tem `FILE`). A página do processo, o peticionamento (em `GET` e em `POST`) e o download seguem essa ordem, e os testes de cada rota conferem que a resposta a quem não vê o processo é a mesma de um número ou documento que não existe. No peticionamento a checagem vem antes de o formulário ser construído ou a requisição ser lida.
 - A busca aplica a regra do `VIEW` **na própria consulta ao banco** (`LegalCaseRepository::onlyVisibleTo()`), sem passar pelo Voter, e um teste de integração mantém as duas iguais: para servidor, advogado de cada polo e advogado sem relação, em processo público e sigiloso, a busca e a consulta por número decidem como o Voter.
 - A página do processo carrega o processo e então consulta o Voter. Quem não pode ver um sigiloso recebe 404, exatamente como para um número inexistente ou inválido: o sistema nunca revela que um processo sigiloso existe (seção 8).
 
 ### 5.6 Peticionamento (`FilingService`)
 
-1. Grava cada PDF via `DocumentStorage` em `var/uploads/` (fora de `public/`).
-2. Em transação: cria o `CaseEvent` do tipo `FILING`, os `Document` e marca como cumpridos (`fulfilledAt = agora`) os prazos em aberto das partes que o advogado representa.
-3. Se a transação falhar: rollback, remove os arquivos gravados no passo 1 e relança a exceção.
+`FilingService::file(processo, advogado, tipo, descrição, arquivos)` só roda depois de duas decisões que não são dele: quem pode peticionar (o Voter, seção 5.5) e o que cada arquivo precisa ser (tipo, tamanho e quantidade, no formulário, seção 6.4). O domínio ainda recusa o que lhe cabe (seção 5.1).
+
+1. **Grava** cada PDF com o `DocumentStorage`, em `var/uploads/<ambiente>/` (fora de `public/`), com o nome `<uuid v7>.pdf`. Nenhum caminho vem do usuário. O `DocumentStorage` é a única classe que toca o disco: só copia de arquivo local (o `Filesystem::copy()` baixaria uma URL), cria o diretório com o modo `0750` e, se a cópia falha, não deixa arquivo pela metade. `pathOf()` só resolve um nome no formato exato `<uuid>.pdf` e que exista; qualquer outro (`../x.pdf`, por exemplo) é tratado como arquivo inexistente, o que torna a leitura imune a travessia de diretórios. O PDF original (o temporário do envio) é copiado, não movido.
+2. **Em uma transação** (`wrapInTransaction`), com a hora do `ClockInterface`:
+   - `LegalCase::file()` cria o `CaseEvent` `FILING` com o tipo, a descrição, o advogado e o momento;
+   - `CaseEvent::attach()` cria um `Document` por arquivo, com o advogado como autor e o tamanho do arquivo gravado. O `originalFilename` é o nome que o navegador enviou (o `UploadedFile` já o reduz ao último segmento, sem diretórios), cortado em 255 caracteres, o tamanho da coluna. O `title` é esse nome sem espaços nas pontas e sem a extensão `.pdf` (em qualquer caixa), também cortado em 255, ou, se não sobrar nada (um arquivo chamado só `.pdf`), o rótulo do tipo da petição ("Contestação");
+   - cada prazo **em aberto** das partes que o advogado representa no processo recebe `fulfil(agora)`: `fulfilledAt = agora`. Eles vêm de `DeadlineRepository::findOpenForLawyer()`, uma consulta que casa o advogado em SQL, sem carregar as partes nem os advogados. Os prazos da parte contrária, os de outros processos e os já cumpridos (que mantêm a data) não mudam.
+3. **Se algo falhar** (um arquivo que não pode ser gravado, a recusa do domínio, um prazo que começa depois da petição ou o banco), os arquivos já gravados são removidos, o erro original é relançado (se a própria limpeza falhar, é ele que sobe) e nada fica no banco. Uma falha dentro da transação fecha o `EntityManager`, como o Doctrine faz ao desfazê-la, então quem chamou não o usa mais; uma falha no passo 1 acontece antes da transação e o deixa aberto. O controlador não tenta se recuperar: a exceção chega à página de erro 500 (seção 8).
 
 ## 6. Design System
 
@@ -256,7 +282,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 ### 6.2 Layout base
 
 - `base.html.twig` com link "Pular para o conteúdo", navbar responsiva (offcanvas no celular), área de mensagens flash (`<twig:Alert>`) e `<main id="conteudo">`.
-- A navbar mostra "Processos" (só com login; marcado com `aria-current` em toda a seção de processos, inclusive na página de um processo) e "Design System", mais "Entrar" para visitantes ou o nome do usuário e "Sair" para quem está logado.
+- A navbar mostra "Processos" (só com login; marcado com `aria-current` em toda a seção de processos, inclusive nas páginas de um processo e do peticionamento) e "Design System", mais "Entrar" para visitantes ou o nome do usuário e "Sair" para quem está logado.
 - As páginas de erro (seção 8) estendem o mesmo layout.
 - Dois pequenos comportamentos em JavaScript (`assets/behaviours/`, instalados quando o documento está pronto) cuidam do foco e da rolagem; sem eles a página funciona do mesmo jeito:
   - **Foco depois de fechar um alerta.** Se o alerta dispensável (`<twig:Alert dismissible>`) tinha o foco, no botão de fechar ou num link da mensagem, o foco vai para `main#conteudo` (`tabindex="-1"`) quando ele some, em vez de cair no topo do documento e obrigar a percorrer o cabeçalho de novo. O foco é lido em `close.bs.alert`, e não em `closed.bs.alert`: o Bootstrap 5.3 dispara o segundo depois de remover o elemento, num nó que já saiu do documento. Se a pessoa levou o foco para outro lugar enquanto o alerta esmaecia, ele fica onde está.
@@ -284,7 +310,14 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 - Form theme `form/jus_theme.html.twig`, estendendo `bootstrap_5_layout.html.twig`, configurado globalmente. A ligação de acessibilidade é a nativa do Symfony: campos com erro recebem `aria-invalid="true"`, e `aria-describedby` aponta para a ajuda e para cada mensagem de erro.
 - As mensagens da interface são em português: os textos da aplicação são escritos em pt-BR, e as mensagens do próprio Symfony (restrições de validação sem mensagem própria, CSRF) vêm do tradutor, com `pt_BR` como locale padrão e de fallback.
 - `CnjNumberType` (form type): DataTransformer `string ↔ CnjNumber`; o bloco do tema renderiza o input nativo (o campo enviado, com rótulo, ajuda e erros do servidor) dentro de `<jus-numero-processo>`, que o aprimora no lugar (seção 6.5).
-- `FilingFormType` (formulário de peticionamento, etapa 8 da seção 13): tipo (`EnumType` de `FilingType`, sem a petição inicial), descrição (até 2000 caracteres), arquivos (`FileType` múltiplo; cada arquivo `application/pdf` até 10 MB; de 1 a 5 arquivos), com o input de arquivos dentro de `<jus-upload max-size="10485760" max-files="5">` (seção 6.5).
+- `FilingLimits` (`src/Filing/`) é a **fonte única** dos limites de um envio: no máximo 5 arquivos (`MAX_FILES`), 10 MB por arquivo (`MAX_FILE_SIZE`, em bytes, contados em 1024 × 1024, e `MAX_FILE_SIZE_IN_MEGABYTES`, para os textos), tipo `application/pdf` e descrição de até 2000 caracteres. As restrições de `FilingData`, as opções do campo de arquivos (os atributos do `<jus-upload>`), o `maxlength` da descrição e os textos de ajuda leem as mesmas constantes, então não têm como divergir. (A constante em megabytes é inteira: se o limite deixar de ser um número inteiro de megabytes, o PHP recusa a declaração.)
+- `FilingFormType` (formulário de peticionamento, tela da seção 7) preenche um `FilingData`:
+  - `type`: `EnumType` de `FilingType` sem a petição inicial, com os rótulos de `EnumLabels` e o item vazio "Selecione o tipo". É obrigatório ("Selecione o tipo da petição."); um valor fora da lista dá "Selecione um tipo de petição válido.".
+  - `description`: textarea obrigatória, em que só espaços não valem ("Informe a descrição da petição."), de até 2000 caracteres ("A descrição passa do limite de 2000 caracteres."). O navegador também limita (`maxlength`), mas quem decide é o servidor. Uma quebra de linha vale um caractere nos dois lados: o navegador a conta como um e a envia como CR LF, e o Symfony a normaliza para LF antes de contar.
+  - `files`: `UploadType`, um `FileType` múltiplo com `accept="application/pdf"` e as opções `max_files` e `max_size`, que o tema transforma nos atributos do `<jus-upload>`. No servidor, de 1 a 5 arquivos ("Anexe pelo menos um arquivo PDF.", "Anexe no máximo 5 arquivos.") e, em cada um, até 10 MB (`O arquivo "contrato.pdf" passa do limite de 10 MB.`) e tipo PDF, conferido pelo **conteúdo** do arquivo, e não pelo nome nem pelo tipo que o navegador declarou ("Envie apenas arquivos PDF."). A ajuda do campo diz "Até 5 arquivos PDF, de até 10 MB cada.".
+  - Um arquivo acima do `upload_max_filesize` do PHP chega como erro de envio, sem conteúdo. A restrição `File` o relata com o limite do próprio servidor, escrito nas unidades de 1024 que o resto da página usa (`binaryFormat`), e não em "kB" de 1000: "O arquivo é muito grande. O tamanho máximo permitido é de 2 MiB.".
+  - Uma requisição acima do `post_max_size` perde o corpo inteiro; a mensagem desse caso é a opção `post_max_size_message` do formulário (seção 7).
+- `UploadType` e o bloco `upload_widget` do tema: o tema desenha o `<input type="file">` nativo (a classe `form-control`, a ajuda ligada por `aria-describedby`, os erros) dentro de `<jus-upload max-files="5" max-size="10485760">` (seção 6.5), com os valores vindos das opções do campo; sem a opção, o atributo não é escrito. Nenhum número do limite fica no tema. O formulário é `multipart/form-data` e leva o token CSRF.
 
 ### 6.5 Web Components
 
@@ -308,7 +341,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 - A lista é lida ao conectar e de novo quando é trocada (`slotchange`): os botões são refeitos se os tipos mudaram (e mantidos, com o foco, se são os mesmos), a escolha é mantida enquanto o tipo existe e volta para "Todas" quando ele some ou quando sobra um tipo só.
 
 **`<jus-upload>`**
-- Envolve, num `<slot>`, o `<input type="file" multiple accept="application/pdf">` nativo, que continua visível, operável e sendo o campo enviado. O input é o único estado: a lista de arquivos é desenhada a partir de `input.files`. Hoje o elemento aparece no catálogo; entra no formulário de peticionamento na etapa 8 da seção 13.
+- Envolve, num `<slot>`, o `<input type="file" multiple accept="application/pdf">` nativo, que continua visível, operável e sendo o campo enviado. O input é o único estado: a lista de arquivos é desenhada a partir de `input.files`. O elemento aparece no catálogo e no formulário de peticionamento (seção 6.4), onde recebe os limites de `FilingLimits`.
 - Atributos `max-files` (quantidade) e `max-size` (bytes, por arquivo): inteiros positivos; qualquer outro valor é ignorado e não há limite.
 - Área de arrastar e soltar (que ganha borda contínua e fundo claro durante o arraste) e lista dos arquivos escolhidos, cada um com nome, tamanho (`formatBytes`, de `shared/bytes.ts`, igual ao filtro Twig `bytes`) e um botão "Remover" cujo nome acessível diz de qual arquivo se trata.
 - Escolher no diálogo substitui a seleção, como no input sem o componente; soltar arquivos **soma** à seleção. Só PDFs entram (os outros são ignorados e anunciados), e um arquivo de mesmo nome e tamanho não entra duas vezes. Soltar e remover escrevem a lista nova no input com `DataTransfer` e disparam `input` e depois `change`, como o diálogo faz. Depois de remover, o foco vai para o próximo botão "Remover" ou, se não houver outro, para o input.
@@ -343,11 +376,12 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 | GET | `/processos` | `case_search` | autenticado |
 | GET | `/processos/{numero}` | `case_show` | `VIEW` (sem `VIEW`: 404) |
 | GET, POST | `/processos/{numero}/peticionar` | `case_file` | `FILE` (sem `VIEW`: 404; com `VIEW` e sem `FILE`: 403) |
-| GET | `/documentos/{id}` | `document_download` | `VIEW` no processo (sem `VIEW` no processo: 404) |
+| GET | `/documentos/{id}` | `document_download` | `VIEW` no processo do documento (sem `VIEW`: 404) |
 | GET | `/design-system` | `design_system` | público |
 
 - O logout exige o token CSRF: o link "Sair" é gerado com `logout_path('main')`, e um `/logout` sem token responde 403 sem encerrar a sessão.
 - `{numero}` usa o formato mascarado como forma canônica; o `CnjNumberValueResolver` aceita com ou sem máscara e responde 404 se o número for inválido, antes de consultar o banco.
+- `{id}` do download é o id do documento, um inteiro simples: sem zeros à esquerda (que dariam mais de um endereço ao mesmo documento) e que caiba no inteiro de 64 bits. Qualquer outra coisa é 404, como um id que não existe. A rota aceita só `GET` (outro método dá 405).
 
 **Consulta (`/processos`)**
 - Formulário GET (`role="search"`) com parâmetros opcionais: `numero` (número CNJ, com ou sem máscara), `parte` (nome da parte, busca parcial sem diferenciar maiúsculas nem acentos), `status` e `pagina` (a partir de 1). Os filtros ficam na URL, que pode ser compartilhada e recarregada.
@@ -362,16 +396,32 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 - Capa: número, classe, assunto, órgão julgador, valor da causa (`|brl`), data de distribuição, selo "Sigiloso" e `<twig:StatusBadge>`.
 - Partes por polo: "Polo ativo" e depois "Polo passivo", na ordem em que as partes foram cadastradas, cada polo com um `h3` e cada parte como `h4` (o `h2` é "Partes"), com advogados (nome e OAB) ou "Sem advogado constituído." Um polo sem partes mostra "—" (com o texto "Nenhuma parte." oculto, para leitores de tela).
 - Prazos com `<twig:DeadlineIndicator>`: os em aberto primeiro (por vencimento), depois os cumpridos.
-- Abas por link, `?aba=movimentacoes|documentos#andamento`, com `aria-current="page"` na ativa: só o painel ativo é renderizado, então funcionam sem JavaScript. Movimentações (`<twig:Timeline>` dentro de `<jus-filtro-timeline>`, que acrescenta o filtro por tipo e, sem JavaScript, não faz nada) e Documentos (`<twig:DataTable>`, colunas título, tipo, data e tamanho; a ordenação por `sort` e `direction` mantém a aba, e o link de download entra na etapa 8 da seção 13). `aba`, `sort` ou `direction` desconhecidos ou malformados caem nos valores padrão (Movimentações, ordem natural), sem erro.
-- Número fixo de consultas: 3 (atualização do usuário, o processo com tudo o que possui, os prazos), em qualquer aba. Um teste confere.
-- Botão "Peticionar" visível apenas com permissão `FILE`; chega junto com o peticionamento, na etapa 8 da seção 13.
+- Abas por link, `?aba=movimentacoes|documentos#andamento`, com `aria-current="page"` na ativa: só o painel ativo é renderizado, então funcionam sem JavaScript. Movimentações (`<twig:Timeline>` dentro de `<jus-filtro-timeline>`, que acrescenta o filtro por tipo e, sem JavaScript, não faz nada) e Documentos (`<twig:DataTable>`, colunas título, tipo, data e tamanho, com os documentos de todas as movimentações, os da movimentação mais recente primeiro; a ordenação por `sort` e `direction` mantém a aba). `aba`, `sort` ou `direction` desconhecidos ou malformados caem nos valores padrão (Movimentações, ordem natural), sem erro.
+- O título de cada documento é o link de download (`document_download`); o tipo, a data e o tamanho são texto. O tipo é o da petição ("Contestação") ou, nas demais movimentações, o da movimentação ("Despacho"); a data é a do envio. O endereço do link é montado com o `id` que o processo já carregou (`CaseDocumentsTable`), então os links não acrescentam consulta. Um documento que ainda não foi salvo não tem endereço, e a tabela mostra só o título.
+- Número fixo de consultas: 3 (atualização do usuário, o processo com tudo o que possui, os prazos), em qualquer aba, com os links de download e também para o advogado que vê o botão "Peticionar". Um teste confere cada caso.
+- Botão "Peticionar" (um link para `case_file`, `btn-primary`, no cabeçalho do processo) visível apenas com permissão `FILE`: não aparece para o servidor, para o advogado que não representa nenhuma parte do processo nem em processo arquivado. Perguntar ao Voter se ele deve aparecer não custa consulta.
 
 **Peticionamento (`/processos/{numero}/peticionar`)**
-- Formulário `FilingFormType`. Em caso de sucesso: `FilingService`, mensagem flash de sucesso e redirect para `case_show` (padrão PRG).
+- Ordem das decisões, antes de o formulário existir: visitante → redirect para `/login`; número sem máscara → redirect 301 para a URL mascarada (a query string vai junto); número inválido, processo inexistente ou sem `VIEW` → o mesmo 404; com `VIEW` e sem `FILE` → 403 (seção 5.5). Só depois o formulário é construído e a requisição é lida, tanto em `GET` quanto em `POST`.
+- A página tem o título "Peticionar · Processo {número} · Jus", um `h1` "Peticionar" com o número e a classe do processo, o link "Voltar para o processo" e o formulário `FilingFormType` (seção 6.4): "Tipo de petição", "Descrição" e "Petição e anexos (PDF)" (o `<jus-upload>`), com o botão "Juntar petição". Sem JavaScript, o envio é um POST `multipart/form-data` comum, e o servidor valida tudo.
+- **Sucesso:** `FilingService` (seção 5.6), mensagem flash "Petição juntada ao processo." e redirect **303** (padrão PRG) para `case_show` em `?aba=movimentacoes#andamento`, de modo que a nova movimentação aparece no alto da linha do tempo e um F5 não repete o envio.
+- **Erro:** a página volta com **422**, o tipo e a descrição digitados mantidos, e nada é gravado (nem arquivo, nem registro).
+  - Um resumo (`#resumo-erros`, um aviso `alert-danger` de texto, sem `role="alert"`, para não anunciar por cima do que a pessoa está lendo) lista cada campo inválido como um link para ele; cada campo também mostra o próprio erro (`aria-invalid`, `aria-describedby`, seção 6.4). O título da página começa com "Erro: ".
+  - O navegador nunca devolve os arquivos a um `input type="file"`. Por isso, quando os arquivos chegaram e estão bons, mas o formulário falhou por outro motivo, a página diz "Selecione os arquivos novamente." (dentro do resumo ou, se nenhum campo falhou, num aviso). Quando o erro é dos próprios arquivos, o aviso não aparece.
+  - Um token CSRF inválido é um erro do formulário, não de um campo: aparece no formulário com a mensagem "O token CSRF é inválido. Por favor, tente reenviar o formulário.".
+  - Requisição acima do `post_max_size` do PHP: o PHP descarta o corpo inteiro, e todos os campos chegam vazios. O controlador reconhece o caso (pelo tamanho declarado da requisição) e mostra o formulário em branco com um erro só, sem um erro em cada campo: "O envio passou do limite de {limite} e não foi recebido. Escolha arquivos menores ou menos arquivos.", em que {limite} é o valor do `php.ini` (por exemplo, `8M`).
+- Número fixo de consultas: 2 no `GET` (atualização do usuário e o processo com as partes e os advogados, que é tudo o que a autorização lê; as movimentações e os documentos, que o formulário não mostra, não são carregados). Um teste confere.
+
+**Download (`/documentos/{id}`)**
+- O documento chega junto com a movimentação, o processo, as partes e os advogados, em uma consulta (`DocumentRepository::findOneWithCase()`), que é tudo o que o Voter lê. A decisão (seção 5.5) vem antes de o disco ser tocado: sem `VIEW`, o mesmo 404 de um documento que não existe. O disco só é consultado depois, por `DocumentStorage::pathOf()`, e um arquivo que sumiu dá o mesmo 404.
+- A resposta é o arquivo (`BinaryFileResponse`) com `Content-Type: application/pdf` sempre, e nunca o que os bytes pareçam ao navegador; `Content-Disposition: attachment`, porque o PDF é salvo e não aberto na página; `X-Content-Type-Options: nosniff`; `Content-Length`; e um `Cache-Control` `private`, de modo que só o navegador de quem pediu guarda a resposta, e nenhum cache compartilhado.
+- O nome do arquivo salvo é o que foi enviado (`originalFilename`), com barras e caracteres de controle trocados por `_` (uma quebra de linha dividiria o cabeçalho) e a extensão `.pdf` garantida: o nome guardado é cortado em 255 caracteres, o que pode tirar a extensão, e um nome vazio vira `documento.pdf`. O que não é ASCII vai em `filename*` (UTF-8), e o `filename` leva a versão ASCII para clientes antigos ("Procuração.PDF" fica `Procura__o.PDF`).
+- Número fixo de consultas: 2 (atualização do usuário e o documento com o processo). Um teste confere.
 
 **Dados fictícios (fixtures)**
 - 4 usuários de teste, todos com a senha `jus-demo`: os advogados (`ROLE_LAWYER`) `advogado@jus.test` (Ana Ribeiro), `advogada2@jus.test` (Carla Mendes) e `advogado3@jus.test` (Bruno Teixeira), e o servidor (`ROLE_CLERK`) `servidor@jus.test` (João Almeida).
-- 30 processos com todos os status, 3 deles sigilosos, com partes, movimentações e documentos (usando `tests/fixtures/sample.pdf`).
+- 30 processos com todos os status, 3 deles sigilosos, com partes e movimentações.
+- Cada processo começa com a petição inicial e o seu documento, então são 30 documentos, e cada um é um **PDF de verdade**: uma cópia de `tests/fixtures/sample.pdf` gravada pelo `DocumentStorage`, com nome UUID e o tamanho real do arquivo. Todos podem ser baixados na aba Documentos. Carregar as fixtures de novo apaga os PDFs anteriores (`DocumentStorage::clear()`, que só remove os `.pdf` do diretório), para que cada recarga não deixe arquivos órfãos; e, como o banco também é apagado, os peticionamentos feitos antes na demonstração se vão junto.
 - Toda parte tem advogado: o polo ativo é representado por Ana, exceto em um a cada três processos (Bruno), e o polo passivo por Carla. Assim Ana não atua em todos os processos e não vê os sigilosos em que não atua.
 - Petições e documentos vêm sempre do advogado de uma das partes.
 - As datas caem em dias úteis forenses (sem fins de semana, feriados nem recesso) e seguem a ordem do processo: distribuição, despacho, decisão e, depois, intimação.
@@ -387,13 +437,16 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 | Número CNJ válido sem processo na URL | 404 "Página não encontrada" (a mesma página) |
 | Número CNJ inválido na busca | Erro no campo do formulário, sem exceção |
 | Número válido não encontrado na busca (ou sigiloso de outro advogado) | Estado vazio "Nenhum processo encontrado." |
-| Sigiloso de outro advogado na URL | 404 "Página não encontrada", a mesma página de um número inexistente: o sistema nunca revela que um processo sigiloso existe |
-| Ação que o usuário não pode executar num processo que **pode ver** (depois: peticionar com `VIEW` e sem `FILE`) ou ação recusada pelo sistema (hoje: o logout sem token CSRF) | 403 "Acesso negado", sem detalhes da exceção. Quem não tem `VIEW` nunca chega ao 403: recebe o 404 da linha acima, em qualquer rota do processo |
+| Sigiloso de outro advogado na URL (página, peticionamento ou download) | 404 "Página não encontrada", a mesma página de um número inexistente: o sistema nunca revela que um processo sigiloso existe |
+| Download de um documento que não existe, de um processo sem `VIEW`, cujo arquivo sumiu do disco ou cujo nome guardado não é um UUID | O mesmo 404 "Página não encontrada" nos quatro casos, sem `Content-Disposition` e sem nada do documento: quem pede não distingue um documento que não existe de um que não pode ver. Um id que não é um inteiro simples (texto, decimal, zeros à esquerda, maior que o inteiro de 64 bits) também dá 404, e outro método que não `GET`, 405 |
+| Ação que o usuário não pode executar num processo que **pode ver** (peticionar com `VIEW` e sem `FILE`: o servidor, o advogado que não representa parte alguma de um processo público, o processo arquivado) ou ação recusada pelo sistema (o logout sem token CSRF) | 403 "Acesso negado", sem detalhes da exceção. Quem não tem `VIEW` nunca chega ao 403: recebe o 404 da linha acima, em qualquer rota do processo |
 | Não autenticado | Redirect para `/login`, nas rotas que existem |
 | `pagina`, `aba`, `sort` ou `direction` malformados | Valor padrão, sem erro |
 | `pagina` além da última página | Redirect para a última página |
-| Upload inválido | Erros do formulário via form theme (com JavaScript, o `<jus-upload>` antecipa no navegador os limites e o tipo PDF) |
-| Falha ao gravar petição | Rollback + remoção dos arquivos (seção 5.6) |
+| Peticionamento inválido (tipo ausente ou fora da lista, a petição inicial inclusive; descrição vazia ou acima de 2000 caracteres; nenhum arquivo, mais de 5, arquivo que não é PDF ou acima de 10 MB; token CSRF inválido) | 422 com a página do formulário: cada erro junto do campo (form theme), o resumo de erros com links, o título com "Erro: " e nada gravado (seção 7). Com JavaScript, o `<jus-upload>` antecipa no navegador o limite de arquivos e de tamanho e o tipo PDF; o servidor continua decidindo |
+| Arquivo acima do `upload_max_filesize` do PHP | 422, com o erro no campo de arquivos: "O arquivo é muito grande. O tamanho máximo permitido é de N MiB.", com o limite do servidor em unidades de 1024 |
+| Requisição acima do `post_max_size` do PHP (o corpo chega inteiro vazio) | 422 com o formulário em branco e uma só mensagem: "O envio passou do limite de {limite} e não foi recebido. Escolha arquivos menores ou menos arquivos." |
+| Falha ao gravar petição (disco, banco, prazo que não pode ser cumprido) | Rollback e remoção dos arquivos já gravados (seção 5.6), e a página "Algo deu errado" (500); o detalhe só vai para o log |
 | JS não carrega ou falha | Elementos nativos continuam funcionando |
 | Erro inesperado (500) e demais códigos | Página "Algo deu errado"; detalhes só no log |
 
@@ -417,7 +470,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 - `DeadlineCalculator`: fim de semana, feriado fixo, feriados móveis, recesso, virada de ano, fusos diferentes.
 - `Easter`: anos de referência, incluindo os que exercitam a correção do algoritmo.
 - `LegalCaseVoter`: todas as combinações da tabela 5.5.
-- `FilingService`: rollback remove os arquivos gravados.
+- Entidades e suas guardas (seção 5.1), sem kernel: só o advogado de uma parte peticiona; a petição inicial só abre o processo (nem depois de outra petição, nem de outra movimentação, nem duas vezes); uma juntada exige o tipo de petição e as demais movimentações o recusam; um prazo só nasce de uma intimação do próprio processo, com pelo menos um dia útil, e não é cumprido antes de começar (nem numa segunda chamada), mantendo a primeira data de cumprimento.
 
 **PHPUnit — Component (`tests/Component/`)**
 - Cada Twig Component com `InteractsWithTwigComponents`: variantes, HTML e atributos ARIA.
@@ -425,10 +478,18 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 
 **PHPUnit — Integration (`tests/Integration/`)**
 - Visibilidade: para servidor, advogado do polo ativo, advogado do polo passivo e advogado sem relação, em processo público e sigiloso, a busca e a consulta por número decidem exatamente como o `VIEW` do Voter (seção 5.5).
+- `DocumentStorage`, no disco de verdade (um diretório por ambiente, apagado ao fim): o diretório de teste fica em `var/uploads/test`, fora de `public/`; o arquivo é gravado como cópia, com nome UUID v7, e o original fica no lugar; só se copia de caminho local (`http`, `https` e `ftp` são recusados); uma cópia que falha, mesmo no meio, não deixa PDF para trás, e o erro da cópia sobrevive a uma limpeza que também falha; o diretório é criado com o modo `0750`; `pathOf()` só devolve arquivos do próprio diretório e é `null` para um nome fora do formato UUID (`../` e `..\` com arquivos-isca plantados um nível acima, onde a travessia chegaria; subdiretório; outra extensão; maiúsculas; quebra de linha ou NUL no fim), ainda que o arquivo exista, e para um nome válido que não existe; `delete()` ignora os mesmos nomes; `clear()` remove só os `.pdf` do diretório, deixa outros arquivos e os de fora em paz, e funciona com o diretório ausente.
+- `FilingService`: grava um evento e um documento por arquivo, com o título e o nome original tirados do nome enviado (uma tabela de nomes: caixa da extensão, caminhos do Windows e do Unix, espaços, `.pdf` duplo, nada sobrando, nomes de 300 caracteres); cumpre os prazos em aberto só das partes que o advogado representa (a parte contrária, outro processo e o prazo já cumprido ficam como estavam); com um advogado sem parte, ou quando o banco falha (antes e depois de gravar), nada fica no banco nem no disco e o erro original é relançado; um arquivo que não pode ser gravado leva consigo os já gravados; e uma limpeza que falha não esconde o erro original. `DeadlineRepository::findOpenForLawyer()` tem testes próprios.
+- `FilingData`: cada mensagem de erro do formulário e os limites nas bordas (exatamente 10 MB passa e 10 MB + 1 byte não; 5 arquivos passam e 6 não; 2000 caracteres passam e 2001 não); o tipo do arquivo vem do conteúdo, não do nome; um arquivo acima do limite do PHP é descrito em unidades de 1024.
+- Tema dos formulários: o bloco `upload_widget` envolve o input nativo no `<jus-upload>`, com os atributos de limite, e deixa de escrevê-los sem a opção.
+- Fixtures (`AppFixtures`, em quatro datas escolhidas, inclusive sábado e o recesso): contas, processos, partes com advogado, datas em dias úteis forenses, todos os estados de urgência que o dia permite e **todo documento com o seu PDF no disco** (30, com o conteúdo de `sample.pdf` e o tamanho real, nenhum arquivo sem documento); recarregar as fixtures limpa os PDFs de antes.
+- Linux apenas: o teste que confere o modo real do diretório (`0750`, nenhum acesso para os demais) só roda no Linux, onde o CI roda, porque o Windows ignora o modo; outro teste, em qualquer sistema, confere que o modo pedido na criação é `0750`.
 
 **PHPUnit — Functional (`tests/Functional/`, `WebTestCase`)**
-- Login e logout; busca (filtros, redirect por número exato, filtro de sigilosos, paginação com parâmetros malformados); página do processo (200, 404 para número inválido, inexistente ou sigiloso de outro advogado, partes por polo, abas e ordenação sem JavaScript); páginas de erro com `debug` desligado; peticionamento completo com upload; download com e sem permissão; catálogo público.
-- O número de consultas de cada tela é fixo e verificado com `QueryRecorder`: 5 na busca (com 10 cartões, metade sem movimentações) e 3 na página do processo, em qualquer aba.
+- Login e logout; busca (filtros, redirect por número exato, filtro de sigilosos, paginação com parâmetros malformados); página do processo (200, 404 para número inválido, inexistente ou sigiloso de outro advogado, partes por polo, abas e ordenação sem JavaScript); páginas de erro com `debug` desligado; peticionamento e download (abaixo); catálogo público.
+- Peticionamento (`FilingPageTest`): o formulário e seus atributos (tipo sem a petição inicial, `maxlength`, os limites no `<jus-upload>` e na ajuda); o envio completo como um navegador sem JavaScript o faz, com o 303 para a aba de movimentações, a mensagem de sucesso, a movimentação na linha do tempo, os documentos na aba Documentos, os PDFs no disco e só os prazos do advogado cumpridos; cada tipo aceito; cada recusa (sem tipo, descrição vazia ou longa demais, sem arquivo, seis arquivos, arquivo que não é PDF, arquivo grande demais, token CSRF) com 422, a mensagem junto do campo e nada gravado; o resumo de erros (todos os campos inválidos como links, só os que falharam, o pedido de escolher os arquivos de novo só quando cabe); o título com "Erro: "; a mensagem do `post_max_size`; uma falha ao gravar, com a página 500 sem detalhes, o erro no log e nada guardado; o visitante, o sigiloso de outro advogado (o mesmo 404 de um número inexistente, em `GET` e `POST`), o servidor, o advogado sem parte e o processo arquivado (403, em `GET` e `POST`); o redirect da URL sem máscara e o 404 do número inválido; e o botão "Peticionar" na página do processo.
+- Download (`DocumentDownloadTest`): o advogado, o advogado sem parte num processo público, o servidor num sigiloso e o advogado da parte num sigiloso baixam o PDF, com os cabeçalhos da seção 7; o sigiloso de outro advogado, o arquivo que sumiu, o nome guardado que não é um UUID e ids que não são documentos (texto, decimal, negativo, zeros à esquerda, zero, o maior inteiro e um maior que ele) dão o mesmo 404; só `GET`; visitante para o login; os nomes do `Content-Disposition` (acentos, espaços, `%`, aspas, sem extensão, outra extensão, 255 caracteres, barras, quebra de linha, vazio).
+- O número de consultas de cada tela é fixo e verificado com `QueryRecorder`: 5 na busca (com 10 cartões, metade sem movimentações), 3 na página do processo, em qualquer aba (também para o advogado que vê o botão "Peticionar" e com os links de download), 2 no formulário de peticionamento e 2 no download.
 
 **Vitest 5 em modo browser (Playwright)**
 - Localmente os testes rodam no Google Chrome instalado (canal `chrome` do Playwright), sem baixar navegador; no CI (variável `CI` ou `TF_BUILD`) rodam no Chromium do Playwright, que o pipeline instala, pelo canal `chromium` (o navegador completo em modo headless novo, mais próximo do Chrome do que o headless shell). A configuração está em `vitest.config.ts`, e `npm test` é o comando nos dois casos.
@@ -492,6 +553,8 @@ Stage Test (depois do Quality)
 8. Peticionamento (`FilingService`, `DocumentStorage`, download).
 9. Páginas de erro e revisão de acessibilidade.
 10. README, ADRs e diagramas.
+
+As etapas 1 a 8 estão concluídas. A 8 entregou a pasta `src/Filing/` com o armazenamento dos PDFs fora de `public/`; as guardas do domínio e o `FilingService`; a página de peticionamento com o formulário, o `<jus-upload>` no tema e os limites de `FilingLimits`; o download dos documentos com a regra 404/403 da seção 5.5; e as fixtures com PDFs de verdade.
 
 ## 14. Critérios de aceite
 

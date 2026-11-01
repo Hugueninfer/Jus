@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\DocumentRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: DocumentRepository::class)]
 class Document
 {
     #[ORM\Id]
