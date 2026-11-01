@@ -1,5 +1,6 @@
 import { JusFiltroTimeline } from './jus-filtro-timeline';
 import { JusNumeroProcesso } from './jus-numero-processo';
+import { JusUpload } from './jus-upload';
 
 /**
  * Registers a custom element unless the name is taken, so loading the bundle twice (or two bundles on one page)
@@ -14,3 +15,4 @@ export function define(name: string, constructor: CustomElementConstructor): voi
 // Components are registered here, one `define()` call each, as they are added.
 define('jus-numero-processo', JusNumeroProcesso);
 define('jus-filtro-timeline', JusFiltroTimeline);
+define('jus-upload', JusUpload);

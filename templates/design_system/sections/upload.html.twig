@@ -1,0 +1,31 @@
+<p>Campo para enviar arquivos PDF, pronto para o formulário de peticionamento. O elemento personalizado <code>jus-upload</code> envolve o <code>input type="file"</code> nativo (com <code>multiple</code> e <code>accept="application/pdf"</code>), que continua sendo o campo enviado pelo formulário, visível e operável, e acrescenta a ele uma área para arrastar e soltar, a lista dos arquivos escolhidos e a validação antes do envio (<code>assets/components/jus-upload.ts</code>).</p>
+
+<h3 class="h6">Atributos</h3>
+{{ include('design_system/_reference.html.twig', {
+    caption: 'Atributos do elemento jus-upload',
+    headers: ['Nome', 'Tipo', 'Padrão', 'Descrição'],
+    rows: [
+        ['max-size', 'número inteiro (bytes)', 'sem limite', 'Tamanho máximo de cada arquivo, em bytes: 10485760 equivale a 10 MB. Um valor que não seja um número inteiro positivo é ignorado.'],
+        ['max-files', 'número inteiro', 'sem limite', 'Quantidade máxima de arquivos selecionados. Um valor que não seja um número inteiro positivo é ignorado.'],
+    ],
+    monospace: [],
+}) }}
+
+<h3 class="h6">Comportamento</h3>
+<ul>
+    <li><strong>Escolher:</strong> o input nativo abre o diálogo de arquivos, e o que o diálogo devolve substitui a seleção, como no input sem o componente.</li>
+    <li><strong>Arrastar e soltar:</strong> arquivos soltos sobre o elemento (a área tracejada, a lista ou o próprio input) são somados aos já selecionados, sem repetir um arquivo de mesmo nome e tamanho. O input recebe a lista nova e dispara <code>change</code>, como se os arquivos tivessem sido escolhidos no diálogo. Só PDFs são aceitos: os outros arquivos são ignorados e anunciados ("Somente arquivos PDF: notas.txt foi ignorado."). Enquanto há arquivos sobre o elemento, a área ganha borda contínua e fundo claro.</li>
+    <li><strong>Remover:</strong> cada arquivo da lista (nome e tamanho) tem um botão "Remover". O input recebe a lista sem aquele arquivo e dispara <code>change</code>, e o foco vai para o próximo botão "Remover" ou, se não houver outro, para o input.</li>
+    <li><strong>Validação antecipada</strong>, com <code>setCustomValidity</code> no próprio input, na ordem: mais arquivos que <code>max-files</code> ("Envie no máximo 5 arquivos."); arquivo maior que <code>max-size</code> ("O arquivo contrato.pdf passa do limite de 10 MB."); arquivo que não é PDF ("Envie apenas arquivos PDF."), o que o <code>accept</code> não garante, pois só orienta o filtro do diálogo. O navegador mostra a mensagem ao enviar o formulário. Sem os atributos de limite, vale só a regra do PDF. A validação do servidor continua necessária.</li>
+</ul>
+
+<h3 class="h6">Acessibilidade</h3>
+<ul>
+    <li>O input nativo continua sendo o controle: tem o rótulo (<code>label</code>) ligado a ele, recebe o foco com Tab e abre o diálogo com Enter ou Espaço. Arrastar é só uma alternativa, e tudo o que se faz arrastando também se faz pelo diálogo.</li>
+    <li>Os botões "Remover" são <code>button</code> nativos, alcançados com Tab depois do input, e o nome acessível diz de qual arquivo se trata (<code>aria-label="Remover peticao.pdf"</code>, que começa pelo texto visível). A lista tem nome ("Arquivos selecionados") e fica oculta enquanto está vazia.</li>
+    <li>Cada mudança é anunciada com educação (<code>aria-live="polite"</code>, texto visualmente oculto): "1 arquivo selecionado.", "3 arquivos selecionados." ou "Nenhum arquivo selecionado.", precedida dos avisos de arquivos ignorados no arraste. Nada é anunciado ao carregar a página.</li>
+    <li>O estado de arraste não depende só da cor: a borda tracejada passa a contínua, e o texto mantém o contraste sobre o fundo claro. A borda da área e os botões usam a cor <code>muted</code>, que se distingue do fundo.</li>
+    <li>Sem JavaScript o elemento não faz nada (para o navegador é um elemento desconhecido): o input de arquivos nativo funciona sozinho e o servidor valida o envio.</li>
+</ul>
+
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/upload/default.html.twig', label: 'campo de envio de PDFs'}) }}
