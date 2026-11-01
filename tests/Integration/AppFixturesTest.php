@@ -12,12 +12,15 @@ use App\Domain\LegalCase\EventType;
 use App\Domain\LegalCase\FilingType;
 use App\Entity\CaseEvent;
 use App\Entity\Deadline;
+use App\Entity\Document;
 use App\Entity\LegalCase;
 use App\Entity\User;
+use App\Filing\DocumentStorage;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -26,6 +29,15 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 final class AppFixturesTest extends KernelTestCase
 {
     use ClockSensitiveTrait;
+
+    private const string SAMPLE = __DIR__.'/../fixtures/sample.pdf';
+
+    protected function tearDown(): void
+    {
+        // The fixtures write real files; the test directory is not rolled back with the database.
+        (new Filesystem())->remove(self::getContainer()->getParameter('app.documents_dir'));
+        parent::tearDown();
+    }
 
     /**
      * @return iterable<string, array{string}>
@@ -136,6 +148,37 @@ final class AppFixturesTest extends KernelTestCase
         self::assertEqualsCanonicalizing($expected, array_values(array_unique($states)));
     }
 
+    #[DataProvider('todays')]
+    public function testEveryDocumentHasItsFileOnDisk(string $today): void
+    {
+        $em = $this->loadFixtures($today);
+        $storage = self::getContainer()->get(DocumentStorage::class);
+
+        $documents = $em->getRepository(Document::class)->findAll();
+        self::assertCount(30, $documents, 'Every case starts with its initial petition.');
+        foreach ($documents as $document) {
+            $path = $storage->pathOf($document->getStoredFilename());
+            self::assertNotNull($path, $document->getStoredFilename().' has no file on disk.');
+            self::assertFileEquals(self::SAMPLE, $path);
+            self::assertSame((int) filesize($path), $document->getSizeInBytes(), $document->getStoredFilename());
+        }
+
+        self::assertCount(30, array_unique(array_map(static fn (Document $d): string => $d->getStoredFilename(), $documents)), 'Each document has a file of its own.');
+        self::assertCount(30, $this->storedPdfs(), 'No file is left without a document.');
+    }
+
+    public function testReloadingTheFixturesDoesNotAccumulateFiles(): void
+    {
+        self::bootKernel();
+        $orphan = self::getContainer()->get(DocumentStorage::class)->copyFrom(self::SAMPLE);
+
+        $em = $this->loadFixtures('2026-03-04 09:00');
+        $storage = self::getContainer()->get(DocumentStorage::class);
+
+        self::assertNull($storage->pathOf($orphan->name), 'The file of an earlier load must be cleared.');
+        self::assertCount($em->getRepository(Document::class)->count([]), $this->storedPdfs());
+    }
+
     private function loadFixtures(string $today): EntityManagerInterface
     {
         self::mockTime($today);
@@ -147,5 +190,13 @@ final class AppFixturesTest extends KernelTestCase
         $em->clear();
 
         return $em;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function storedPdfs(): array
+    {
+        return glob(self::getContainer()->getParameter('app.documents_dir').'/*.pdf') ?: [];
     }
 }

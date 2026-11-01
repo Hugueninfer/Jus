@@ -15,21 +15,27 @@ use App\Entity\Deadline;
 use App\Entity\LegalCase;
 use App\Entity\Party;
 use App\Entity\User;
+use App\Filing\DocumentStorage;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Faker\Factory;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Deterministic demo data: 4 users and 30 fictitious cases. Every party has a lawyer, and filings and documents come
  * from the counsel of a party (Ana does not act in every third case). Events fall on court working days, in order and
  * never after now; only active cases have deadlines, cycling through every urgency state the calendar allows today.
+ * Every document is a real PDF in the document storage, so it can be downloaded; loading clears the earlier files.
  */
 final class AppFixtures extends Fixture
 {
     /** Shared password of the local demo accounts (test credential). */
     public const string DEMO_PASSWORD = 'jus-demo';
+
+    /** The PDF every demo document is a copy of, relative to the project root. */
+    private const string SAMPLE_PDF = '/tests/fixtures/sample.pdf';
 
     private const int CASES = 30;
     private const int DEADLINE_DAYS = 5;
@@ -52,11 +58,17 @@ final class AppFixtures extends Fixture
         private readonly DeadlineScenario $deadlines,
         private readonly DeadlineCalculator $calendar,
         private readonly ClockInterface $clock,
+        private readonly DocumentStorage $storage,
+        #[Autowire('%kernel.project_dir%')]
+        private readonly string $projectDir,
     ) {
     }
 
     public function load(ObjectManager $manager): void
     {
+        // The database is purged before the fixtures load; the files have to follow, or every reload would pile up orphans.
+        $this->storage->clear();
+
         $faker = Factory::create('pt_BR');
         $faker->seed(2026);
         $now = $this->clock->now();
@@ -89,8 +101,10 @@ final class AppFixtures extends Fixture
             $plaintiff->addLawyer($plaintiffCounsel);
             $case->addParty($faker->company(), $faker->numerify('##.###.###/####-##'), PartySide::Defendant)->addLawyer($carla);
 
+            // A real file per document, under the UUID name and with the size the storage reports.
+            $petition = $this->storage->copyFrom($this->projectDir.self::SAMPLE_PDF);
             $case->file(FilingType::InitialPetition, 'Petição inicial distribuída.', $filedAt, $plaintiffCounsel)
-                ->attach('Petição inicial', 'peticao-inicial.pdf', \sprintf('demo-%02d-peticao-inicial.pdf', $i), 184_320, $plaintiffCounsel, $filedAt);
+                ->attach('Petição inicial', 'peticao-inicial.pdf', $petition->name, $petition->sizeInBytes, $plaintiffCounsel, $filedAt);
             $orderedAt = $this->onOrAfter($filedAt->add(new \DateInterval('P7D')));
             // The court recess can push both to the same day; the decision then comes on the next working day.
             $decidedAt = $this->onOrAfter(max($filedAt->add(new \DateInterval('P20D')), $orderedAt->add(new \DateInterval('P1D'))));
