@@ -138,9 +138,10 @@ function carriesFiles(event: DragEvent): boolean {
  *
  * When a change leaves the choice invalid the problem is shown (the input gets aria-invalid and Bootstrap's
  * is-invalid, and the message is written as text under the zone) and announced after the count; when it leaves it
- * valid both marks go. Connecting and changing the limit attributes only check the choice, they never touch the
- * marks the server may have rendered. A disabled input (or one in a disabled fieldset) takes no drops and its
- * remove buttons are disabled.
+ * valid both marks go. Connecting only checks the choice and leaves alone the marks the server may have rendered.
+ * Changing a limit attribute checks it again and, only while the component is showing an error, updates or clears
+ * that error to follow the new limit; with none shown the marks stay as they are until the next change or submit.
+ * A disabled input (or one in a disabled fieldset) takes no drops and its remove buttons are disabled.
  *
  * Consumers should read the validity on `change`, not on `input`: the component checks the choice when `change` arrives.
  */
@@ -221,7 +222,8 @@ export class JusUpload extends JusElement {
           if (!this.#disabled()) {
             this.#zone.classList.add(DRAGGING);
           } else if (event.dataTransfer !== null) {
-            // Still a target (so that the drop reaches the handler and is cancelled), but one that says it takes nothing.
+            // Still a target, but one that says it takes nothing: browsers do not normally fire `drop` after a
+            // `none` effect, and the drop handler below is the safety net that cancels it if one does.
             event.dataTransfer.dropEffect = 'none';
           }
         }
