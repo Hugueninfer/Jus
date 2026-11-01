@@ -22,6 +22,8 @@ interface Mounted {
 /** What Symfony's Bootstrap theme renders after the widget for a value the server refused, with the help text. */
 const SERVER_FEEDBACK = '<div class="form-text" id="numero_help">Informe o número.</div><div class="invalid-feedback d-block" id="numero_error1">Número recusado pelo servidor.</div>';
 const SERVER_ATTRIBUTES = 'value="0000001392" class="form-control is-invalid" aria-invalid="true" aria-describedby="numero_help numero_error1"';
+/** The same, for a number that is well formed (the server refused it for a reason of its own): the browser has nothing to say about it. */
+const SERVER_ATTRIBUTES_WELL_FORMED = `value="${DIGITS}" class="form-control is-invalid" aria-invalid="true" aria-describedby="numero_help numero_error1"`;
 
 /** Mounts the markup the form theme renders (label, the element around the native input, what follows it, a button). */
 function mount(inputAttributes = '', following = ''): Mounted {
@@ -449,6 +451,47 @@ describe('<jus-numero-processo>', () => {
       expect(errorText()).toBe('');
     });
 
+    it('lets go of the marks of a required field that is emptied after the browser reported it, as it has no text of ours to give', async () => {
+      const { form, input } = mount('required');
+      form.checkValidity();
+      await typeInto(input, '12');
+      expectMarkedInvalid(input, true);
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+
+      await userEvent.keyboard('{Backspace}{Backspace}');
+
+      expect(input.validity.valueMissing).toBe(true);
+      expectMarkedInvalid(input, false);
+      expect(errorText()).toBe('');
+      expect(input.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('lets go of the mark the server rendered when the field is emptied and is required: a red border with no reason is not left behind', async () => {
+      const { input } = mount(`required ${SERVER_ATTRIBUTES}`, SERVER_FEEDBACK);
+      expectMarkedInvalid(input, true);
+
+      await userEvent.clear(input);
+
+      expect(input.validity.valueMissing).toBe(true);
+      expectMarkedInvalid(input, false);
+      expect(errorText()).toBe('');
+      expect(describedBy(input)).toEqual(['numero_help']);
+    });
+
+    it('marks it again, with the reason, when the number is typed once more', async () => {
+      const { form, input } = mount('required');
+      form.checkValidity();
+      await typeInto(input, '1');
+      await userEvent.keyboard('{Backspace}');
+      expectMarkedInvalid(input, false);
+
+      await typeInto(input, '12');
+      await userEvent.tab();
+
+      expectMarkedInvalid(input, true);
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+    });
+
     it('removes the error state the server rendered once the value is valid', async () => {
       const { input } = mount('value="0000001392" class="form-control is-invalid" aria-invalid="true"');
       expectMarkedInvalid(input, true);
@@ -617,15 +660,57 @@ describe('<jus-numero-processo>', () => {
       expectMarkedInvalid(input, true);
     });
 
-    it('stays while the value is not changed, even when the field loses focus or the form is checked', async () => {
-      const { form, input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+    it('stays while the value is not changed and the browser has nothing to say about it, even when the field loses focus or the form is checked', async () => {
+      const { form, input } = mount(SERVER_ATTRIBUTES_WELL_FORMED, SERVER_FEEDBACK);
       input.focus();
 
       await userEvent.tab();
       form.checkValidity();
 
       expect(required(document.getElementById('numero_error1')).hidden).toBe(false);
-      expect(describedBy(input)).toContain('numero_error1');
+      expect(describedBy(input)).toEqual(['numero_help', 'numero_error1']);
+      expect(errorOf()).toBeNull();
+      expectMarkedInvalid(input, true);
+    });
+
+    it.each([
+      ['the field loses focus', async (_form: HTMLFormElement, input: HTMLInputElement): Promise<void> => {
+        input.focus();
+        await userEvent.tab();
+      }],
+      ['the form is checked', (form: HTMLFormElement): void => {
+        form.checkValidity();
+      }],
+    ])('is replaced by the reason of the browser, with no change to the value, when %s: one text, not two', async (_name, act) => {
+      const { form, input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+
+      await act(form, input);
+
+      const feedback = required(document.getElementById('numero_error1'));
+      expect(feedback.hidden).toBe(true);
+      expect(feedback.checkVisibility()).toBe(false);
+      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+      expect(describedBy(input)).toEqual(['numero_help', 'numero-client-error']);
+      expect(required(document.getElementById('numero_help')).hidden).toBe(false);
+      expectMarkedInvalid(input, true);
+    });
+
+    it('shows one error text at a time for the whole life of a refused value', async () => {
+      const { main, input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+      const texts = (): string[] => Array.from(main.querySelectorAll<HTMLElement>('.invalid-feedback')).filter((feedback) => feedback.checkVisibility()).map((feedback) => feedback.textContent);
+      expect(texts()).toEqual(['Número recusado pelo servidor.']);
+
+      input.focus();
+      await userEvent.tab();
+      expect(texts()).toEqual([INCOMPLETE_MESSAGE]);
+
+      await typeInto(input, '0');
+      expect(texts()).toEqual([INCOMPLETE_MESSAGE]);
+
+      await userEvent.clear(input);
+      await typeInto(input, DIGITS.slice(0, 3));
+      await userEvent.tab();
+      expect(texts()).toEqual([INCOMPLETE_MESSAGE]);
     });
 
     it('is hidden and unlinked at the first change, because it describes the value that was submitted; the help stays', async () => {

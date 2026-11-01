@@ -21,7 +21,7 @@
     <li>Os erros do servidor aparecem como texto junto ao campo, e não apenas pela cor da borda.</li>
     <li>O formato esperado está no placeholder e na ajuda, e a máscara é opcional: quem digita só os números não é prejudicado.</li>
     <li>No navegador, o componente marca o campo ao sair dele com um número inválido (borda, ícone e <code>aria-invalid</code>) e escreve o motivo (número incompleto ou dígito verificador inválido, definido com <code>setCustomValidity</code>) como texto num bloco <code>invalid-feedback</code> logo depois do campo, ligado a ele por <code>aria-describedby</code>: o motivo não depende da cor da borda nem do balão do navegador, que mostra a mesma mensagem ao enviar o formulário. Um campo obrigatório vazio fica com o navegador: é marcado ao enviar, sem texto do componente.</li>
-    <li>Os erros do servidor descrevem o número enviado, não o que a pessoa está digitando: na primeira alteração depois do carregamento eles são escondidos e saem do <code>aria-describedby</code> (a ajuda fica). O servidor continua validando o número.</li>
+    <li>Os erros do servidor descrevem o número enviado, não o que a pessoa está digitando: na primeira alteração depois do carregamento eles são escondidos e saem do <code>aria-describedby</code> (a ajuda fica), e também quando o componente passa a escrever o motivo dele para o mesmo número (o campo nunca mostra dois textos de erro). Um campo obrigatório que volta a ficar vazio deixa de ser marcado. O servidor continua validando o número.</li>
 </ul>
 
 {{ include('design_system/_example.html.twig', {example: 'design_system/examples/cnj_field/default.html.twig', label: 'campo de formulário'}) }}

@@ -78,8 +78,24 @@ function reasonOf(input: HTMLInputElement): string {
 }
 
 /**
+ * Writes the reason the number is refused when it is the component's own, or takes the text away when it is not. The
+ * text the server rendered for the value that was submitted is retired first: it says the same thing in other words
+ * about the same value (the field may not have been changed yet), and two texts under one field are one too many. A
+ * native state such as an empty required field has no text of ours and leaves the server's alone.
+ */
+function say(input: HTMLInputElement, host: Element): void {
+  const reason = reasonOf(input);
+  if (reason !== '') {
+    retireServerErrors(input);
+  }
+  setFieldError(input, host, reason);
+}
+
+/**
  * After a change: re-checks the number. Once it is valid the invalid state goes (the server's included) and so does the
- * text. While the field is still marked, the text follows the number, so it names what is wrong now.
+ * text. While the field is still marked, the marks and the text follow the number, so they name what is wrong now: a
+ * number that is wrong keeps both, and a field that is empty again (a native state, the browser's to report on submit)
+ * keeps neither, rather than a red border that gives no reason.
  */
 function update(input: HTMLInputElement, host: Element): void {
   validate(input);
@@ -87,7 +103,8 @@ function update(input: HTMLInputElement, host: Element): void {
     setInvalid(input, false);
     setFieldError(input, host, '');
   } else if (input.getAttribute('aria-invalid') === 'true') {
-    setFieldError(input, host, reasonOf(input));
+    setInvalid(input, input.validity.customError);
+    say(input, host);
   }
 }
 
@@ -95,7 +112,7 @@ function update(input: HTMLInputElement, host: Element): void {
 function flagOnBlur(input: HTMLInputElement, host: Element): void {
   if (input.validity.customError) {
     setInvalid(input, true);
-    setFieldError(input, host, reasonOf(input));
+    say(input, host);
   }
 }
 
@@ -103,7 +120,7 @@ function flagOnBlur(input: HTMLInputElement, host: Element): void {
 function flagOnInvalid(input: HTMLInputElement, host: Element): void {
   if (!input.validity.valid) {
     setInvalid(input, true);
-    setFieldError(input, host, reasonOf(input));
+    say(input, host);
   }
 }
 
@@ -113,7 +130,8 @@ function flagOnInvalid(input: HTMLInputElement, host: Element): void {
  * (aria-invalid and the Bootstrap is-invalid class, with the reason as text after the element that the input is
  * described by) once the person leaves the field or tries to submit a number that is wrong. A native state such as an
  * empty required field stays with the browser: on submit the field is marked, with no text of ours.
- * The errors the server rendered describe the value it refused, so they are hidden at the first change.
+ * The errors the server rendered describe the value it refused, so they are hidden at the first change, or as soon as
+ * the component writes a reason of its own for the same value (one text under the field, not two).
  * Without JavaScript the plain input and the server validation remain.
  */
 export class JusNumeroProcesso extends HTMLElement {
