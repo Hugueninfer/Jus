@@ -123,6 +123,21 @@ final class FilingServiceTest extends KernelTestCase
         self::assertNull($this->fulfilledAt($ofAnotherCase), 'A filing only answers the deadlines of its own case.');
     }
 
+    public function testADeadlineThatHasNotStartedYetNeverBlocksTheFiling(): void
+    {
+        $plaintiff = $this->party(PartySide::Plaintiff);
+        $started = $this->data->deadline($plaintiff, '2024-03-20 08:00'); // starts today, at midnight
+        $notStarted = $this->data->deadline($plaintiff, '2024-03-25 08:00'); // a summons dated after the filing
+
+        $event = $this->service->file($this->case, $this->lawyer, FilingType::Statement, 'Manifestação.', [$this->upload()]);
+        $this->em->clear();
+
+        self::assertNotNull($event->getId());
+        self::assertSame(self::NOW, $this->fulfilledAt($started));
+        self::assertNull($this->fulfilledAt($notStarted), 'A deadline that starts after the filing is not answered by it.');
+        self::assertCount(1, $this->storedPdfs());
+    }
+
     public function testItFulfilsNothingWhenThereAreNoOpenDeadlines(): void
     {
         $event = $this->service->file($this->case, $this->lawyer, FilingType::Exhibits, 'Documentos.', [$this->upload()]);

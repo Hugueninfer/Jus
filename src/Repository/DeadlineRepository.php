@@ -8,6 +8,7 @@ use App\Entity\Deadline;
 use App\Entity\LegalCase;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -42,12 +43,14 @@ class DeadlineRepository extends ServiceEntityRepository
     }
 
     /**
-     * The deadlines of the case that are still open and belong to a party the lawyer represents, oldest first. The
-     * lawyer is matched in SQL, so neither the parties nor their lawyers are loaded.
+     * The deadlines of the case that are still open, have already started at $now and belong to a party the lawyer
+     * represents, oldest first. A deadline that starts later (its summons is dated in the future) cannot be fulfilled yet
+     * (Deadline::fulfil() refuses it), so it is left out instead of being met by an exception. The lawyer is matched in
+     * SQL, so neither the parties nor their lawyers are loaded.
      *
      * @return list<Deadline>
      */
-    public function findOpenForLawyer(LegalCase $case, User $lawyer): array
+    public function findOpenForLawyer(LegalCase $case, User $lawyer, \DateTimeImmutable $now): array
     {
         /** @var list<Deadline> $deadlines */
         $deadlines = $this->createQueryBuilder('d')
@@ -56,8 +59,10 @@ class DeadlineRepository extends ServiceEntityRepository
             ->where('p.legalCase = :case')
             ->andWhere('l = :lawyer')
             ->andWhere('d.fulfilledAt IS NULL')
+            ->andWhere('d.startDate <= :now')
             ->setParameter('case', $case)
             ->setParameter('lawyer', $lawyer)
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
             ->orderBy('d.id', 'ASC')
             ->getQuery()
             ->getResult();

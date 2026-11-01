@@ -48,10 +48,13 @@ final class DocumentStorageTest extends KernelTestCase
 
     public function testEachEnvironmentHasItsOwnDirectoryOutsideThePublicOne(): void
     {
+        // Compared with the project directory, not by looking for a word in an absolute path: a checkout that lives in a
+        // folder called "public" must not change the answer.
+        $project = Path::canonicalize(self::getContainer()->getParameter('kernel.project_dir'));
         $directory = Path::canonicalize($this->directory);
 
-        self::assertStringEndsWith('/var/uploads/test', $directory);
-        self::assertStringNotContainsString('/public', $directory);
+        self::assertSame('var/uploads/test', Path::makeRelative($directory, $project));
+        self::assertFalse(Path::isBasePath(Path::join($project, 'public'), $directory));
     }
 
     public function testItStoresACopyUnderAUuidName(): void

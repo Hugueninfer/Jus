@@ -103,7 +103,8 @@ function validationMessage(files: readonly File[], maxFiles: number | undefined,
   if (maxSize !== undefined) {
     const tooBig = files.find((file) => file.size > maxSize);
     if (tooBig !== undefined) {
-      return `O arquivo ${tooBig.name} passa do limite de ${formatBytes(maxSize)}.`;
+      // The name in double quotes, as the server words it (and a name with spaces stays one piece of the sentence).
+      return `O arquivo "${tooBig.name}" passa do limite de ${formatBytes(maxSize)}.`;
     }
   }
 

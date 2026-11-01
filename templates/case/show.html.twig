@@ -1,5 +1,10 @@
 {% extends 'base.html.twig' %}
 
+{# The confirmation of a filing: a message of its own kind, shown in the Andamento section because that is where the redirect
+   lands (#andamento), not in the area at the top of the page. It is read here, outside the blocks, which runs before the layout
+   shows the other messages (reading them empties them all). #}
+{% set filingConfirmations = app.flashes('filing') %}
+
 {% block title %}Processo {{ case.number|cnj }} · Jus{% endblock %}
 
 {% block body %}
@@ -86,6 +91,10 @@
                 {% endfor %}
             </ul>
         </nav>
+
+        {% for message in filingConfirmations %}
+            <twig:Alert type="success" dismissible>{{ message }}</twig:Alert>
+        {% endfor %}
 
         {% if tab == 'documentos' %}
             <twig:DataTable :columns="documentColumns" :rows="documentRows" :sort="sort" :direction="direction" caption="Documentos do processo" anchor="andamento" emptyMessage="Nenhum documento." />

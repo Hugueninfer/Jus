@@ -727,8 +727,16 @@ describe('<jus-upload>', () => {
 
       choose(input, [fileOf('pequeno.pdf'), fileOf('grande.pdf', MB + 1)]);
 
-      expect(input.validationMessage).toBe('O arquivo grande.pdf passa do limite de 1 MB.');
+      expect(input.validationMessage).toBe('O arquivo "grande.pdf" passa do limite de 1 MB.');
       expect(form.checkValidity()).toBe(false);
+    });
+
+    it('puts the name in double quotes, as the server does, so that a name with spaces is one piece of the sentence', () => {
+      const { input } = mount();
+
+      choose(input, [fileOf('razões do recurso.pdf', MB + 1)]);
+
+      expect(input.validationMessage).toBe('O arquivo "razões do recurso.pdf" passa do limite de 1 MB.');
     });
 
     it('formats the limit like the rest of the interface', () => {
@@ -736,7 +744,7 @@ describe('<jus-upload>', () => {
 
       choose(input, [fileOf('grande.pdf', 10 * MB + 1)]);
 
-      expect(input.validationMessage).toBe('O arquivo grande.pdf passa do limite de 10 MB.');
+      expect(input.validationMessage).toBe('O arquivo "grande.pdf" passa do limite de 10 MB.');
     });
 
     it('names the first file over the limit', () => {
@@ -744,7 +752,7 @@ describe('<jus-upload>', () => {
 
       choose(input, [fileOf('a.pdf'), fileOf('b.pdf', MB + 1), fileOf('c.pdf', MB + 2)]);
 
-      expect(input.validationMessage).toBe('O arquivo b.pdf passa do limite de 1 MB.');
+      expect(input.validationMessage).toBe('O arquivo "b.pdf" passa do limite de 1 MB.');
     });
 
     it('refuses a file that is not a PDF, which the dialog does not truly prevent', () => {
@@ -763,7 +771,7 @@ describe('<jus-upload>', () => {
       expect(input.validationMessage).toBe('Envie no máximo 3 arquivos.');
 
       choose(input, [fileOf('a.txt', MB + 1, 'text/plain'), fileOf('b.pdf')]);
-      expect(input.validationMessage).toBe('O arquivo a.txt passa do limite de 1 MB.');
+      expect(input.validationMessage).toBe('O arquivo "a.txt" passa do limite de 1 MB.');
 
       choose(input, [fileOf('a.txt', KB, 'text/plain'), fileOf('b.pdf')]);
       expect(input.validationMessage).toBe('Envie apenas arquivos PDF.');
@@ -832,7 +840,7 @@ describe('<jus-upload>', () => {
       expect(input.validationMessage).toBe('');
 
       element.setAttribute('max-size', '512');
-      expect(input.validationMessage).toBe('O arquivo a.pdf passa do limite de 512 B.');
+      expect(input.validationMessage).toBe('O arquivo "a.pdf" passa do limite de 512 B.');
     });
 
     it('checks the files the input holds when it connects', () => {
@@ -869,7 +877,7 @@ describe('<jus-upload>', () => {
     });
 
     it.each([
-      { name: 'a file over the size', files: [fileOf('grande.pdf', MB + 1)], message: 'O arquivo grande.pdf passa do limite de 1 MB.' },
+      { name: 'a file over the size', files: [fileOf('grande.pdf', MB + 1)], message: 'O arquivo "grande.pdf" passa do limite de 1 MB.' },
       { name: 'a file that is not a PDF', files: [fileOf('notas.txt', KB, 'text/plain')], message: 'Envie apenas arquivos PDF.' },
     ])('shows the message for $name', ({ files, message }) => {
       const { input } = mount();
@@ -1002,13 +1010,13 @@ describe('<jus-upload>', () => {
       const { element, input, form } = mount();
       choose(input, [fileOf('a.pdf')]);
       element.setAttribute('max-size', '512');
-      expect(input.validationMessage).toBe('O arquivo a.pdf passa do limite de 512 B.');
+      expect(input.validationMessage).toBe('O arquivo "a.pdf" passa do limite de 512 B.');
       expectMarked(input, false);
 
       expect(form.checkValidity()).toBe(false);
 
       expectMarked(input, true);
-      expect(errorText()).toBe('O arquivo a.pdf passa do limite de 512 B.');
+      expect(errorText()).toBe('O arquivo "a.pdf" passa do limite de 512 B.');
       expect(errorShown()).toBe(true);
     });
 

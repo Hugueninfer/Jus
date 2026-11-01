@@ -38,14 +38,16 @@ final readonly class FilingService
 
     /**
      * When anything fails, the stored files are removed again and the failure is rethrown. Every failure inside the
-     * transaction (the domain refusing the filing, a deadline that cannot be fulfilled, the database) leaves the entity
-     * manager closed, as Doctrine does when it rolls a transaction back: the caller must not use it afterwards. A file
-     * that cannot be stored fails before the transaction, so the entity manager stays open.
+     * transaction (the domain refusing the filing, the database) leaves the entity manager closed, as Doctrine does when
+     * it rolls a transaction back: the caller must not use it afterwards. A file that cannot be stored fails before the
+     * transaction, so the entity manager stays open.
+     *
+     * Only the open deadlines that have already started are fulfilled: one whose summons is dated after the filing stays
+     * open and never blocks it.
      *
      * @param list<UploadedFile> $files
      *
-     * @throws \InvalidArgumentException when the lawyer represents no party of the case, for a second initial petition,
-     *                                   or when an open deadline starts after the filing (Deadline::fulfil())
+     * @throws \InvalidArgumentException when the lawyer represents no party of the case, or for a second initial petition
      * @throws IOException               when a file cannot be stored
      */
     public function file(LegalCase $case, User $lawyer, FilingType $type, string $description, array $files): CaseEvent
@@ -67,7 +69,7 @@ final readonly class FilingService
                     $event->attach($this->titleOf($name, $type), mb_substr($name, 0, self::NAME_MAX_LENGTH), $document->name, $document->sizeInBytes, $lawyer, $now);
                 }
 
-                foreach ($this->deadlines->findOpenForLawyer($case, $lawyer) as $deadline) {
+                foreach ($this->deadlines->findOpenForLawyer($case, $lawyer, $now) as $deadline) {
                     $deadline->fulfil($now);
                 }
 
