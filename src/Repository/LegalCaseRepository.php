@@ -102,6 +102,26 @@ class LegalCaseRepository extends ServiceEntityRepository
     }
 
     /**
+     * The case with its parties and their lawyers (all the authorization looks at) in one query, without its movements
+     * and documents: for the pages that need the case but do not show its history, like the filing form. Like
+     * findOneForPage(), it applies no visibility rule.
+     */
+    public function findOneWithParties(CnjNumber $number): ?LegalCase
+    {
+        /** @var ?LegalCase $case */
+        $case = $this->createQueryBuilder('c')
+            ->addSelect('p', 'l')
+            ->leftJoin('c.parties', 'p')
+            ->leftJoin('p.lawyers', 'l')
+            ->where('c.number = :number')
+            ->setParameter('number', $number, CnjNumberDoctrineType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $case;
+    }
+
+    /**
      * Same rule as LegalCaseVoter::VIEW, applied in the query; SearchVisibilityParityTest keeps the two equal.
      */
     private function onlyVisibleTo(QueryBuilder $qb, User $viewer): void

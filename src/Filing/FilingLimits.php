@@ -15,6 +15,12 @@ final class FilingLimits
     /** In bytes, per file. */
     public const int MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+    /**
+     * The same limit in megabytes (counted in 1024 * 1024 bytes, as the upload component does), for the texts that name
+     * it. PHP refuses to declare it when the limit is not a whole number of megabytes.
+     */
+    public const int MAX_FILE_SIZE_IN_MEGABYTES = self::MAX_FILE_SIZE / (1024 * 1024);
+
     public const string MIME_TYPE = 'application/pdf';
 
     /** In characters. */

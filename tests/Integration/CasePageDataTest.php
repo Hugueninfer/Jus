@@ -80,6 +80,36 @@ final class CasePageDataTest extends KernelTestCase
         self::assertCount(1, $this->queries->selects());
     }
 
+    public function testLoadsTheCaseWithItsPartiesAndTheirLawyersInOneQuery(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $bruno = $this->data->lawyer('bruno@jus.test', 'Bruno Teixeira');
+        $case = $this->data->legalCase('0000001', $bruno);
+        $case->getParties()[0]->addLawyer($ana);
+        $this->em->flush();
+        $number = $case->getNumber();
+        $this->em->clear();
+
+        $this->queries->reset();
+        $loaded = $this->cases->findOneWithParties($number);
+
+        self::assertInstanceOf(LegalCase::class, $loaded);
+        self::assertSame($number->formatted(), $loaded->getNumber()->formatted());
+        self::assertTrue($loaded->isRepresentedBy($ana));
+        self::assertTrue($loaded->isRepresentedBy($bruno));
+        self::assertSame(['Maria Oliveira', 'Empresa X Ltda.'], array_map(static fn (Party $party): string => $party->getName(), $loaded->getParties()));
+        self::assertSame(['Ana Ribeiro', 'Bruno Teixeira'], array_map(static fn (User $lawyer): string => $lawyer->getName(), $loaded->getParties()[0]->getLawyers()));
+        self::assertCount(1, $this->queries->selects(), 'the parties and their lawyers come with the case, without its movements and documents');
+    }
+
+    public function testAnUnknownNumberHasNoCaseWithParties(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana);
+
+        self::assertNull($this->cases->findOneWithParties(CnjNumber::compose('0009999', '2024', '8', '26', '0100')));
+    }
+
     public function testAnUnknownNumberIsNotFound(): void
     {
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');

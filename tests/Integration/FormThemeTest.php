@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration;
 
 use App\Form\CnjNumberType;
+use App\Form\UploadType;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -67,6 +68,56 @@ final class FormThemeTest extends KernelTestCase
         self::assertSame('Ex.: 0000001-39.2024.8.26.0100', $numero->attr('placeholder'));
         self::assertSame('on', $numero->attr('autocomplete'));
         self::assertSame('numeric', $numero->attr('inputmode'));
+    }
+
+    public function testAnUploadFieldWrapsTheNativeInputInTheUploadElement(): void
+    {
+        self::bootKernel();
+        $form = self::getContainer()->get(FormFactoryInterface::class)
+            ->createNamedBuilder('envio', options: ['csrf_protection' => false])
+            ->add('arquivos', UploadType::class, [
+                'label' => 'Arquivos',
+                'help' => 'Até 3 arquivos.',
+                'multiple' => true,
+                'max_files' => 3,
+                'max_size' => 1_048_576,
+                'attr' => ['accept' => 'application/pdf'],
+            ])
+            ->getForm();
+
+        $crawler = $this->render($form);
+
+        $upload = $crawler->filter('jus-upload');
+        self::assertCount(1, $upload);
+        self::assertSame('3', $upload->attr('max-files'));
+        self::assertSame('1048576', $upload->attr('max-size'));
+        // The native input is the field: it keeps the label, the help and the Bootstrap look.
+        $input = $crawler->filter('jus-upload > input#envio_arquivos');
+        self::assertCount(1, $input);
+        self::assertSame('file', $input->attr('type'));
+        self::assertSame('envio[arquivos][]', $input->attr('name'));
+        self::assertNotNull($input->attr('multiple'));
+        self::assertSame('application/pdf', $input->attr('accept'));
+        self::assertStringContainsString('form-control', (string) $input->attr('class'));
+        self::assertSame('envio_arquivos_help', $input->attr('aria-describedby'));
+        self::assertCount(1, $crawler->filter('label[for="envio_arquivos"]'));
+        self::assertCount(1, $crawler->filter('#envio_arquivos_help'));
+    }
+
+    public function testAnUploadFieldWithoutLimitsLeavesTheAttributesOut(): void
+    {
+        self::bootKernel();
+        $form = self::getContainer()->get(FormFactoryInterface::class)
+            ->createNamedBuilder('envio', options: ['csrf_protection' => false])
+            ->add('arquivo', UploadType::class, ['label' => 'Arquivo'])
+            ->getForm();
+
+        $upload = $this->render($form)->filter('jus-upload');
+
+        self::assertCount(1, $upload);
+        self::assertNull($upload->attr('max-files'));
+        self::assertNull($upload->attr('max-size'));
+        self::assertSame('envio[arquivo]', $upload->filter('input')->attr('name'));
     }
 
     /**

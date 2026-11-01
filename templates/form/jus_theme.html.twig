@@ -2,6 +2,13 @@
 
 {# Accessibility wiring (aria-invalid, aria-describedby to the help text and each error) is native in Symfony 7.4. #}
 
+{# The native file input inside <jus-upload>: without JavaScript it is an ordinary input and the server checks the files; the
+   element adds drag and drop, the list of the chosen files and the check against the limits. The limits are the field's
+   options ("max_files", "max_size"), never numbers typed here; an unset limit leaves its attribute out. #}
+{%- block upload_widget -%}
+    <jus-upload{% if max_files is not null %} max-files="{{ max_files }}"{% endif %}{% if max_size is not null %} max-size="{{ max_size }}"{% endif %}>{{- block('form_widget_simple') -}}</jus-upload>
+{%- endblock upload_widget -%}
+
 {# Native input inside the custom element: works without JavaScript; the Web Component enhances it later. #}
 {%- block cnj_number_widget -%}
     {%- set type = 'text' -%}
