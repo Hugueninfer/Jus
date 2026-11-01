@@ -52,8 +52,18 @@ class Deadline
         $this->startDate = $summons->getOccurredAt()->setTime(0, 0);
     }
 
+    /**
+     * Marks the deadline as fulfilled at the given moment. Fulfilling it again keeps the first date: the later call
+     * changes nothing.
+     *
+     * @throws \InvalidArgumentException when the moment is before the start of the deadline (a repeated call is checked too)
+     */
     public function fulfil(\DateTimeImmutable $at): void
     {
+        if ($at < $this->startDate) {
+            throw new \InvalidArgumentException(\sprintf('A deadline that starts on %s cannot be fulfilled on %s.', $this->startDate->format('Y-m-d'), $at->format('Y-m-d H:i')));
+        }
+
         $this->fulfilledAt ??= $at;
     }
 

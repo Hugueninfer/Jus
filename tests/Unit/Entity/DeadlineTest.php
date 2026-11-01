@@ -44,6 +44,47 @@ final class DeadlineTest extends TestCase
         self::assertSame('2024-03-07 11:00', $deadline->getFulfilledAt()?->format('Y-m-d H:i'));
     }
 
+    public function testCannotBeFulfilledBeforeItStarts(): void
+    {
+        $case = self::legalCase('0000001-39.2024.8.26.0100');
+        $party = $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff);
+        $deadline = new Deadline($party, $case->record(EventType::Summons, 'Intimação.', new \DateTimeImmutable('2024-03-05 14:30')), 5);
+
+        try {
+            $deadline->fulfil(new \DateTimeImmutable('2024-03-04 23:59'));
+            self::fail('Fulfilling a deadline before it starts must be refused.');
+        } catch (\InvalidArgumentException) {
+            self::assertFalse($deadline->isFulfilled());
+            self::assertNull($deadline->getFulfilledAt());
+        }
+    }
+
+    public function testCanBeFulfilledOnTheStartDay(): void
+    {
+        $case = self::legalCase('0000001-39.2024.8.26.0100');
+        $party = $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff);
+        $deadline = new Deadline($party, $case->record(EventType::Summons, 'Intimação.', new \DateTimeImmutable('2024-03-05 14:30')), 5);
+
+        $deadline->fulfil(new \DateTimeImmutable('2024-03-05 08:00'));
+
+        self::assertSame('2024-03-05 08:00', $deadline->getFulfilledAt()?->format('Y-m-d H:i'));
+    }
+
+    public function testFulfilingAgainBeforeItStartsIsStillRefused(): void
+    {
+        $case = self::legalCase('0000001-39.2024.8.26.0100');
+        $party = $case->addParty('Maria Oliveira', '123.456.789-00', PartySide::Plaintiff);
+        $deadline = new Deadline($party, $case->record(EventType::Summons, 'Intimação.', new \DateTimeImmutable('2024-03-05')), 5);
+        $deadline->fulfil(new \DateTimeImmutable('2024-03-07 11:00'));
+
+        try {
+            $deadline->fulfil(new \DateTimeImmutable('2024-03-01 09:00'));
+            self::fail('A fulfilment date before the start must be refused even when already fulfilled.');
+        } catch (\InvalidArgumentException) {
+            self::assertSame('2024-03-07 11:00', $deadline->getFulfilledAt()?->format('Y-m-d H:i'));
+        }
+    }
+
     public function testStartsOnlyFromASummons(): void
     {
         $case = self::legalCase('0000001-39.2024.8.26.0100');

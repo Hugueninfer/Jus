@@ -24,11 +24,6 @@ class LegalCaseRepository extends ServiceEntityRepository
         parent::__construct($registry, LegalCase::class);
     }
 
-    public function findOneByNumber(CnjNumber $number): ?LegalCase
-    {
-        return $this->findOneBy(['number' => $number]);
-    }
-
     public function search(CaseSearchCriteria $criteria, User $viewer, int $page, int $perPage = 10): CaseSearchResult
     {
         $perPage = max(1, $perPage);

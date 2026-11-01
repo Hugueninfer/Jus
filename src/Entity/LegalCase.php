@@ -94,12 +94,20 @@ class LegalCase
     }
 
     /**
-     * Records a filing made by a lawyer on behalf of a party they represent.
+     * Records a filing made by a lawyer on behalf of a party they represent. The initial petition is the one filing
+     * that opens a case: it is only accepted while the case has no movement at all.
+     *
+     * @throws \InvalidArgumentException when the lawyer represents no party of the case, or when an initial petition
+     *                                   is filed after the case already has movements
      */
     public function file(FilingType $filingType, string $description, \DateTimeImmutable $filedAt, User $lawyer): CaseEvent
     {
         if (!$this->isRepresentedBy($lawyer)) {
             throw new \InvalidArgumentException(\sprintf('"%s" does not represent any party in case %s.', $lawyer->getEmail(), $this->number->formatted()));
+        }
+
+        if (FilingType::InitialPetition === $filingType && !$this->events->isEmpty()) {
+            throw new \InvalidArgumentException('The initial petition can only open a case.');
         }
 
         $event = new CaseEvent($this, EventType::Filing, $description, $filedAt, $lawyer, $filingType);
