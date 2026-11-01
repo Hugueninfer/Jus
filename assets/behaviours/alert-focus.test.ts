@@ -2,15 +2,8 @@
 import 'bootstrap/js/dist/alert';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { required } from '../test-support/required';
 import { installAlertFocus } from './alert-focus';
-
-function required<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) {
-    throw new Error('Expected a value, got nothing.');
-  }
-
-  return value;
-}
 
 const ALERT = (message: string): string => `
   <div class="alert alert-success alert-dismissible fade show" role="status">
@@ -64,7 +57,6 @@ async function closeWithKeyboard(alert: HTMLElement): Promise<void> {
   closeButtonOf(alert).focus();
   await userEvent.keyboard('{Enter}');
 }
-
 
 describe('installAlertFocus', () => {
   beforeAll(() => {
@@ -159,7 +151,7 @@ describe('installAlertFocus', () => {
   });
 
   it('does nothing when the closing is cancelled, now or in a later closing', async () => {
-    const { field, alerts } = mount();
+    const { main, alerts } = mount();
     const alert = required(alerts[0]);
     const cancel = (event: Event): void => {
       event.preventDefault();
@@ -171,13 +163,15 @@ describe('installAlertFocus', () => {
     expect(alert.isConnected).toBe(true);
     expect(document.activeElement).toBe(closeButtonOf(alert));
 
-    // Closed later with the focus elsewhere, the earlier attempt must not pull the focus to main.
+    // Closed later with the focus on nothing (so it counts as lost), the earlier attempt must not pull it to main.
     alert.removeEventListener('close.bs.alert', cancel);
-    field.focus();
+    closeButtonOf(alert).blur();
+    expect(document.activeElement).toBe(document.body);
     dismiss(alert);
 
     await expect.poll(() => alert.isConnected).toBe(false);
-    expect(document.activeElement).toBe(field);
+    expect(document.activeElement).toBe(document.body);
+    expect(document.activeElement).not.toBe(main);
   });
 
   it('does nothing without a main content element', async () => {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
+import { required } from '../test-support/required';
 import { installTokens } from '../test-support/tokens';
 import timelineCss from '../styles/components/_timeline.scss?inline';
 import './index';
@@ -22,14 +23,6 @@ const DECISION: EventSample = { type: 'decision', label: 'Decisão', time: '15:0
 const ORDER: EventSample = { type: 'order', label: 'Despacho', time: '11:00' };
 const FILING: EventSample = { type: 'filing', label: 'Juntada de petição', time: '09:30' };
 const HEARING: EventSample = { type: 'hearing', label: 'Audiência', time: '10:00' };
-
-function required<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) {
-    throw new Error('Expected a value, got nothing.');
-  }
-
-  return value;
-}
 
 /** An event the way templates/components/Timeline.html.twig renders it. */
 function eventMarkup({ type, label, time }: EventSample): string {

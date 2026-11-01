@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
+import { required } from '../test-support/required';
 import { installTokens } from '../test-support/tokens';
 import './index';
 import { JusNumeroProcesso } from './jus-numero-processo';
@@ -16,14 +17,6 @@ interface Mounted {
   form: HTMLFormElement;
   element: JusNumeroProcesso;
   input: HTMLInputElement;
-}
-
-function required<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) {
-    throw new Error('Expected a value, got nothing.');
-  }
-
-  return value;
 }
 
 /** Mounts the markup the form theme renders (label, the element around the native input, a button). */

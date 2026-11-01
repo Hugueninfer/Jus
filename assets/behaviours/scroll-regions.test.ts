@@ -1,14 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../test-support/axe';
+import { required } from '../test-support/required';
 import { installScrollRegions } from './scroll-regions';
-
-function required<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) {
-    throw new Error('Expected a value, got nothing.');
-  }
-
-  return value;
-}
 
 const NARROW = '200px';
 const WIDE = '800px';
@@ -41,6 +34,18 @@ function mount({ width = NARROW, attributes = 'data-jus-scroll-region' }: MountO
   pages.push(page);
 
   return required(page.querySelector<HTMLElement>('[role="region"]'));
+}
+
+/** Waits until the observers have been told the sizes the region has now, and the tasks they queued have run. */
+async function settled(region: HTMLElement): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const observer = new ResizeObserver(() => {
+      observer.disconnect();
+      resolve();
+    });
+    observer.observe(region);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('installScrollRegions', () => {
@@ -92,6 +97,34 @@ describe('installScrollRegions', () => {
 
     required(region.querySelector('table')).style.width = TABLE_WIDTH;
     await expect.poll(() => region.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('keeps a focused region focusable while it fits, and drops the tab stop once it loses the focus', async () => {
+    const region = mount({ width: NARROW });
+    installScrollRegions(document);
+    region.focus();
+
+    region.style.width = WIDE;
+    await settled(region);
+
+    // Taking the tabindex off the focused region would throw the focus away.
+    expect(region.scrollWidth).toBeLessThanOrEqual(region.clientWidth);
+    expect(region.getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(region);
+
+    region.blur();
+    await expect.poll(() => region.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('keeps the tab stop of a region that still overflows when it loses the focus', async () => {
+    const region = mount({ width: NARROW });
+    installScrollRegions(document);
+    region.focus();
+
+    region.blur();
+    await settled(region);
+
+    expect(region.getAttribute('tabindex')).toBe('0');
   });
 
   it('handles every marked region on the page, each on its own', () => {
