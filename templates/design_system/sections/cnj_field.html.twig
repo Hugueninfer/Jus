@@ -13,14 +13,15 @@
     ],
     monospace: [1, 2],
 }) }}
-<p class="small text-body-secondary">O input nativo fica dentro do elemento personalizado <code>jus-numero-processo</code>, que o aprimora no próprio lugar, sem Shadow DOM: aplica a máscara enquanto a pessoa digita ou cola (o cursor continua onde estava), confere o dígito verificador antes do envio e marca o campo (borda, ícone e <code>aria-invalid</code>) quando ele perde o foco com um número inválido. Sem JavaScript, o campo e a validação do servidor continuam iguais.</p>
+<p class="small text-body-secondary">O input nativo fica dentro do elemento personalizado <code>jus-numero-processo</code>, que o aprimora no próprio lugar, sem Shadow DOM: aplica a máscara enquanto a pessoa digita ou cola (o cursor continua onde estava), confere o dígito verificador antes do envio e, quando o campo perde o foco com um número inválido, marca-o (borda, ícone e <code>aria-invalid</code>) e escreve o motivo como texto logo depois dele, ligado ao input por <code>aria-describedby</code>. Sem JavaScript, o campo e a validação do servidor continuam iguais.</p>
 
 <h3 class="h6">Acessibilidade</h3>
 <ul>
     <li>O rótulo é um <code>label</code> ligado ao input; a ajuda e os erros do servidor são ligados por <code>aria-describedby</code>, e o input recebe <code>aria-invalid</code> quando o servidor recusa o número (comportamento nativo do Symfony, sem código extra).</li>
     <li>Os erros do servidor aparecem como texto junto ao campo, e não apenas pela cor da borda.</li>
     <li>O formato esperado está no placeholder e na ajuda, e a máscara é opcional: quem digita só os números não é prejudicado.</li>
-    <li>No navegador, o componente marca o campo ao sair dele com um número inválido (borda, ícone e <code>aria-invalid</code>), e a validação nativa do navegador mostra a mensagem (número incompleto ou dígito verificador inválido, definida com <code>setCustomValidity</code>) ao enviar o formulário. O servidor continua validando o número.</li>
+    <li>No navegador, o componente marca o campo ao sair dele com um número inválido (borda, ícone e <code>aria-invalid</code>) e escreve o motivo (número incompleto ou dígito verificador inválido, definido com <code>setCustomValidity</code>) como texto num bloco <code>invalid-feedback</code> logo depois do campo, ligado a ele por <code>aria-describedby</code>: o motivo não depende da cor da borda nem do balão do navegador, que mostra a mesma mensagem ao enviar o formulário. Um campo obrigatório vazio fica com o navegador: é marcado ao enviar, sem texto do componente.</li>
+    <li>Os erros do servidor descrevem o número enviado, não o que a pessoa está digitando: na primeira alteração depois do carregamento eles são escondidos e saem do <code>aria-describedby</code> (a ajuda fica). O servidor continua validando o número.</li>
 </ul>
 
 {{ include('design_system/_example.html.twig', {example: 'design_system/examples/cnj_field/default.html.twig', label: 'campo de formulário'}) }}

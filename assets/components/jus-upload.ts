@@ -1,5 +1,5 @@
 import { formatBytes } from '../shared/bytes';
-import { setInvalid } from '../shared/validity';
+import { retireServerErrors, setFieldError, setInvalid, shownFieldError } from '../shared/validity';
 import { JusElement, sheet } from './jus-element';
 
 const PDF = 'application/pdf';
@@ -25,12 +25,6 @@ const styles = sheet(`
     border-style: solid;
     border-color: var(--jus-color-primary);
     background: var(--jus-color-light);
-  }
-
-  /* The message is text, so it does not depend on its colour; the input carries the invalid border and icon besides. */
-  .jus-upload-error {
-    margin: var(--jus-space-2) 0 0;
-    color: var(--jus-color-danger);
   }
 
   ::slotted(input) {
@@ -137,8 +131,10 @@ function carriesFiles(event: DragEvent): boolean {
  * dialog replaces the selection, as it does natively; a drop adds to it.
  *
  * When a change leaves the choice invalid the problem is shown (the input gets aria-invalid and Bootstrap's
- * is-invalid, and the message is written as text under the zone) and announced after the count; when it leaves it
- * valid both marks go. Connecting only checks the choice and leaves alone the marks the server may have rendered.
+ * is-invalid, and the message is written as text after the element, outside the shadow root so that the input can be
+ * described by it) and announced after the count; when it leaves it valid both marks and the text go. The first change
+ * also hides the errors the server rendered, which describe what was submitted. Connecting only checks the choice and
+ * leaves alone the marks and the errors the server may have rendered.
  * Changing a limit attribute checks it again and, only while the component is showing an error, updates or clears
  * that error to follow the new limit; with none shown the marks stay as they are until the next change or submit.
  * A disabled input (or one in a disabled fieldset) takes no drops and its remove buttons are disabled.
@@ -149,7 +145,6 @@ export class JusUpload extends JusElement {
   static readonly observedAttributes = ['max-size', 'max-files'];
 
   readonly #zone = document.createElement('div');
-  readonly #error = document.createElement('p');
   readonly #list = document.createElement('ul');
   readonly #status = document.createElement('p');
   #input: HTMLInputElement | undefined;
@@ -165,10 +160,6 @@ export class JusUpload extends JusElement {
     hint.textContent = HINT;
     this.#zone.append(document.createElement('slot'), hint);
 
-    // Not a live region: the announcement is the status below, which carries the message after the count.
-    this.#error.className = 'jus-upload-error';
-    this.#error.hidden = true;
-
     // The role keeps the list a list for screen readers that drop it with list-style: none.
     this.#list.setAttribute('role', 'list');
     this.#list.setAttribute('aria-label', LIST_LABEL);
@@ -177,7 +168,7 @@ export class JusUpload extends JusElement {
     this.#status.setAttribute('aria-live', 'polite');
     this.#status.className = 'visually-hidden';
 
-    this.root.append(this.#zone, this.#error, this.#list, this.#status);
+    this.root.append(this.#zone, this.#list, this.#status);
   }
 
   protected override styles(): CSSStyleSheet[] {
@@ -196,6 +187,7 @@ export class JusUpload extends JusElement {
     const { signal } = controller;
 
     input.addEventListener('change', () => {
+      retireServerErrors(input);
       this.#settle(true);
     }, { signal });
     // The browser reports the field as invalid when the form is submitted (or checked). That is when a choice that
@@ -261,7 +253,7 @@ export class JusUpload extends JusElement {
     this.#validate();
     // An error on show follows the new limits: it goes away, or names the rule that fails now. When none is shown the
     // marks stay as they are (the server's included) until the next change or the submit.
-    if (!this.#error.hidden) {
+    if (this.#input !== undefined && shownFieldError(this.#input) !== '') {
       this.#report();
     }
   }
@@ -332,10 +324,11 @@ export class JusUpload extends JusElement {
   }
 
   /**
-   * Marks the input invalid and writes the message under the zone, or takes both off; returns the message. Only the
-   * component's own messages (the custom error) are marked and written after a change: what the browser says by
-   * itself, such as a required field left empty, is in its language and stays with its bubble on submit. When the
-   * browser itself reports the field as invalid (`submitted`), any invalid state marks it, still with no text of its own.
+   * Marks the input invalid and writes the message after the element (see `setFieldError`), or takes both off; returns
+   * the message. Only the component's own messages (the custom error) are marked and written after a change: what the
+   * browser says by itself, such as a required field left empty, is in its language and stays with its bubble on submit.
+   * When the browser itself reports the field as invalid (`submitted`), any invalid state marks it, still with no text
+   * of its own.
    */
   #report(submitted = false): string {
     const input = this.#input;
@@ -346,8 +339,7 @@ export class JusUpload extends JusElement {
     const { validity } = input;
     const message = validity.customError ? input.validationMessage : '';
     setInvalid(input, submitted ? !validity.valid : validity.customError);
-    this.#error.textContent = message;
-    this.#error.hidden = message === '';
+    setFieldError(input, this, message);
 
     return message;
   }

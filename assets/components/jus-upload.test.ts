@@ -40,6 +40,8 @@ interface MountOptions {
   input?: string;
   /** Wraps the label and the element in a fieldset with these attributes. */
   fieldset?: string;
+  /** Markup right after the element, where the form theme renders the help text and the server's errors. */
+  following?: string;
 }
 
 /**
@@ -50,7 +52,7 @@ function mount(attributes = LIMITS, selected: File[] = [], options: MountOptions
   const main = document.createElement('main');
   const content = `
       <label for="docs">Documentos em PDF</label>
-      <jus-upload ${attributes}><input type="file" id="docs" name="arquivos[]" multiple accept="application/pdf" ${options.input ?? ''}></jus-upload>`;
+      <jus-upload ${attributes}><input type="file" id="docs" name="arquivos[]" multiple accept="application/pdf" ${options.input ?? ''}></jus-upload>${options.following ?? ''}`;
   main.setHTMLUnsafe(`<form>${options.fieldset === undefined ? content : `<fieldset ${options.fieldset}>${content}</fieldset>`}</form>`);
   const input = required(main.querySelector('input'));
   if (selected.length > 0) {
@@ -82,9 +84,24 @@ function statusOf(element: JusUpload): HTMLElement {
   return required(shadowOf(element).querySelector<HTMLElement>('[aria-live]'));
 }
 
-/** The visible text of the validation error, drawn in the shadow root. */
-function errorOf(element: JusUpload): HTMLElement {
-  return required(shadowOf(element).querySelector<HTMLElement>('.jus-upload-error'));
+/** The element with the validation error, in the light DOM after <jus-upload> (null until a message was first shown). */
+function errorOf(): HTMLElement | null {
+  return document.getElementById('docs-client-error');
+}
+
+/** Whether the person can see the validation error. */
+function errorShown(): boolean {
+  return errorOf()?.checkVisibility() === true;
+}
+
+/** The text of the validation error the person can read, or an empty string. */
+function errorText(): string {
+  return errorShown() ? required(errorOf()).textContent : '';
+}
+
+/** The ids the input is described by. */
+function describedBy(input: HTMLInputElement): string[] {
+  return (input.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((id) => id !== '');
 }
 
 /** The field is marked invalid for assistive technology (aria-invalid) and for the eye (Bootstrap's is-invalid), together. */
@@ -229,19 +246,18 @@ describe('<jus-upload>', () => {
       expect(zone.textContent.trim()).toBe(HINT);
     });
 
-    it('has the zone, the error, the list of files and the announcement in the shadow root, in this order', () => {
+    it('has the zone, the list of files and the announcement in the shadow root, in this order, and no error text: that is in the light DOM', () => {
       const { element } = mount();
 
-      expect(Array.from(shadowOf(element).children, (child) => child.localName)).toEqual(['div', 'p', 'ul', 'p']);
-      expect(shadowOf(element).children[1]).toBe(errorOf(element));
+      expect(Array.from(shadowOf(element).children, (child) => child.localName)).toEqual(['div', 'ul', 'p']);
+      expect(shadowOf(element).querySelector('.jus-upload-error')).toBeNull();
     });
 
     it('starts without files: no error, the list is hidden and the live region is polite, visually hidden and empty', () => {
       const { element } = mount();
 
-      expect(errorOf(element).hidden).toBe(true);
-      expect(errorOf(element).textContent).toBe('');
-      expect(errorOf(element).hasAttribute('aria-live')).toBe(false);
+      expect(errorOf()).toBeNull();
+      expect(errorText()).toBe('');
       expect(listOf(element).hidden).toBe(true);
       expect(listOf(element).checkVisibility()).toBe(false);
       const status = statusOf(element);
@@ -827,16 +843,16 @@ describe('<jus-upload>', () => {
     const OVER_LIMIT = 'Envie no máximo 3 arquivos.';
 
     it('marks the input invalid and writes the message as text when a choice breaks a rule', () => {
-      const { element, input } = mount(LIMITS, [], { input: 'class="form-control"' });
+      const { input } = mount(LIMITS, [], { input: 'class="form-control"' });
       expectMarked(input, false);
 
       choose(input, FOUR);
 
       expectMarked(input, true);
       expect(input.classList.contains('form-control')).toBe(true);
-      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
-      expect(errorOf(element).hidden).toBe(false);
-      expect(errorOf(element).checkVisibility()).toBe(true);
+      expect(errorText()).toBe(OVER_LIMIT);
+      expect(errorShown()).toBe(true);
+      expect(errorShown()).toBe(true);
     });
 
     it('does the same for what was dropped', () => {
@@ -845,30 +861,30 @@ describe('<jus-upload>', () => {
       drop(element, FOUR);
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+      expect(errorText()).toBe(OVER_LIMIT);
     });
 
     it.each([
       { name: 'a file over the size', files: [fileOf('grande.pdf', MB + 1)], message: 'O arquivo grande.pdf passa do limite de 1 MB.' },
       { name: 'a file that is not a PDF', files: [fileOf('notas.txt', KB, 'text/plain')], message: 'Envie apenas arquivos PDF.' },
     ])('shows the message for $name', ({ files, message }) => {
-      const { element, input } = mount();
+      const { input } = mount();
 
       choose(input, files);
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe(message);
+      expect(errorText()).toBe(message);
     });
 
     it('takes the marks and the text off once a new choice fixes it', () => {
-      const { element, input } = mount();
+      const { input } = mount();
       choose(input, FOUR);
 
       choose(input, [fileOf('a.pdf')]);
 
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
-      expect(errorOf(element).hidden).toBe(true);
+      expect(errorText()).toBe('');
+      expect(errorShown()).toBe(false);
     });
 
     it('takes the marks and the text off once a removal fixes it', async () => {
@@ -878,8 +894,8 @@ describe('<jus-upload>', () => {
       await userEvent.click(removeButtonOf(element, 'd.pdf'));
 
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
-      expect(errorOf(element).hidden).toBe(true);
+      expect(errorText()).toBe('');
+      expect(errorShown()).toBe(false);
     });
 
     it('keeps the error after a drop, which only adds files', () => {
@@ -889,7 +905,7 @@ describe('<jus-upload>', () => {
       drop(element, [fileOf('e.pdf')]);
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+      expect(errorText()).toBe(OVER_LIMIT);
     });
 
     it('keeps the error while a removal leaves the choice invalid', async () => {
@@ -899,7 +915,7 @@ describe('<jus-upload>', () => {
       await userEvent.click(removeButtonOf(element, 'e.pdf'));
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+      expect(errorText()).toBe(OVER_LIMIT);
     });
 
     it('announces the message after the count when it arises', () => {
@@ -931,13 +947,51 @@ describe('<jus-upload>', () => {
       expect(statusOf(element).textContent).toBe(`Somente arquivos PDF: notas.txt foi ignorado. 4 arquivos selecionados. ${OVER_LIMIT}`);
     });
 
-    it('draws the message in the danger colour and as text, so it does not depend on the colour', () => {
-      const { element, input } = mount();
+    it('writes the message as text in the light DOM, after the element, as Bootstrap\'s invalid-feedback, which Symfony also uses for its errors', () => {
+      const { element, input } = mount(LIMITS, [], { input: 'aria-describedby="docs_help"', following: '<div class="form-text" id="docs_help">Até 3 PDFs.</div>' });
 
       choose(input, FOUR);
 
-      expect(getComputedStyle(errorOf(element)).color).toBe(colorOf('--jus-color-danger'));
-      expect(errorOf(element).textContent.trim()).not.toBe('');
+      const error = required(errorOf());
+      expect(error.localName).toBe('div');
+      expect(error.classList.contains('invalid-feedback')).toBe(true);
+      expect(error.classList.contains('d-block')).toBe(true);
+      expect(error.textContent).toBe(OVER_LIMIT);
+      expect(element.nextElementSibling).toBe(error);
+      expect(element.shadowRoot?.contains(error)).toBe(false);
+    });
+
+    it('links the message to the input with aria-describedby, after the help text, and unlinks it when it goes', () => {
+      const { input } = mount(LIMITS, [], { input: 'aria-describedby="docs_help"', following: '<div class="form-text" id="docs_help">Até 3 PDFs.</div>' });
+      expect(describedBy(input)).toEqual(['docs_help']);
+
+      choose(input, FOUR);
+      expect(describedBy(input)).toEqual(['docs_help', 'docs-client-error']);
+
+      choose(input, [fileOf('a.pdf')]);
+      expect(describedBy(input)).toEqual(['docs_help']);
+      expect(errorShown()).toBe(false);
+    });
+
+    it('drops aria-describedby when the message was all the input was described by', () => {
+      const { input } = mount();
+
+      choose(input, FOUR);
+      expect(describedBy(input)).toEqual(['docs-client-error']);
+
+      choose(input, []);
+      expect(input.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('shows the new message in the same element when another rule fails', () => {
+      const { input } = mount();
+      choose(input, FOUR);
+
+      choose(input, [fileOf('notas.txt', KB, 'text/plain')]);
+
+      expect(errorText()).toBe('Envie apenas arquivos PDF.');
+      expect(document.querySelectorAll('#docs-client-error')).toHaveLength(1);
+      expect(describedBy(input)).toEqual(['docs-client-error']);
     });
 
     it('marks it when the browser reports the field as invalid, as it does when the form is submitted', () => {
@@ -950,23 +1004,23 @@ describe('<jus-upload>', () => {
       expect(form.checkValidity()).toBe(false);
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe('O arquivo a.pdf passa do limite de 512 B.');
-      expect(errorOf(element).hidden).toBe(false);
+      expect(errorText()).toBe('O arquivo a.pdf passa do limite de 512 B.');
+      expect(errorShown()).toBe(true);
     });
 
     it('leaves the state the server rendered alone when it connects', () => {
-      const { element, input } = mount(LIMITS, [], { input: 'class="form-control is-invalid" aria-invalid="true"' });
+      const { input } = mount(LIMITS, [], { input: 'class="form-control is-invalid" aria-invalid="true"' });
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe('');
+      expect(errorText()).toBe('');
     });
 
     it('does not mark the input when it connects over files that are not valid, either: the next change or the submit does', () => {
-      const { element, input } = mount(LIMITS, [fileOf('notas.txt', KB, 'text/plain')], { input: 'class="form-control"' });
+      const { input } = mount(LIMITS, [fileOf('notas.txt', KB, 'text/plain')], { input: 'class="form-control"' });
 
       expect(input.validationMessage).toBe('Envie apenas arquivos PDF.');
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
+      expect(errorText()).toBe('');
     });
 
     it('leaves the state alone when an attribute changes, too', () => {
@@ -977,7 +1031,7 @@ describe('<jus-upload>', () => {
 
       expect(input.validationMessage).toBe('Envie no máximo 1 arquivo.');
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
+      expect(errorText()).toBe('');
 
       input.classList.add('is-invalid');
       input.setAttribute('aria-invalid', 'true');
@@ -990,17 +1044,17 @@ describe('<jus-upload>', () => {
     it('takes an error that is shown off when an attribute change makes the choice valid, and updates it when it makes another rule fail, without announcing', () => {
       const { element, input } = mount();
       choose(input, FOUR);
-      expect(errorOf(element).textContent).toBe(OVER_LIMIT);
+      expect(errorText()).toBe(OVER_LIMIT);
       const announced = statusOf(element).textContent;
 
       element.setAttribute('max-files', '2');
-      expect(errorOf(element).textContent).toBe('Envie no máximo 2 arquivos.');
+      expect(errorText()).toBe('Envie no máximo 2 arquivos.');
       expectMarked(input, true);
 
       element.setAttribute('max-files', '9');
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
-      expect(errorOf(element).hidden).toBe(true);
+      expect(errorText()).toBe('');
+      expect(errorShown()).toBe(false);
       expect(statusOf(element).textContent).toBe(announced);
     });
 
@@ -1013,7 +1067,7 @@ describe('<jus-upload>', () => {
     });
 
     it('takes the marks and the text off after a reset', async () => {
-      const { element, input, form } = mount();
+      const { input, form } = mount();
       choose(input, FOUR);
       expectMarked(input, true);
 
@@ -1021,8 +1075,80 @@ describe('<jus-upload>', () => {
       await nextTask();
 
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
-      expect(errorOf(element).hidden).toBe(true);
+      expect(errorText()).toBe('');
+      expect(errorShown()).toBe(false);
+    });
+  });
+
+  describe('feedback rendered by the server', () => {
+    const SERVER = {
+      input: 'class="form-control is-invalid" aria-invalid="true" aria-describedby="docs_help docs_error1"',
+      following: '<div class="form-text" id="docs_help">Até 3 PDFs.</div><div class="invalid-feedback d-block" id="docs_error1">Envie ao menos um arquivo.</div>',
+    };
+
+    function feedback(): HTMLElement {
+      return required(document.getElementById('docs_error1'));
+    }
+
+    it('stays as it is when the element connects', () => {
+      const { input } = mount(LIMITS, [], SERVER);
+
+      expect(feedback().hidden).toBe(false);
+      expect(feedback().checkVisibility()).toBe(true);
+      expect(describedBy(input)).toEqual(['docs_help', 'docs_error1']);
+      expectMarked(input, true);
+    });
+
+    it('stays while the choice is not changed: a drop that adds nothing, a limit attribute, the form being checked', () => {
+      const { element, input, form } = mount(LIMITS, [], SERVER);
+
+      drop(element, [fileOf('notas.txt', KB, 'text/plain')]);
+      element.setAttribute('max-files', '2');
+      form.checkValidity();
+
+      expect(feedback().hidden).toBe(false);
+      expect(describedBy(input)).toContain('docs_error1');
+    });
+
+    it.each<{ name: string; change: (mounted: Mounted) => void; selected?: File[] }>([
+      { name: 'choosing files', change: ({ input }) => { choose(input, [fileOf('a.pdf')]); } },
+      { name: 'dropping files', change: ({ element }) => { drop(element, [fileOf('a.pdf')]); } },
+      { name: 'removing a file', change: ({ element }) => { removeButtonOf(element, 'a.pdf').click(); }, selected: [fileOf('a.pdf')] },
+    ])('is hidden and unlinked at the first change, $name, because it describes what was submitted; the help stays', ({ change, selected }) => {
+      const mounted = mount(LIMITS, selected ?? [], SERVER);
+
+      change(mounted);
+
+      expect(feedback().hidden).toBe(true);
+      expect(feedback().checkVisibility()).toBe(false);
+      expect(describedBy(mounted.input)).toEqual(['docs_help']);
+      expect(required(document.getElementById('docs_help')).hidden).toBe(false);
+    });
+
+    it('is not brought back by the next change, and the message of the component takes its place while the choice is invalid', () => {
+      const { input } = mount(LIMITS, [], SERVER);
+
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf')]);
+      expect(feedback().hidden).toBe(true);
+      expect(errorText()).toBe('Envie no máximo 3 arquivos.');
+      expect(describedBy(input)).toEqual(['docs_help', 'docs-client-error']);
+
+      choose(input, [fileOf('a.pdf')]);
+      expect(feedback().hidden).toBe(true);
+      expect(describedBy(input)).toEqual(['docs_help']);
+      expectMarked(input, false);
+    });
+
+    it('has no accessibility violations with the feedback, once it is retired, and with the message of the component', async () => {
+      const { main, input } = mount(LIMITS, [], SERVER);
+      await expectNoAxeViolations(main);
+
+      choose(input, [fileOf('a.pdf')]);
+      await expectNoAxeViolations(main);
+
+      choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf')]);
+      expect(errorShown()).toBe(true);
+      await expectNoAxeViolations(main);
     });
   });
 
@@ -1039,8 +1165,8 @@ describe('<jus-upload>', () => {
       expect(input.validity.valueMissing).toBe(true);
       expect(input.validity.customError).toBe(false);
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
-      expect(errorOf(element).hidden).toBe(true);
+      expect(errorText()).toBe('');
+      expect(errorShown()).toBe(false);
       expect(statusOf(element).textContent).toBe('Nenhum arquivo selecionado.');
     });
 
@@ -1052,7 +1178,7 @@ describe('<jus-upload>', () => {
 
       expect(input.validity.valueMissing).toBe(true);
       expectMarked(input, false);
-      expect(errorOf(element).textContent).toBe('');
+      expect(errorText()).toBe('');
       expect(statusOf(element).textContent).toBe('Nenhum arquivo selecionado.');
     });
 
@@ -1062,8 +1188,8 @@ describe('<jus-upload>', () => {
       expect(form.checkValidity()).toBe(false);
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe('');
-      expect(errorOf(element).hidden).toBe(true);
+      expect(errorText()).toBe('');
+      expect(errorShown()).toBe(false);
       expect(statusOf(element).textContent).toBe('');
     });
 
@@ -1083,7 +1209,7 @@ describe('<jus-upload>', () => {
       choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf')]);
 
       expectMarked(input, true);
-      expect(errorOf(element).textContent).toBe('Envie no máximo 3 arquivos.');
+      expect(errorText()).toBe('Envie no máximo 3 arquivos.');
       expect(statusOf(element).textContent).toBe('4 arquivos selecionados. Envie no máximo 3 arquivos.');
     });
   });
@@ -1432,7 +1558,7 @@ describe('<jus-upload>', () => {
 
       choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf'), fileOf('notas.txt', KB, 'text/plain')]);
       expectMarked(input, true);
-      expect(errorOf(element).checkVisibility()).toBe(true);
+      expect(errorShown()).toBe(true);
       await expectNoAxeViolations(main);
 
       element.dispatchEvent(dragEvent('dragenter', [fileOf('a.pdf')]));
