@@ -22,7 +22,7 @@ final class DesignSystemTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Design System');
-        foreach (['tokens', 'alert', 'status-badge', 'case-card', 'timeline', 'deadline-indicator', 'data-table', 'pagination', 'cnj-field'] as $section) {
+        foreach (['tokens', 'alert', 'status-badge', 'case-card', 'timeline', 'deadline-indicator', 'data-table', 'pagination', 'cnj-field', 'upload'] as $section) {
             self::assertCount(1, $crawler->filter('section#'.$section), $section);
             self::assertCount(1, $crawler->filter('nav a[href="#'.$section.'"]'), $section);
         }
@@ -52,6 +52,28 @@ final class DesignSystemTest extends WebTestCase
         self::assertSame('#data-table', $firstDocument->filter('td')->eq(0)->filter('a')->attr('href'));
         self::assertSame('Petição inicial', trim($firstDocument->filter('td')->eq(1)->text()));
         self::assertCount(1, $crawler->filter('section#pagination figure nav[aria-label="Paginação de exemplo"]'));
+        // The upload example is the plain file input inside the element, with its label and without a form to submit it.
+        $upload = $crawler->filter('section#upload figure jus-upload');
+        self::assertCount(1, $upload);
+        self::assertSame('10485760', $upload->attr('max-size'));
+        self::assertSame('5', $upload->attr('max-files'));
+        $input = $crawler->filter('section#upload figure jus-upload > input[type="file"]');
+        self::assertCount(1, $input);
+        self::assertSame('exemplo-upload', $input->attr('id'));
+        self::assertSame('arquivos[]', $input->attr('name'));
+        self::assertSame('application/pdf', $input->attr('accept'));
+        self::assertNotNull($input->attr('multiple'));
+        self::assertStringContainsString('form-control', (string) $input->attr('class'));
+        // The limits are stated for everyone, and tied to the input.
+        self::assertSame('exemplo-upload-ajuda', $input->attr('aria-describedby'));
+        $help = $crawler->filter('section#upload figure #exemplo-upload-ajuda');
+        self::assertCount(1, $help);
+        self::assertStringContainsString('5 arquivos', $help->text());
+        self::assertStringContainsString('10 MB', $help->text());
+        self::assertCount(1, $crawler->filter('section#upload figure label[for="exemplo-upload"]'));
+        self::assertCount(0, $crawler->filter('section#upload figure form'));
+        self::assertStringContainsString('<jus-upload max-size="10485760" max-files="5">', $crawler->filter('section#upload pre code')->text());
+        self::assertSame(['max-size', 'max-files'], $crawler->filter('section#upload table tbody tr')->each(static fn (Crawler $row): string => trim($row->filter('th')->text())));
     }
 
     public function testEveryExampleIsNamedAndShowsItsCode(): void
