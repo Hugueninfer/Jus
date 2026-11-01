@@ -15,6 +15,7 @@ use App\Entity\Party;
 use App\Entity\User;
 use App\Presentation\CaseDeadlines;
 use App\Presentation\CaseDocumentsTable;
+use App\Repository\DocumentRepository;
 use App\Repository\LegalCaseRepository;
 use App\Tests\Support\QueryRecorder;
 use App\Tests\Support\TestCases;
@@ -172,11 +173,13 @@ final class CasePageDataTest extends KernelTestCase
         $this->queries->reset();
         $loaded = $this->cases->findOneForPage($number);
         self::assertNotNull($loaded);
-        $rows = (new CaseDocumentsTable())->rows($loaded);
+        $rows = $this->documentsTable()->rows($loaded);
 
-        self::assertCount(1, $this->queries->selects(), 'the rows come from what the case already loaded, not from lazy loads');
+        self::assertCount(1, $this->queries->selects(), 'the rows come from what the case already loaded, not from lazy loads, the download links included');
         self::assertCount(2, $rows);
-        self::assertSame(['title', 'type', 'uploadedAt', 'size'], array_keys($rows[0]));
+        self::assertSame(['title', 'type', 'uploadedAt', 'size', 'url'], array_keys($rows[0]));
+        $ids = array_map(static fn (Document $document): ?int => $document->getId(), $loaded->getDocuments());
+        self::assertSame(['/documentos/'.$ids[0], '/documentos/'.$ids[1]], [$rows[0]['url'], $rows[1]['url']]);
         self::assertSame(['Despacho', EventType::Order, 2048], [$rows[0]['title'], $rows[0]['type'], $rows[0]['size']], 'newest event first; a document of any other event shows the event type');
         self::assertEquals(new \DateTimeImmutable('2024-03-30 09:01'), $rows[0]['uploadedAt']);
         self::assertSame(['Petição inicial', FilingType::InitialPetition, 184_320], [$rows[1]['title'], $rows[1]['type'], $rows[1]['size']], 'a filing shows its filing type');
@@ -188,23 +191,79 @@ final class CasePageDataTest extends KernelTestCase
         $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
         $case = $this->data->legalCase('0000001', $ana);
 
-        $rows = (new CaseDocumentsTable())->rows($case);
+        $rows = $this->documentsTable()->rows($case);
 
         self::assertCount(1, $rows);
         self::assertSame('Petição inicial', $rows[0]['title']);
+        self::assertSame('/documentos/'.$case->getDocuments()[0]->getId(), $rows[0]['url']);
         self::assertSame(FilingType::InitialPetition, $rows[0]['type']);
         self::assertEquals(new \DateTimeImmutable('2024-03-04 10:00'), $rows[0]['uploadedAt']);
         self::assertSame(184_320, $rows[0]['size']);
     }
 
-    public function testDocumentColumnsAreSortableWithTheirFormats(): void
+    public function testLoadsADocumentWithItsCaseAndWhatTheAuthorizationLooksAtInOneQuery(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $bruno = $this->data->lawyer('bruno@jus.test', 'Bruno Teixeira');
+        $case = $this->data->legalCase('0000001', $bruno, confidential: true);
+        $case->getParties()[0]->addLawyer($ana);
+        $this->em->flush();
+        $id = $case->getDocuments()[0]->getId();
+        self::assertNotNull($id);
+        $this->em->clear();
+
+        $this->queries->reset();
+        $document = self::getContainer()->get(DocumentRepository::class)->findOneWithCase($id);
+        self::assertNotNull($document);
+        $loaded = $document->getEvent()->getLegalCase();
+
+        self::assertSame('Petição inicial', $document->getTitle());
+        self::assertSame(EventType::Filing, $document->getEvent()->getType());
+        self::assertSame('0000001-39.2024.8.26.0100', $loaded->getNumber()->formatted());
+        self::assertTrue($loaded->isRepresentedBy($ana));
+        self::assertTrue($loaded->isRepresentedBy($bruno));
+        self::assertCount(1, $this->queries->selects(), 'the event, the case, its parties and their lawyers come with the document, not from lazy loads');
+    }
+
+    public function testAnUnknownDocumentIsNotFound(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $id = $this->data->legalCase('0000001', $ana)->getDocuments()[0]->getId();
+        self::assertNotNull($id);
+
+        self::assertNull(self::getContainer()->get(DocumentRepository::class)->findOneWithCase($id + 1000));
+    }
+
+    public function testADocumentThatWasNotSavedYetHasNoLink(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $case = $this->data->legalCase('0000001', $ana, withEvents: false);
+        $case->record(EventType::Order, 'Despacho com anexo.', new \DateTimeImmutable('2024-03-30 09:00'))
+            ->attach('Despacho', 'despacho.pdf', 'stored-despacho.pdf', 2048, $ana, new \DateTimeImmutable('2024-03-30 09:01'));
+
+        $rows = $this->documentsTable()->rows($case);
+
+        // No id yet, so no address to build: the title shows as text (the table links only rows that have a url).
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]['url']);
+    }
+
+    public function testDocumentColumnsAreSortableWithTheirFormatsAndTheTitleLinksToTheDownload(): void
     {
         self::assertSame([
-            ['key' => 'title', 'label' => 'Título', 'sortable' => true],
+            ['key' => 'title', 'label' => 'Título', 'sortable' => true, 'href' => 'url'],
             ['key' => 'type', 'label' => 'Tipo', 'sortable' => true, 'format' => 'label'],
             ['key' => 'uploadedAt', 'label' => 'Data', 'sortable' => true, 'format' => 'date'],
             ['key' => 'size', 'label' => 'Tamanho', 'sortable' => true, 'format' => 'bytes'],
-        ], (new CaseDocumentsTable())->columns());
+        ], $this->documentsTable()->columns());
+    }
+
+    /**
+     * The service as the case page gets it (with the URL generator).
+     */
+    private function documentsTable(): CaseDocumentsTable
+    {
+        return self::getContainer()->get(CaseDocumentsTable::class);
     }
 
     /**
