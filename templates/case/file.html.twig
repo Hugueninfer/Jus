@@ -1,6 +1,10 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Peticionar · Processo {{ case.number|cnj }} · Jus{% endblock %}
+{# What went wrong: the fields that failed, and the errors of the form itself (the CSRF token, a request that was too large). #}
+{% set invalidFields = form.children|filter(field => not field.vars.valid) %}
+{% set refused = invalidFields is not empty or form.vars.errors|length > 0 %}
+
+{% block title %}{{ refused ? 'Erro: ' }}Peticionar · Processo {{ case.number|cnj }} · Jus{% endblock %}
 
 {% block body %}
     <p class="mb-2"><a href="{{ path('case_show', {numero: case.number|cnj}) }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar para o processo</a></p>
@@ -12,9 +16,21 @@
 
     <div class="row">
         <div class="col-lg-8">
-            {# Each field says what is wrong next to itself; this tells a reader who lands on the top of the page to look there. #}
-            {% if form.children|filter(field => not field.vars.valid) is not empty %}
-                <twig:Alert type="danger">Corrija os campos indicados e envie a petição de novo.</twig:Alert>
+            {% if invalidFields is not empty %}
+                {# Each field says what is wrong next to itself; this lists them for a reader who lands on the top of the page.
+                   Plain text with links, not an alert: nothing is announced over what the reader is doing. #}
+                <div class="alert alert-danger" id="resumo-erros">
+                    <p class="fw-semibold mb-1"><i class="bi bi-x-octagon-fill" aria-hidden="true"></i> <span class="visually-hidden">Erro:</span> Corrija os campos indicados e envie a petição de novo:</p>
+                    <ul class="mb-0">
+                        {% for field in invalidFields %}
+                            <li><a class="alert-link" href="#{{ field.vars.id }}">{{ field.vars.label }}</a></li>
+                        {% endfor %}
+                    </ul>
+                    {# A file input is never given its files back: when they arrived and are fine, they still have to be chosen again. #}
+                    {% if form.vars.data.files is not empty and form.files.vars.valid %}
+                        <p class="mt-2 mb-0">Selecione os arquivos novamente.</p>
+                    {% endif %}
+                </div>
             {% endif %}
 
             {{ form_start(form) }}

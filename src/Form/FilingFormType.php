@@ -38,7 +38,8 @@ final class FilingFormType extends AbstractType
             ->add('description', TextareaType::class, [
                 'label' => 'Descrição',
                 'help' => \sprintf('Resuma o conteúdo da petição, em até %d caracteres.', FilingLimits::DESCRIPTION_MAX_LENGTH),
-                'attr' => ['rows' => 5],
+                // The browser stops at the limit too; the constraint of FilingData is the check that counts.
+                'attr' => ['rows' => 5, 'maxlength' => FilingLimits::DESCRIPTION_MAX_LENGTH],
             ])
             ->add('files', UploadType::class, [
                 'label' => 'Petição e anexos (PDF)',
@@ -52,7 +53,12 @@ final class FilingFormType extends AbstractType
 
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults(['data_class' => FilingData::class]);
+        $resolver->setDefaults([
+            'data_class' => FilingData::class,
+            // PHP drops the whole body of a request over post_max_size, so nothing of the form arrives. "{{ max }}" is that
+            // limit as written in php.ini. (The option feeds the internal "upload_max_size_message" the request handler reads.)
+            'post_max_size_message' => 'O envio passou do limite de {{ max }} e não foi recebido. Escolha arquivos menores ou menos arquivos.',
+        ]);
     }
 
     public function getBlockPrefix(): string

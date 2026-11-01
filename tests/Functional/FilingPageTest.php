@@ -84,6 +84,8 @@ final class FilingPageTest extends WebTestCase
         self::assertCount(1, $crawler->filter('textarea#filing_description[name="filing[description]"]'));
         self::assertSame('filing_description_help', $crawler->filter('textarea#filing_description')->attr('aria-describedby'));
         self::assertStringContainsString('2000 caracteres', $crawler->filter('#filing_description_help')->text());
+        // The browser stops at the limit as well; the server's check stays.
+        self::assertSame('2000', $crawler->filter('textarea#filing_description')->attr('maxlength'));
 
         // The files: the native input inside the upload element, with the limits as attributes and in the help text.
         $input = $crawler->filter('jus-upload[max-files="5"][max-size="10485760"] > input#filing_files');
@@ -270,6 +272,26 @@ final class FilingPageTest extends WebTestCase
         self::assertResponseRedirects(self::CASE_URL.'?aba=movimentacoes#andamento', 303);
     }
 
+    public function testTheLimitOfTheDescriptionCountsALineBreakAsOneCharacter(): void
+    {
+        $this->signIn();
+
+        // A browser counts a line break as one character against maxlength, and sends it as two (CR LF). Symfony's
+        // textarea turns it into one (LF) before the length is checked; without that, a text the page let someone type would
+        // be refused.
+        $crawler = $this->submit(['description' => str_repeat('a', 1000)."\r\n".str_repeat('b', 1000)]);
+        self::assertResponseStatusCodeSame(422);
+        $this->assertFieldRefused($crawler, 'description', 'A descrição passa do limite de 2000 caracteres.');
+
+        // 2000 characters for the browser, 2001 as sent.
+        $this->submit(['description' => str_repeat('a', 1000)."\r\n".str_repeat('b', 999)]);
+        self::assertResponseRedirects(self::CASE_URL.'?aba=movimentacoes#andamento', 303);
+        $this->em->clear();
+        $filing = $this->em->getRepository(CaseEvent::class)->findOneBy(['type' => EventType::Filing], ['id' => 'DESC']);
+        self::assertNotNull($filing);
+        self::assertSame(str_repeat('a', 1000)."\n".str_repeat('b', 999), $filing->getDescription());
+    }
+
     public function testRefusesAFilingWithoutAType(): void
     {
         $this->signIn();
@@ -290,12 +312,86 @@ final class FilingPageTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame('appeal', $crawler->filter('select#filing_type option[selected]')->attr('value'));
         self::assertSame('Razões do recurso.', trim($crawler->filter('textarea#filing_description')->text()));
-        // The valid fields are not marked, and a summary at the top says where to look.
+        // The valid fields are not marked.
         self::assertNull($crawler->filter('#filing_type')->attr('aria-invalid'));
         self::assertNull($crawler->filter('#filing_description')->attr('aria-invalid'));
         self::assertSame('filing_description_help', $crawler->filter('#filing_description')->attr('aria-describedby'));
-        self::assertStringContainsString('Corrija os campos indicados', $crawler->filter('main .alert-danger')->text());
-        self::assertSame('alert', $crawler->filter('main .alert-danger')->attr('role'));
+    }
+
+    public function testTheSummaryListsEveryInvalidFieldAsALinkToIt(): void
+    {
+        $this->signIn();
+
+        $crawler = $this->submit(['type' => '', 'description' => ''], files: []);
+
+        self::assertResponseStatusCodeSame(422);
+        $summary = $crawler->filter('main #resumo-erros');
+        self::assertCount(1, $summary);
+        self::assertStringContainsString('Corrija os campos indicados', $summary->text());
+        // Text to read, not an announcement that interrupts: no alert role on load.
+        self::assertNull($summary->attr('role'));
+        self::assertCount(0, $crawler->filter('main [role="alert"]'));
+
+        $links = $summary->filter('a');
+        self::assertSame(
+            [['Tipo de petição', '#filing_type'], ['Descrição', '#filing_description'], ['Petição e anexos (PDF)', '#filing_files']],
+            $links->each(static fn (Crawler $link): array => [trim($link->text()), $link->attr('href')]),
+        );
+        // Each link leads to an element of the page: the field itself.
+        foreach (['filing_type', 'filing_description', 'filing_files'] as $id) {
+            self::assertCount(1, $crawler->filter('main form #'.$id), $id);
+        }
+        // Nothing was sent, so there is nothing to select again.
+        self::assertStringNotContainsString('Selecione os arquivos novamente', $summary->text());
+    }
+
+    public function testTheSummaryOnlyListsTheFieldsThatFailed(): void
+    {
+        $this->signIn();
+
+        $crawler = $this->submit(['description' => ''], files: [$this->pdf()]);
+
+        $links = $crawler->filter('main #resumo-erros a');
+        self::assertSame(['Descrição'], $links->each(static fn (Crawler $link): string => trim($link->text())));
+        self::assertSame('#filing_description', $links->attr('href'));
+    }
+
+    public function testTheSummaryAsksForTheFilesAgainWhenTheyWereSentButTheFormFailedForAnotherReason(): void
+    {
+        $this->signIn();
+
+        // The browser never gives a file input its files back: they have to be chosen again, which the page must say.
+        $crawler = $this->submit(['description' => ''], files: [$this->pdf()]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('Selecione os arquivos novamente.', $crawler->filter('main #resumo-erros')->text());
+        $this->assertNothingWasFiled();
+    }
+
+    public function testTheSummaryDoesNotAskForTheFilesAgainWhenTheyAreWhatFailed(): void
+    {
+        $this->signIn();
+
+        $notes = $this->temporary('notas.txt', "Anotações.\n");
+        $crawler = $this->submit(files: [new UploadedFile($notes, 'notas.txt', 'text/plain', null, true)]);
+
+        self::assertResponseStatusCodeSame(422);
+        $summary = $crawler->filter('main #resumo-erros');
+        self::assertSame(['Petição e anexos (PDF)'], $summary->filter('a')->each(static fn (Crawler $link): string => trim($link->text())));
+        self::assertStringNotContainsString('Selecione os arquivos novamente', $summary->text());
+    }
+
+    public function testTheTitleStartsWithErrorWhenTheFormWasRefused(): void
+    {
+        $this->signIn();
+
+        $this->client->request('GET', self::URL);
+        self::assertSelectorTextSame('title', 'Peticionar · Processo 0000001-39.2024.8.26.0100 · Jus');
+
+        $this->submit(['description' => '']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextSame('title', 'Erro: Peticionar · Processo 0000001-39.2024.8.26.0100 · Jus');
     }
 
     public function testRefusesAnInvalidCsrfToken(): void
@@ -306,6 +402,7 @@ final class FilingPageTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame('O token CSRF é inválido. Por favor, tente reenviar o formulário.', trim($crawler->filter('main form .alert-danger')->text()));
+        self::assertSelectorTextContains('title', 'Erro: Peticionar');
         $this->assertNothingWasFiled();
     }
 
@@ -322,8 +419,21 @@ final class FilingPageTest extends WebTestCase
         $crawler = $this->client->request('POST', self::URL, server: ['CONTENT_LENGTH' => '999999999999']);
 
         self::assertResponseStatusCodeSame(422);
-        $messages = $crawler->filter('main form .alert-danger')->each(static fn (Crawler $alert): string => trim($alert->text()));
-        self::assertContains('O arquivo enviado é muito grande. Por favor, tente enviar um arquivo menor.', $messages);
+        // One error that says what happened and the limit, and nothing else: the fields are empty because the body was
+        // dropped, so an error on each of them would only bury it.
+        $max = strtoupper(trim((string) \ini_get('post_max_size')));
+        $alerts = $crawler->filter('main form .alert-danger');
+        self::assertCount(1, $alerts);
+        self::assertSame(
+            \sprintf('O envio passou do limite de %s e não foi recebido. Escolha arquivos menores ou menos arquivos.', $max),
+            trim($alerts->text()),
+        );
+        self::assertCount(0, $crawler->filter('main .invalid-feedback, main [aria-invalid], main .is-invalid, main #resumo-erros'));
+        self::assertSelectorTextContains('title', 'Erro: Peticionar');
+        // The form comes back blank and usable.
+        self::assertSame('', $crawler->filter('select#filing_type option[selected]')->attr('value'));
+        self::assertCount(1, $crawler->selectButton(self::SUBMIT));
+        self::assertCount(1, $crawler->filter('input[name="filing[_token]"]'));
         $this->assertNothingWasFiled();
     }
 
