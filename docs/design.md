@@ -49,7 +49,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 - Servidor de desenvolvimento: o servidor embutido do PHP, com os limites de upload da seção 3.3 (Symfony CLI é opcional).
 - Um `Dockerfile` não faz parte do MVP; o ambiente é reproduzível pelas instruções do README e pelo CI.
 
-### 3.3 Como rodar (meta do README)
+### 3.3 Como rodar
 
 ```bash
 composer install
@@ -150,6 +150,13 @@ docs/
   design.md                # este documento
   adr/
   diagrams/
+  screenshots/             # os prints do README (gerados por tools/screenshots.mjs)
+tools/
+  audit/pages.mjs          # auditoria das páginas renderizadas (seção 10.1)
+  phpstan/object-manager.php  # o EntityManager que o PHPStan usa para ler o mapeamento do Doctrine
+  screenshots.mjs          # captura dos prints do README
+README.md
+LICENSE                    # MIT
 azure-pipelines.yml
 vitest.config.ts           # Vitest em modo browser (seção 9)
 ```
@@ -550,7 +557,7 @@ npm run audit:pages -- --base-url=http://127.0.0.1:8123   # em outro terminal
 
 ## 11. Documentação e fluxo de Git
 
-- **README (pt-BR):** o que é, prints de desktop e celular, como rodar (seção 3.3), usuários de teste, destaques técnicos e links para ADRs e diagramas.
+- **[README](../README.md) (pt-BR):** o que é, o aviso de que os dados são fictícios, prints de desktop e celular (gerados por `tools/screenshots.mjs`, em `docs/screenshots/`), como rodar (seção 3.3), usuários de demonstração, qualidade, destaques técnicos e links para ADRs e diagramas.
 - **Decisões de arquitetura (`docs/adr/`):** sete ADRs, listados na seção 12 e no [índice](adr/README.md).
 - **Diagramas Mermaid (`docs/diagrams/`):** [contexto e containers](diagrams/contexto-e-containers.md), [entidades](diagrams/entidades.md) e [sequência do peticionamento](diagrams/sequencia-peticionamento.md); o [índice](diagrams/README.md) reúne os três.
 - **Código e commits em inglês**; interface e documentação em português.
@@ -583,7 +590,7 @@ Cada decisão tem o seu registro em [`docs/adr/`](adr/README.md), com contexto, 
 9. Páginas de erro e revisão de acessibilidade.
 10. README, ADRs e diagramas.
 
-As etapas 1 a 8 estão concluídas. A 8 entregou a pasta `src/Filing/` com o armazenamento dos PDFs fora de `public/`; as guardas do domínio e o `FilingService`; a página de peticionamento com o formulário, o `<jus-upload>` no tema e os limites de `FilingLimits`; o download dos documentos com a regra 404/403 da seção 5.5; e as fixtures com PDFs de verdade.
+As etapas 1 a 10 estão concluídas. A 8 entregou a pasta `src/Filing/` com o armazenamento dos PDFs fora de `public/`; as guardas do domínio e o `FilingService`; a página de peticionamento com o formulário, o `<jus-upload>` no tema e os limites de `FilingLimits`; o download dos documentos com a regra 404/403 da seção 5.5; e as fixtures com PDFs de verdade. A 9 entregou as páginas de erro e a auditoria das páginas renderizadas (seção 10.1). A 10 entregou o [README](../README.md) com os prints, a licença MIT, os [ADRs](adr/README.md) e os [diagramas](diagrams/README.md).
 
 ## 14. Critérios de aceite
 
