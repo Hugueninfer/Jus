@@ -551,21 +551,24 @@ npm run audit:pages -- --base-url=http://127.0.0.1:8123   # em outro terminal
 ## 11. Documentação e fluxo de Git
 
 - **README (pt-BR):** o que é, prints de desktop e celular, como rodar (seção 3.3), usuários de teste, destaques técnicos e links para ADRs e diagramas.
+- **Decisões de arquitetura (`docs/adr/`):** sete ADRs, listados na seção 12 e no [índice](adr/README.md).
 - **Diagramas Mermaid (`docs/diagrams/`):** contexto e containers, entidades, sequência do peticionamento.
 - **Código e commits em inglês**; interface e documentação em português.
 - **Git:** Conventional Commits; uma branch e um PR por funcionalidade.
 
-## 12. Decisões a registrar (ADRs)
+## 12. Decisões registradas (ADRs)
+
+Cada decisão tem o seu registro em [`docs/adr/`](adr/README.md), com contexto, consequências e alternativas.
 
 | ADR | Decisão |
 |---|---|
-| 0001 | Abordagem híbrida: Twig Components + Web Components |
-| 0002 | Design tokens como CSS custom properties para atravessar o Shadow DOM |
-| 0003 | Webpack Encore em vez de AssetMapper |
-| 0004 | Servidor como fonte da verdade; regra CNJ duplicada com contrato de testes compartilhado; prazo só no servidor |
-| 0005 | Vitest em modo browser para Web Components: os componentes dependem de APIs reais do navegador (`DataTransfer`, `ResizeObserver`, constructable stylesheets, validação nativa, foco), que o jsdom não cobre |
-| 0006 | SQLite como banco padrão |
-| 0007 | Campo do número CNJ: aprimorar o input nativo em vez de assumir o campo por Shadow DOM (sem `ElementInternals`) |
+| [0001](adr/0001-abordagem-hibrida-twig-e-web-components.md) | Abordagem híbrida: Twig Components + Web Components |
+| [0002](adr/0002-design-tokens-como-css-custom-properties.md) | Design tokens como CSS custom properties para atravessar o Shadow DOM |
+| [0003](adr/0003-webpack-encore-em-vez-de-assetmapper.md) | Webpack Encore em vez de AssetMapper |
+| [0004](adr/0004-servidor-como-fonte-da-verdade.md) | Servidor como fonte da verdade; regra CNJ duplicada com contrato de testes compartilhado; prazo só no servidor |
+| [0005](adr/0005-vitest-em-modo-browser.md) | Vitest em modo browser para Web Components: os componentes dependem de APIs reais do navegador (`DataTransfer`, `ResizeObserver`, constructable stylesheets, validação nativa, foco), que o jsdom não cobre |
+| [0006](adr/0006-sqlite-como-banco-padrao.md) | SQLite como banco padrão |
+| [0007](adr/0007-campo-cnj-aprimora-o-input-nativo.md) | Campo do número CNJ: aprimorar o input nativo em vez de assumir o campo por Shadow DOM (sem `ElementInternals`) |
 
 ## 13. Ordem de implementação
 
