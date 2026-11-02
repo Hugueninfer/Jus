@@ -17,7 +17,7 @@ O Symfony oferece dois caminhos: o AssetMapper, que serve os arquivos sem etapa 
 Usar o **Webpack Encore** (`@symfony/webpack-encore` e `symfony/webpack-encore-bundle`).
 
 - `webpack.config.js` define uma entrada, `app` (`assets/app.ts`), com o loader de TypeScript e o de Sass, `splitEntryChunks` e um único arquivo de runtime. Em produção os nomes levam o hash do conteúdo; fora dela há source maps. O Sass roda com `quietDeps` e com o aviso de depreciação do `@import` silenciado, porque o Bootstrap 5.3 ainda depende de `@import`.
-- `assets/app.ts` reúne tudo o que a página carrega: ícones e estilos, os plugins do Bootstrap que o layout usa (`alert`, `offcanvas`, `tab`, importados um a um), os Web Components e os comportamentos de layout.
+- `assets/app.ts` reúne tudo o que a página carrega: ícones e estilos, os plugins do Bootstrap que o layout usa (`alert` e `offcanvas`, importados um a um), os Web Components e os comportamentos de layout.
 - `templates/base.html.twig` inclui o bundle com `encore_entry_link_tags('app')` e `encore_entry_script_tags('app')`. `config/packages/webpack_encore.yaml` põe `defer` nos scripts e, no ambiente de teste, desliga o `strict_mode` e o manifesto: os testes do PHP não dependem de um build (`tests/Integration/AssetPathsTest.php`).
 - Os scripts do `package.json` expõem o fluxo: `npm run dev` e `npm run watch` no desenvolvimento, `npm run build` (`encore production`) para produção, e `npm run ci:quality`, que inclui o build de produção, no pipeline. O resultado vai para `public/build/`, que o Git ignora.
 
@@ -31,7 +31,13 @@ Usar o **Webpack Encore** (`@symfony/webpack-encore` e `symfony/webpack-encore-b
 
 **Negativas**
 
-- Rodar a aplicação exige Node 24 e as dependências do npm, e o `public/build/` não é versionado: depois de clonar é preciso rodar `npm ci && npm run build`.
+- Rodar a aplicação exige Node 24 e as dependências do npm, e o `public/build/` não é versionado: depois de clonar é preciso rodar, um comando por linha (o PowerShell 5.1 não aceita `&&`):
+
+  ```bash
+  npm ci
+  npm run build
+  ```
+
 - A configuração do Webpack é mais maquinário que o importmap do AssetMapper, e o `@import` do Bootstrap obriga a silenciar um aviso de depreciação enquanto ele não migrar.
 
 ## Alternativas consideradas

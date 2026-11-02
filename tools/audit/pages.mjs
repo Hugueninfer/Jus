@@ -16,7 +16,8 @@
  * since it signs in with the demo account and files petitions.
  *
  * The exit code is 1 when anything fails (a violation, a horizontal scroll, a failed check) and 2 when the audit itself
- * could not run (the server is not reachable, the demo account cannot sign in, a wrong argument).
+ * could not run (Google Chrome is not installed, the server is not reachable, the demo account cannot sign in, a wrong
+ * argument).
  */
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
@@ -589,6 +590,16 @@ async function auditWithoutScripts(browser, baseUrl, state) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+/** The audit drives the Google Chrome installed on this machine; without it Playwright's own message is a long stack. */
+async function launchChrome() {
+  try {
+    return await chromium.launch({ channel: 'chrome', headless: true });
+  } catch (error) {
+    const reason = error instanceof Error ? (error.message.split('\n')[0] ?? '') : String(error);
+    throw new AuditError(`Could not start Google Chrome (${reason}). Install Google Chrome: the audit uses the installed browser and downloads none.`);
+  }
+}
+
 async function main() {
   const { baseUrl } = parseArguments(process.argv.slice(2));
   axeSource = await readFile(AXE_SOURCE_PATH, 'utf8');
@@ -596,7 +607,7 @@ async function main() {
   log(`Jus page audit — ${baseUrl}`);
   log(`axe-core rules: ${AXE_OPTIONS.runOnly.values.join(', ')}`);
 
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await launchChrome();
   const state = {};
   try {
     for (const viewport of VIEWPORTS) {

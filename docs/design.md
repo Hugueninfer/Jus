@@ -31,7 +31,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 
 | Camada | Tecnologia |
 |---|---|
-| Linguagem | PHP 8.4 (`declare(strict_types=1)` em todos os arquivos) |
+| Linguagem | PHP 8.4 (`declare(strict_types=1)` em todo o `src/` e `tests/`) |
 | Framework | Symfony 7.4 LTS |
 | Templates | Twig 3 + Symfony UX TwigComponent |
 | Persistência | Doctrine ORM + SQLite |
@@ -43,7 +43,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 
 ### 3.2 Ambiente de desenvolvimento
 
-- PHP 8.4 (x64) com as extensões `intl`, `pdo_sqlite`, `fileinfo`, `xml` (`dom`, `simplexml` e `xmlwriter`), `tokenizer` e `phar`. O Composer confere o conjunto inteiro, o do `composer.json` e o dos pacotes do `composer.lock` (`composer check-platform-reqs` lista tudo). A `mbstring` é recomendada: o código usa `mb_*`, e sem ela o polyfill do Symfony cobre. Para o Composer baixar e descompactar os pacotes, `openssl`, `curl` e `zip`. Num Debian ou Ubuntu: `sudo apt install php8.4-cli php8.4-intl php8.4-sqlite3 php8.4-xml php8.4-mbstring`.
+- PHP 8.4 (x64) com as extensões `ctype`, `iconv`, `intl`, `pdo_sqlite`, `fileinfo`, `xml` (`dom`, `simplexml` e `xmlwriter`), `tokenizer` e `phar`. O Composer confere o conjunto inteiro, o do `composer.json` e o dos pacotes do `composer.lock` (`composer check-platform-reqs` lista tudo). A `mbstring` é recomendada: o código usa `mb_*`, e sem ela o polyfill do Symfony cobre. Para o Composer baixar e descompactar os pacotes, `openssl`, `curl` e `zip`. Num Debian ou Ubuntu: `sudo apt install php8.4-cli php8.4-intl php8.4-sqlite3 php8.4-xml php8.4-mbstring`.
 - Composer 2, Git e Node.js 24 LTS.
 - Google Chrome instalado: `npm test` (e, portanto, `composer ci`) roda os testes do front-end nele, em modo headless, e não baixa navegador nenhum. No CI o pipeline instala o Chromium do Playwright (seção 10).
 - Servidor de desenvolvimento: o servidor embutido do PHP, com os limites de upload da seção 3.3 (Symfony CLI é opcional).
@@ -119,7 +119,7 @@ templates/
   security/                # login
   bundles/TwigBundle/Exception/   # error403, error404, error
 assets/
-  app.ts                   # entrada do Encore: estilos, Bootstrap (alert, offcanvas, tab), Web Components e comportamentos de layout
+  app.ts                   # entrada do Encore: estilos, Bootstrap (alert, offcanvas), Web Components e comportamentos de layout
   styles/
     tokens/                # _tokens.scss, _bootstrap-config.scss, _custom-properties.scss
     base/                  # _focus.scss: anel de foco do teclado
@@ -469,7 +469,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 | Erro inesperado (500) e demais códigos | Página "Algo deu errado"; detalhes só no log |
 
 **Páginas de erro**
-- Ficam em `templates/bundles/TwigBundle/Exception/` (`error404`, `error403` e `error`, a página dos demais códigos), estendem `base.html.twig` e usam o layout do Design System, em português. Com `APP_DEBUG` ligado, o Symfony mostra a própria página de depuração; as do projeto são as que o visitante vê em produção.
+- Ficam em `templates/bundles/TwigBundle/Exception/` (`error404`, `error403` e `error`, a página dos demais códigos), estendem `base.html.twig` e usam o layout do Design System, em português. Com `APP_DEBUG` ligado (o ambiente `dev`), o Symfony mostra a própria página de depuração; as do projeto são as que o visitante vê em produção. No `dev` elas podem ser vistas, depois de entrar (o controle de acesso cobre `^/`), em `/_error/404`, `/_error/403` e `/_error/500`.
 - Cada página tem um `h1`, um texto curto e um caminho de volta:
 
 | Código | `h1` | Caminho de volta |

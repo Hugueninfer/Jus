@@ -44,11 +44,11 @@ As capturas são geradas por [`tools/screenshots.mjs`](tools/screenshots.mjs) (v
 
 ### Requisitos
 
-- **PHP 8.4** com as extensões `intl`, `pdo_sqlite`, `fileinfo`, `xml` (`dom`, `simplexml` e `xmlwriter`), `tokenizer` e `phar` (as duas últimas, das ferramentas de desenvolvimento). O Composer confere o conjunto inteiro, o do [`composer.json`](composer.json) e o dos pacotes do `composer.lock`, no `composer install`; `composer check-platform-reqs` lista tudo. A `mbstring` é recomendada: o código usa `mb_*`, e sem ela o polyfill do Symfony cobre. Num Debian ou Ubuntu, por exemplo: `sudo apt install php8.4-cli php8.4-intl php8.4-sqlite3 php8.4-xml php8.4-mbstring`.
+- **PHP 8.4** com as extensões `ctype`, `iconv`, `intl`, `pdo_sqlite`, `fileinfo`, `xml` (`dom`, `simplexml` e `xmlwriter`), `tokenizer` e `phar` (as duas últimas, das ferramentas de desenvolvimento). O Composer confere o conjunto inteiro, o do [`composer.json`](composer.json) e o dos pacotes do `composer.lock`, no `composer install`; `composer check-platform-reqs` lista tudo. A `mbstring` é recomendada: o código usa `mb_*`, e sem ela o polyfill do Symfony cobre. Num Debian ou Ubuntu, por exemplo: `sudo apt install php8.4-cli php8.4-intl php8.4-sqlite3 php8.4-xml php8.4-mbstring`.
 - **Composer 2**.
 - **Node.js 24** (o `engines` do [`package.json`](package.json) pede `>=24`) e npm.
 - **Google Chrome** instalado, para os testes de front-end (`npm test`), a auditoria das páginas e os prints. O Playwright usa o Chrome que já está na máquina: nenhum navegador é baixado. No CI, o pipeline instala o Chromium do Playwright.
-- Só para o `composer ci` (cobertura de código): um driver de cobertura no PHP, **Xdebug** (como neste projeto) ou **PCOV**. Para rodar a aplicação ele não é necessário.
+- Só para o `composer ci` (cobertura de código): um driver de cobertura no PHP, **Xdebug** (localmente) ou **PCOV** (no pipeline). Para rodar a aplicação ele não é necessário.
 
 ### Passo a passo
 
@@ -66,7 +66,7 @@ Um comando por linha de propósito: assim o bloco também roda no PowerShell. A 
 
 Abra <http://127.0.0.1:8000> e entre com uma das contas de [usuários de demonstração](#usuários-de-demonstração). O catálogo do Design System, em `/design-system`, é público.
 
-O `npm ci` pode listar vulnerabilidades de severidade moderada: elas estão nas dependências de desenvolvimento (ferramentas de lint). `npm audit --omit=dev`, que olha só o que vai para a produção, não encontra nenhuma.
+O `npm ci` pode listar vulnerabilidades de severidade moderada: elas estão nas dependências de desenvolvimento (ferramentas de lint). `npm audit --omit=dev`, que olha só o que vai para a produção, não encontra nenhuma na versão atual das dependências.
 
 - `composer setup` **recria** o banco (`var/data_dev.db`) e apaga os PDFs de `var/uploads/dev/`: os peticionamentos feitos antes na demonstração se vão junto. Rode-o de novo quando quiser voltar ao estado inicial.
 - Para mexer no CSS e no TypeScript, `npm run watch` recompila a cada alteração.
@@ -96,6 +96,8 @@ Todas as contas usam a senha **`jus-demo`**. São contas locais de demonstraçã
 | `servidor@jus.test` | João Almeida | Servidor | Vê os 30 processos, sigilosos incluídos, e baixa os documentos, mas nunca peticiona: o botão "Peticionar" não aparece e o endereço do peticionamento responde 403. |
 
 Os números valem para os dados de `composer setup`: 30 processos (5 arquivados, 5 suspensos), 3 deles sigilosos. As regras estão em [`LegalCaseVoter`](src/Security/LegalCaseVoter.php) e na [seção 5.5 do documento de design](docs/design.md#55-autorização-legalcasevoter). Os prazos são gerados em relação ao dia em que o `composer setup` roda, para que a demonstração mostre os estados de urgência (no prazo, atenção, vence hoje, vencido e cumprido).
+
+**Páginas de erro.** A aplicação roda em `dev`, onde os erros descritos acima (o 403 do servidor ao peticionar, o 404 de um sigiloso ou de um número que não existe) aparecem como a página de depuração do Symfony, e não como a do projeto. Para ver as páginas de erro do projeto, em português e no layout do Design System, entre com uma das contas e abra <http://127.0.0.1:8000/_error/404>, `/_error/403` ou `/_error/500` (sem entrar, o controle de acesso leva ao login). Em produção são elas que o visitante recebe; os casos estão na [seção 8 do documento de design](docs/design.md#8-tratamento-de-erros).
 
 ## Qualidade
 
