@@ -1,7 +1,7 @@
 {
   "name": "jus",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -14,6 +14,7 @@
     "lint:css": "stylelint \"assets/**/*.scss\"",
     "typecheck": "tsc --noEmit",
     "audit:pages": "node tools/audit/pages.mjs",
+    "screenshots": "node tools/screenshots.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "ci:quality": "npm run lint:js && npm run lint:css && npm run typecheck && npm run build",
