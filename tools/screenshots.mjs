@@ -71,6 +71,16 @@ function parseArguments(argv) {
   return options;
 }
 
+/** The capture drives the Google Chrome installed on this machine; without it Playwright's own message is a long stack. */
+async function launchChrome() {
+  try {
+    return await chromium.launch({ channel: 'chrome', headless: true });
+  } catch (error) {
+    const reason = error instanceof Error ? (error.message.split('\n')[0] ?? '') : String(error);
+    throw new CaptureError(`Could not start Google Chrome (${reason}). Install Google Chrome: the capture uses the installed browser and downloads none.`);
+  }
+}
+
 async function open(page, baseUrl, path) {
   try {
     await page.goto(`${baseUrl}${path}`, { waitUntil: 'load' });
@@ -185,7 +195,7 @@ async function main() {
   log(`Jus screenshots — ${baseUrl} -> docs/screenshots/`);
   await mkdir(OUTPUT_DIR, { recursive: true });
 
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await launchChrome();
   const state = {};
   try {
     await captureViewport(browser, baseUrl, DESKTOP, state, new Set(['busca', 'processo', 'andamento', 'peticionar', 'catalogo']));

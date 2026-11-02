@@ -44,7 +44,7 @@ As capturas são geradas por [`tools/screenshots.mjs`](tools/screenshots.mjs) (v
 
 ### Requisitos
 
-- **PHP 8.4** com as extensões `intl`, `pdo_sqlite`, `fileinfo` e `mbstring`. O `composer install` confere as que o [`composer.json`](composer.json) exige (`ctype`, `fileinfo`, `iconv`, `intl` e `pdo_sqlite`).
+- **PHP 8.4** com as extensões `intl`, `pdo_sqlite`, `fileinfo`, `xml` (`dom`, `simplexml` e `xmlwriter`), `tokenizer` e `phar` (as duas últimas, das ferramentas de desenvolvimento). O Composer confere o conjunto inteiro, o do [`composer.json`](composer.json) e o dos pacotes do `composer.lock`, no `composer install`; `composer check-platform-reqs` lista tudo. A `mbstring` é recomendada: o código usa `mb_*`, e sem ela o polyfill do Symfony cobre. Num Debian ou Ubuntu, por exemplo: `sudo apt install php8.4-cli php8.4-intl php8.4-sqlite3 php8.4-xml php8.4-mbstring`.
 - **Composer 2**.
 - **Node.js 24** (o `engines` do [`package.json`](package.json) pede `>=24`) e npm.
 - **Google Chrome** instalado, para os testes de front-end (`npm test`), a auditoria das páginas e os prints. O Playwright usa o Chrome que já está na máquina: nenhum navegador é baixado. No CI, o pipeline instala o Chromium do Playwright.
@@ -53,13 +53,20 @@ As capturas são geradas por [`tools/screenshots.mjs`](tools/screenshots.mjs) (v
 ### Passo a passo
 
 ```bash
+git clone https://github.com/Hugueninfer/Jus.git jus
+cd jus
 composer install
-npm ci && npm run build
+npm ci
+npm run build
 composer setup        # cria o banco SQLite, roda as migrations e carrega os dados fictícios (e os PDFs dos documentos)
-php -d upload_max_filesize=10M -d post_max_size=60M -S localhost:8000 -t public
+php -d upload_max_filesize=10M -d post_max_size=60M -S 127.0.0.1:8000 -t public
 ```
 
-Abra <http://localhost:8000> e entre com uma das contas de [usuários de demonstração](#usuários-de-demonstração). O catálogo do Design System, em `/design-system`, é público.
+Um comando por linha de propósito: assim o bloco também roda no PowerShell. A primeira execução do `composer install` e do `npm ci` (e, mais adiante, a do `composer ci`) leva alguns minutos.
+
+Abra <http://127.0.0.1:8000> e entre com uma das contas de [usuários de demonstração](#usuários-de-demonstração). O catálogo do Design System, em `/design-system`, é público.
+
+O `npm ci` pode listar vulnerabilidades de severidade moderada: elas estão nas dependências de desenvolvimento (ferramentas de lint). `npm audit --omit=dev`, que olha só o que vai para a produção, não encontra nenhuma.
 
 - `composer setup` **recria** o banco (`var/data_dev.db`) e apaga os PDFs de `var/uploads/dev/`: os peticionamentos feitos antes na demonstração se vão junto. Rode-o de novo quando quiser voltar ao estado inicial.
 - Para mexer no CSS e no TypeScript, `npm run watch` recompila a cada alteração.
@@ -94,7 +101,7 @@ Os números valem para os dados de `composer setup`: 30 processos (5 arquivados,
 
 ### `composer ci`
 
-Roda, nesta ordem, o mesmo que o pipeline roda, mais os testes de front-end:
+Roda, nesta ordem, o mesmo que o pipeline roda (PHP e front-end):
 
 1. `composer validate --strict`;
 2. PHP-CS-Fixer (`@Symfony`), em modo de verificação;
@@ -106,14 +113,15 @@ Roda, nesta ordem, o mesmo que o pipeline roda, mais os testes de front-end:
 
 No Windows, um teste que confere o modo `0750` do diretório de documentos só roda no Linux e aparece como pulado. Para o ciclo rápido, `composer qa` roda o estilo, os lints, o PHPStan e o PHPUnit (sem cobertura e sem o front-end), e `npm run ci` roda só o front-end.
 
-O primeiro `npm test` usa o Google Chrome instalado (canal `chrome` do Playwright). No CI, as variáveis `CI` ou `TF_BUILD` fazem o Vitest usar o Chromium do Playwright.
+Localmente, `npm test` usa o Google Chrome instalado (canal `chrome` do Playwright), sem baixar navegador. No CI, as variáveis `CI` ou `TF_BUILD` fazem o Vitest usar o Chromium do Playwright.
 
 ### Auditoria das páginas
 
 `npm run audit:pages` confere as páginas que a aplicação realmente renderiza, com o servidor, o CSS e o JavaScript do build: axe-core com as regras WCAG 2.0, 2.1 e 2.2 (níveis A e AA) e ausência de rolagem horizontal em 1280 px e em 375 px, uma passada pelo teclado no peticionamento e uma passada com o JavaScript desligado (busca, abas e um peticionamento inteiro). Não faz parte do `composer ci`, porque precisa da aplicação rodando:
 
 ```bash
-composer setup && npm run build
+composer setup
+npm run build
 php -d upload_max_filesize=10M -d post_max_size=60M -S 127.0.0.1:8123 -t public
 npm run audit:pages -- --base-url=http://127.0.0.1:8123   # em outro terminal
 ```
@@ -141,7 +149,7 @@ A auditoria **grava peticionamentos** nos dados de demonstração (quatro por ro
 
 ## Arquitetura
 
-Symfony 7.4 e PHP 8.4 (`strict_types` em todos os arquivos), Twig e Symfony UX Twig Components, Doctrine ORM com SQLite, Webpack Encore, TypeScript, Sass e Bootstrap 5.3, Vitest 5 em modo browser, PHPStan, PHP-CS-Fixer, ESLint e Stylelint.
+Symfony 7.4 e PHP 8.4 (`strict_types` em todo o `src/` e `tests/`), Twig e Symfony UX Twig Components, Doctrine ORM com SQLite, Webpack Encore, TypeScript, Sass e Bootstrap 5.3, Vitest 5 em modo browser, PHPStan, PHP-CS-Fixer, ESLint e Stylelint.
 
 - [**Documento de design**](docs/design.md): escopo, domínio, regras de negócio, componentes, telas e rotas, tratamento de erros, testes e CI.
 - [**Decisões de arquitetura (ADRs)**](docs/adr/README.md): sete registros, com contexto, consequências e alternativas descartadas.

@@ -22,4 +22,10 @@ Encore
     };
   });
 
-export default Encore.getWebpackConfig();
+const config = await Encore.getWebpackConfig();
+
+// The full Bootstrap stylesheet and the icon font put the entry over webpack's default size budget; that is accepted for
+// now. Encore already silences the hints, but the summary still marks the entry as [big], which reads like a failure.
+config.performance = false;
+
+export default config;

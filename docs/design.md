@@ -1,7 +1,7 @@
 # Jus — Design System e Painel de Processo Eletrônico
 
 - **Documento de design** (2026-10-26)
-- **Status:** em implementação
+- **Status:** concluído; falta conectar o pipeline ao Azure DevOps (seção 10)
 - **Repositório:** [Hugueninfer/Jus](https://github.com/Hugueninfer/Jus)
 
 ## 1. Objetivo
@@ -43,7 +43,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 
 ### 3.2 Ambiente de desenvolvimento
 
-- PHP 8.4 (x64) com as extensões `intl`, `pdo_sqlite`, `sqlite3`, `fileinfo`, `mbstring`, `openssl`, `curl`, `zip`.
+- PHP 8.4 (x64) com as extensões `intl`, `pdo_sqlite`, `fileinfo`, `xml` (`dom`, `simplexml` e `xmlwriter`), `tokenizer` e `phar`. O Composer confere o conjunto inteiro, o do `composer.json` e o dos pacotes do `composer.lock` (`composer check-platform-reqs` lista tudo). A `mbstring` é recomendada: o código usa `mb_*`, e sem ela o polyfill do Symfony cobre. Para o Composer baixar e descompactar os pacotes, `openssl`, `curl` e `zip`. Num Debian ou Ubuntu: `sudo apt install php8.4-cli php8.4-intl php8.4-sqlite3 php8.4-xml php8.4-mbstring`.
 - Composer 2, Git e Node.js 24 LTS.
 - Google Chrome instalado: `npm test` (e, portanto, `composer ci`) roda os testes do front-end nele, em modo headless, e não baixa navegador nenhum. No CI o pipeline instala o Chromium do Playwright (seção 10).
 - Servidor de desenvolvimento: o servidor embutido do PHP, com os limites de upload da seção 3.3 (Symfony CLI é opcional).
@@ -52,11 +52,16 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 ### 3.3 Como rodar
 
 ```bash
+git clone https://github.com/Hugueninfer/Jus.git jus
+cd jus
 composer install
-npm ci && npm run build
+npm ci
+npm run build
 composer setup        # cria o banco SQLite, roda migrations e carrega fixtures (e os PDFs dos documentos de exemplo)
-php -d upload_max_filesize=10M -d post_max_size=60M -S localhost:8000 -t public
+php -d upload_max_filesize=10M -d post_max_size=60M -S 127.0.0.1:8000 -t public
 ```
+
+Um comando por linha, para que o bloco rode também no PowerShell (o 5.1 não aceita `&&`).
 
 **Limites de upload do PHP.** O peticionamento aceita até 5 PDFs de 10 MB cada (seção 6.4), e os padrões do PHP são menores (2 MB por arquivo e 8 MB por requisição). Por isso o comando acima passa os limites com `-d`, e quem usar outro `php.ini` ou outro servidor precisa de valores equivalentes:
 
@@ -542,7 +547,8 @@ Stage Test (depois do Quality)
 Os testes de componente conferem cada peça isolada; este script confere as **páginas que a aplicação realmente renderiza**, com o servidor, o CSS e o JavaScript do build. Não faz parte do `composer ci`, porque precisa da aplicação rodando.
 
 ```bash
-composer setup && npm run build
+composer setup
+npm run build
 php -d upload_max_filesize=10M -d post_max_size=60M -S 127.0.0.1:8123 -t public
 npm run audit:pages -- --base-url=http://127.0.0.1:8123   # em outro terminal
 ```
