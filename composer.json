@@ -2,7 +2,7 @@
     "name": "jus/design-system",
     "description": "Design system and fictional e-filing court case dashboard built with Symfony, Twig and Web Components.",
     "type": "project",
-    "license": "proprietary",
+    "license": "MIT",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
