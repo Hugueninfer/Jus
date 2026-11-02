@@ -42,12 +42,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public static function lawyer(string $email, string $name, string $oabNumber): self
     {
-        return new self($email, $name, [self::ROLE_LAWYER], $oabNumber);
+        return new self(self::normalizeEmail($email), $name, [self::ROLE_LAWYER], $oabNumber);
     }
 
     public static function clerk(string $email, string $name): self
     {
-        return new self($email, $name, [self::ROLE_CLERK], null);
+        return new self(self::normalizeEmail($email), $name, [self::ROLE_CLERK], null);
+    }
+
+    /**
+     * E-mail addresses are compared case-insensitively, so they are stored (and looked up) trimmed and in lower case.
+     */
+    public static function normalizeEmail(string $email): string
+    {
+        return mb_strtolower(trim($email));
     }
 
     public function getId(): ?int
@@ -97,6 +105,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     /**
      * Same person, even across different object instances (e.g. a session copy and a Doctrine entity).
+     * E-mails are always stored normalised (see normalizeEmail()), so comparing them is case-insensitive.
      */
     public function isSameAs(self $other): bool
     {

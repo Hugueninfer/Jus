@@ -5,8 +5,7 @@ security:
     providers:
         app_user_provider:
             entity:
-                class: App\Entity\User
-                property: email
+                class: App\Entity\User # loaded by UserRepository::loadUserByIdentifier(), which ignores the case of the e-mail
 
     firewalls:
         dev:

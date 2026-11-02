@@ -41,6 +41,31 @@ final class UserTest extends TestCase
         self::assertFalse($user->isSameAs(User::clerk('joao@jus.test', 'João Almeida')));
     }
 
+    public function testAlwaysStoresTheEmailInLowerCaseWithoutSurroundingSpaces(): void
+    {
+        $lawyer = User::lawyer(' Ana.Ribeiro@JUS.Test ', 'Ana Ribeiro', 'SP 123.456');
+        $clerk = User::clerk('João@Jus.Test', 'João Almeida');
+
+        self::assertSame('ana.ribeiro@jus.test', $lawyer->getEmail());
+        self::assertSame('ana.ribeiro@jus.test', $lawyer->getUserIdentifier());
+        self::assertSame('joão@jus.test', $clerk->getEmail());
+    }
+
+    public function testIsSameAsIgnoresTheCaseOfTheEmail(): void
+    {
+        $user = User::lawyer('Ana@JUS.test', 'Ana Ribeiro', 'SP 123.456');
+
+        self::assertTrue($user->isSameAs(User::clerk('ana@jus.test', 'Ana R.')));
+        self::assertFalse($user->isSameAs(User::clerk('joao@jus.test', 'João Almeida')));
+    }
+
+    public function testNormalisesAnEmailTheSameWayEverywhere(): void
+    {
+        self::assertSame('ana@jus.test', User::normalizeEmail("\t Ana@JUS.test \n"));
+        self::assertSame('émile@jus.test', User::normalizeEmail('ÉMILE@Jus.test'));
+        self::assertSame('', User::normalizeEmail('   '));
+    }
+
     public function testStoresTheHashedPassword(): void
     {
         $user = User::clerk('joao@jus.test', 'João Almeida');
