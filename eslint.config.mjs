@@ -24,10 +24,11 @@ export default defineConfig([
     },
   },
   {
-    // The page audit prints to the console and hands functions to Playwright that run in the page, where the DOM globals exist.
-    files: ['tools/audit/**/*.mjs'],
+    // The page audit and the screenshot script print to the console and hand functions to Playwright that run in the page,
+    // where the DOM globals exist.
+    files: ['tools/**/*.mjs'],
     languageOptions: {
-      globals: { console: 'readonly', document: 'readonly', window: 'readonly' },
+      globals: { console: 'readonly', customElements: 'readonly', document: 'readonly', HTMLElement: 'readonly', window: 'readonly' },
     },
   },
 ]);
