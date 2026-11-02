@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-Cada registro conta uma decisão do projeto: o contexto, o que foi decidido, as consequências e as alternativas descartadas. Todos citam os arquivos do código que materializam a decisão. O [documento de design](../design.md) (seção 12) descreve o sistema; estes registros explicam por que ele é assim.
+Cada registro conta uma decisão do projeto: o contexto, o que foi decidido, as consequências e as alternativas descartadas. Todos citam os arquivos do código que materializam a decisão. O [documento de design](../design.md) (seções 4 a 6) descreve o sistema; estes registros explicam por que ele é assim.
 
 | ADR | Decisão | Status |
 |---|---|---|

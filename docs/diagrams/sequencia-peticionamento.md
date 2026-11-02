@@ -57,7 +57,7 @@ sequenceDiagram
         alt qualquer falha, em um arquivo, no domínio ou no banco
             S->>D: delete de cada PDF já gravado
             S-->>C: relança a exceção original
-            C-->>B: página de erro 500, nada fica no banco nem no disco
+            C-->>B: página de erro 500, nada fica no banco e os PDFs gravados são removidos
         else sucesso
             S-->>C: CaseEvent da juntada
             C-->>B: 303 para o processo, aba movimentações, com a mensagem de confirmação
@@ -73,4 +73,4 @@ Onde cada passo está no código:
 - Gravação, transação e limpeza: `src/Filing/FilingService.php` e `src/Filing/DocumentStorage.php`.
 - Regras do domínio exercidas na transação: `LegalCase::file()`, `CaseEvent::attach()` e `Deadline::fulfil()`, em `src/Entity/`; a consulta dos prazos, em `src/Repository/DeadlineRepository.php`.
 - Os limites dos arquivos (quantidade, tamanho, tipo) vêm de `src/Filing/FilingLimits.php` e são conferidos pelo formulário, antes do serviço.
-- Uma falha dentro da transação fecha o `EntityManager`; o controlador não tenta se recuperar, e a exceção chega à página de erro 500.
+- Se a própria limpeza dos PDFs falha, o erro original é o que sobe. Uma falha dentro da transação fecha o `EntityManager`; o controlador não tenta se recuperar, e a exceção chega à página de erro 500.

@@ -34,7 +34,7 @@ O servidor decide. O JavaScript só antecipa o feedback, e onde uma regra existe
 
 - Desligar, adulterar ou contornar o JavaScript não muda nenhuma decisão: o servidor valida de novo o que o navegador antecipou.
 - O contrato compartilhado transforma "as duas implementações concordam" em um teste que falha, em vez de uma convenção.
-- Prazo e permissão têm uma implementação só, testável sem navegador (`src/Domain` com 100% de cobertura de linhas).
+- O prazo e a permissão são decididos só no servidor, em classes testáveis sem navegador: o `DeadlineCalculator`, em `src/Domain` (100% de cobertura de linhas), e o `LegalCaseVoter`. A visibilidade da busca é a exceção, escrita duas vezes (Voter e DQL) e guardada pelo teste de paridade.
 
 **Negativas**
 

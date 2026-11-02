@@ -16,7 +16,7 @@ Nenhum nome, marca ou identidade visual de sistema real é usado. Todos os dados
 
 - Login com dois perfis (advogado e servidor).
 - 3 telas: consulta processual, página do processo e peticionamento.
-- 7 Twig Components, 3 Web Components (mais dois pequenos comportamentos de layout em JavaScript), form theme e extensão Twig.
+- 7 Twig Components, 3 Web Components (mais três pequenos comportamentos de layout em JavaScript), form theme e extensão Twig.
 - Catálogo público `/design-system`.
 - Páginas de erro 403, 404 e 500 com o Design System.
 - Testes, análise estática, pipeline no Azure DevOps e documentação.
@@ -277,7 +277,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 ### 6.1 Design tokens
 
 - `_tokens.scss`: mapas SCSS de cores, tipografia, espaçamento, bordas, sombras e foco. É a única fonte dos valores.
-- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-base`, …) derivadas dos tokens, inclusive o anel de foco (sólido, em vez do primário a 25 % do Bootstrap).
+- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-sans-serif`, `$font-family-monospace`, …) derivadas dos tokens, inclusive o anel de foco (sólido, em vez do primário a 25 % do Bootstrap).
 - `_custom-properties.scss`: emite os tokens como CSS custom properties em `:root` (`--jus-color-primary`, `--jus-space-3`, …).
 - Tokens de foco (`--jus-focus-width`, `--jus-focus-offset`, `--jus-focus-color`, `--jus-focus-color-inverse`): o anel do teclado tem pelo menos 3:1 com as cores ao redor, na cor primária sobre superfícies claras e em branco sobre as escuras (navbar e menu lateral). `base/_focus.scss` aplica o anel ao que o Bootstrap deixa para o navegador (links, `<summary>`) e aos botões.
 - Web Components só usam `var(--jus-*)`, que atravessa o Shadow DOM.

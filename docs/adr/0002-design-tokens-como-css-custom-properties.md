@@ -13,7 +13,7 @@ O Shadow DOM isola os estilos: as regras da página, o Bootstrap inclusive, não
 Os tokens têm **uma fonte só**, e dela saem os dois destinos.
 
 - `assets/styles/tokens/_tokens.scss` define os mapas Sass (cores, famílias de fonte, espaços, raios, sombras e foco). É o único arquivo com os valores.
-- `assets/styles/tokens/_bootstrap-config.scss` deriva dos mapas as variáveis do Bootstrap (`$primary`, `$font-family-base`, o anel de foco…), e `assets/styles/app.scss` o importa antes do Bootstrap.
+- `assets/styles/tokens/_bootstrap-config.scss` deriva dos mapas as variáveis do Bootstrap (`$primary`, `$font-family-sans-serif`, `$font-family-monospace`, o anel de foco…), e `assets/styles/app.scss` o importa antes do Bootstrap.
 - `assets/styles/tokens/_custom-properties.scss` emite os mesmos mapas como propriedades em `:root` (`--jus-color-primary`, `--jus-space-3`, `--jus-focus-width`…).
 - Os Web Components só usam `var(--jus-*)`. A classe base `assets/components/jus-element.ts` adota uma folha compartilhada (constructable stylesheet) cujas cores, espaços, raios e foco vêm só de tokens, e as folhas de cada componente seguem a mesma regra. Valores que dependem do lugar na página também passam por propriedades herdadas: `assets/styles/base/_focus.scss` troca `--jus-focus-ring` para a cor inversa nas superfícies escuras, e o anel dentro do Shadow DOM a herda.
 

@@ -16,7 +16,7 @@ flowchart TD
     subgraph symfony["Aplicação Symfony 7.4 (PHP 8.4)"]
         seguranca["Security<br/>firewall, login e controle de acesso"]
         voter["LegalCaseVoter"]
-        controllers["Controllers<br/>Case, Filing, Document, DesignSystem, Security"]
+        controllers["Controllers<br/>Home, Case, Filing, Document, DesignSystem, Security"]
         forms["Form types e validação"]
         templates["Twig, Twig Components<br/>e form theme"]
         dominio["Domínio em PHP puro<br/>CnjNumber, DeadlineCalculator, enums"]
