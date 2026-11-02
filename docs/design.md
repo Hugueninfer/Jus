@@ -552,13 +552,13 @@ npm run audit:pages -- --base-url=http://127.0.0.1:8123   # em outro terminal
 
 - **README (pt-BR):** o que é, prints de desktop e celular, como rodar (seção 3.3), usuários de teste, destaques técnicos e links para ADRs e diagramas.
 - **Decisões de arquitetura (`docs/adr/`):** sete ADRs, listados na seção 12 e no [índice](adr/README.md).
-- **Diagramas Mermaid (`docs/diagrams/`):** contexto e containers, entidades, sequência do peticionamento.
+- **Diagramas Mermaid (`docs/diagrams/`):** [contexto e containers](diagrams/contexto-e-containers.md), [entidades](diagrams/entidades.md) e [sequência do peticionamento](diagrams/sequencia-peticionamento.md); o [índice](diagrams/README.md) reúne os três.
 - **Código e commits em inglês**; interface e documentação em português.
 - **Git:** Conventional Commits; uma branch e um PR por funcionalidade.
 
 ## 12. Decisões registradas (ADRs)
 
-Cada decisão tem o seu registro em [`docs/adr/`](adr/README.md), com contexto, consequências e alternativas.
+Cada decisão tem o seu registro em [`docs/adr/`](adr/README.md), com contexto, consequências e alternativas, e os [diagramas](diagrams/README.md) mostram o contexto, as entidades e o peticionamento.
 
 | ADR | Decisão |
 |---|---|
