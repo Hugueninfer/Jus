@@ -16,7 +16,7 @@ Nenhum nome, marca ou identidade visual de sistema real é usado. Todos os dados
 
 - Login com dois perfis (advogado e servidor).
 - 3 telas: consulta processual, página do processo e peticionamento.
-- 7 Twig Components, 3 Web Components (mais dois pequenos comportamentos de layout em JavaScript), form theme e extensão Twig.
+- 7 Twig Components, 3 Web Components (mais três pequenos comportamentos de layout em JavaScript), form theme e extensão Twig.
 - Catálogo público `/design-system`.
 - Páginas de erro 403, 404 e 500 com o Design System.
 - Testes, análise estática, pipeline no Azure DevOps e documentação.
@@ -277,7 +277,7 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 ### 6.1 Design tokens
 
 - `_tokens.scss`: mapas SCSS de cores, tipografia, espaçamento, bordas, sombras e foco. É a única fonte dos valores.
-- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-base`, …) derivadas dos tokens, inclusive o anel de foco (sólido, em vez do primário a 25 % do Bootstrap).
+- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-sans-serif`, `$font-family-monospace`, …) derivadas dos tokens, inclusive o anel de foco (sólido, em vez do primário a 25 % do Bootstrap).
 - `_custom-properties.scss`: emite os tokens como CSS custom properties em `:root` (`--jus-color-primary`, `--jus-space-3`, …).
 - Tokens de foco (`--jus-focus-width`, `--jus-focus-offset`, `--jus-focus-color`, `--jus-focus-color-inverse`): o anel do teclado tem pelo menos 3:1 com as cores ao redor, na cor primária sobre superfícies claras e em branco sobre as escuras (navbar e menu lateral). `base/_focus.scss` aplica o anel ao que o Bootstrap deixa para o navegador (links, `<summary>`) e aos botões.
 - Web Components só usam `var(--jus-*)`, que atravessa o Shadow DOM.
@@ -551,21 +551,24 @@ npm run audit:pages -- --base-url=http://127.0.0.1:8123   # em outro terminal
 ## 11. Documentação e fluxo de Git
 
 - **README (pt-BR):** o que é, prints de desktop e celular, como rodar (seção 3.3), usuários de teste, destaques técnicos e links para ADRs e diagramas.
-- **Diagramas Mermaid (`docs/diagrams/`):** contexto e containers, entidades, sequência do peticionamento.
+- **Decisões de arquitetura (`docs/adr/`):** sete ADRs, listados na seção 12 e no [índice](adr/README.md).
+- **Diagramas Mermaid (`docs/diagrams/`):** [contexto e containers](diagrams/contexto-e-containers.md), [entidades](diagrams/entidades.md) e [sequência do peticionamento](diagrams/sequencia-peticionamento.md); o [índice](diagrams/README.md) reúne os três.
 - **Código e commits em inglês**; interface e documentação em português.
 - **Git:** Conventional Commits; uma branch e um PR por funcionalidade.
 
-## 12. Decisões a registrar (ADRs)
+## 12. Decisões registradas (ADRs)
+
+Cada decisão tem o seu registro em [`docs/adr/`](adr/README.md), com contexto, consequências e alternativas, e os [diagramas](diagrams/README.md) mostram o contexto, as entidades e o peticionamento.
 
 | ADR | Decisão |
 |---|---|
-| 0001 | Abordagem híbrida: Twig Components + Web Components |
-| 0002 | Design tokens como CSS custom properties para atravessar o Shadow DOM |
-| 0003 | Webpack Encore em vez de AssetMapper |
-| 0004 | Servidor como fonte da verdade; regra CNJ duplicada com contrato de testes compartilhado; prazo só no servidor |
-| 0005 | Vitest em modo browser para Web Components: os componentes dependem de APIs reais do navegador (`DataTransfer`, `ResizeObserver`, constructable stylesheets, validação nativa, foco), que o jsdom não cobre |
-| 0006 | SQLite como banco padrão |
-| 0007 | Campo do número CNJ: aprimorar o input nativo em vez de assumir o campo por Shadow DOM (sem `ElementInternals`) |
+| [0001](adr/0001-abordagem-hibrida-twig-e-web-components.md) | Abordagem híbrida: Twig Components + Web Components |
+| [0002](adr/0002-design-tokens-como-css-custom-properties.md) | Design tokens como CSS custom properties para atravessar o Shadow DOM |
+| [0003](adr/0003-webpack-encore-em-vez-de-assetmapper.md) | Webpack Encore em vez de AssetMapper |
+| [0004](adr/0004-servidor-como-fonte-da-verdade.md) | Servidor como fonte da verdade; regra CNJ duplicada com contrato de testes compartilhado; prazo só no servidor |
+| [0005](adr/0005-vitest-em-modo-browser.md) | Vitest em modo browser para Web Components: os componentes dependem de APIs reais do navegador (`DataTransfer`, `ResizeObserver`, constructable stylesheets, validação nativa, foco), que o jsdom não cobre |
+| [0006](adr/0006-sqlite-como-banco-padrao.md) | SQLite como banco padrão |
+| [0007](adr/0007-campo-cnj-aprimora-o-input-nativo.md) | Campo do número CNJ: aprimorar o input nativo em vez de assumir o campo por Shadow DOM (sem `ElementInternals`) |
 
 ## 13. Ordem de implementação
 
