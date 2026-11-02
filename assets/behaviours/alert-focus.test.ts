@@ -247,20 +247,25 @@ describe('installAlertFocus', () => {
       expect(document.activeElement).toBe(byId(page, 'conteudo'));
     });
 
-    it('ignores one inside the alert that is closing', async () => {
+    it('ignores one inside the alert that is closing, and uses the nearest one before it', async () => {
       const { page, alerts } = mountMarkup(`
         <main id="conteudo" data-jus-focus-target tabindex="-1">
+          <h2 id="antes" data-jus-focus-target tabindex="-1">Antes</h2>
           ${ALERT('Petição juntada.')}
         </main>`);
       const alert = required(alerts[0]);
+      // A real focus target (marked and focusable) inside the alert: it is the last one in the document order, so only
+      // its position rules it out. Were it chosen, it would be gone with the alert and the focus would fall back to the main content.
       const inside = document.createElement('span');
       inside.tabIndex = -1;
+      inside.dataset['jusFocusTarget'] = '';
+      inside.textContent = 'Detalhe da petição';
       alert.append(inside);
 
       await closeWithKeyboard(alert);
 
       await expect.poll(() => alert.isConnected).toBe(false);
-      expect(document.activeElement).toBe(byId(page, 'conteudo'));
+      expect(document.activeElement).toBe(byId(page, 'antes'));
     });
 
     it('skips one that is not shown, and uses the nearest one that is', async () => {

@@ -22,6 +22,7 @@ final class SecurityHeadersTest extends WebTestCase
         yield 'a redirect' => ['/', 302, true];
         yield 'the redirect to the sign-in page' => ['/processos', 302, false];
         yield 'the not found page' => ['/nao-existe', 404, false];
+        yield 'the access denied page (leaving without the CSRF token)' => ['/logout', 403, true];
     }
 
     #[DataProvider('providePages')]
