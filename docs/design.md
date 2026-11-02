@@ -398,6 +398,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 | GET | `/design-system` | `design_system` | público |
 
 - O logout exige o token CSRF: o link "Sair" é gerado com `logout_path('main')`, e um `/logout` sem token responde 403 sem encerrar a sessão.
+- O e-mail do login não diferencia maiúsculas de minúsculas nem espaços nas pontas (ele é guardado em minúsculas e procurado assim, por `UserRepository::loadUserByIdentifier()`), e a senha continua exata.
 - `{numero}` usa o formato mascarado como forma canônica; o `CnjNumberValueResolver` aceita com ou sem máscara e responde 404 se o número for inválido, antes de consultar o banco.
 - `{id}` do download é o id do documento, um inteiro simples: sem zeros à esquerda (que dariam mais de um endereço ao mesmo documento) e que caiba no inteiro de 64 bits. Qualquer outra coisa é 404, como um id que não existe. A rota aceita só `GET` (e `HEAD`, que o roteador do Symfony aceita em toda rota `GET`: os mesmos cabeçalhos, sem o corpo); qualquer outro método dá 405.
 
