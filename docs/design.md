@@ -1,7 +1,7 @@
 # Jus — Design System e Painel de Processo Eletrônico
 
 - **Documento de design** (2026-10-26)
-- **Status:** concluído; falta conectar o pipeline ao Azure DevOps (seção 10)
+- **Status:** concluído, com o redesenho visual e o modo escuro; falta conectar o pipeline ao Azure DevOps (seção 10)
 - **Repositório:** [Hugueninfer/Jus](https://github.com/Hugueninfer/Jus)
 
 ## 1. Objetivo
@@ -16,14 +16,15 @@ Nenhum nome, marca ou identidade visual de sistema real é usado. Todos os dados
 
 - Login com dois perfis (advogado e servidor).
 - 3 telas: consulta processual, página do processo e peticionamento.
-- 7 Twig Components, 3 Web Components (mais três pequenos comportamentos de layout em JavaScript), form theme e extensão Twig.
+- 7 Twig Components, 3 Web Components (mais seis pequenos comportamentos em JavaScript), form theme e extensão Twig.
 - Catálogo público `/design-system`.
 - Páginas de erro 403, 404 e 500 com o Design System.
 - Testes, análise estática, pipeline no Azure DevOps e documentação.
+- Depois do MVP, um redesenho visual: fonte Inter, superfícies com cantos arredondados, selos em pílula, novos layouts das telas e um tema escuro, com o seletor Sistema / Claro / Escuro (seções 6 e 7; [ADR 0008](adr/0008-modo-escuro-cookie-e-atributo-no-servidor.md)).
 
 ### 2.2 Fora do MVP
 
-Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i18n.
+Deploy público (Azure App Service), Live Components, PostgreSQL, i18n.
 
 ## 3. Stack e ambiente
 
@@ -36,7 +37,7 @@ Deploy público (Azure App Service), modo escuro, Live Components, PostgreSQL, i
 | Templates | Twig 3 + Symfony UX TwigComponent |
 | Persistência | Doctrine ORM + SQLite |
 | Documentos | PDFs em disco, fora de `public/`, com nome UUID v7 (Symfony Uid) e cópia pelo Symfony Filesystem (seção 5.6) |
-| Front-end | Webpack Encore, TypeScript, Sass, Bootstrap 5.3, Custom Elements puros (sem biblioteca de componentes) |
+| Front-end | Webpack Encore, TypeScript, Sass, Bootstrap 5.3 (com os modos de cor por `data-bs-theme`), Custom Elements puros (sem biblioteca de componentes), fonte Inter (`@fontsource-variable/inter`, licença OFL, servida pelo próprio bundle) |
 | Testes | PHPUnit, Vitest 5 em modo browser (Playwright: Chrome instalado localmente, Chromium no CI), axe-core |
 | Qualidade | PHPStan (nível max + extensões Symfony/Doctrine), PHP-CS-Fixer (`@Symfony`), ESLint (typescript-eslint `strictTypeChecked`), Stylelint, `tsc --noEmit` |
 | Dados fictícios | DoctrineFixturesBundle + Faker (`pt_BR`) |
@@ -89,7 +90,7 @@ Com limites menores nada quebra: um arquivo acima do `upload_max_filesize` receb
 
 ```
 src/
-  Controller/              # finos: request → domínio → template
+  Controller/              # finos: request → domínio → template; ThemeController grava o tema escolhido (POST /tema)
   Domain/                  # PHP puro (sem Symfony nem Doctrine), 100% coberto por testes unitários
     LegalCase/             # enums do processo: CaseStatus, PartySide, EventType, FilingType
     Text/                  # SearchText: forma de busca dos nomes (minúsculas, sem acentos)
@@ -101,30 +102,35 @@ src/
   EventListener/           # SecurityHeadersListener: os cabeçalhos de segurança de toda resposta
   Filing/                  # peticionamento: FilingService, DocumentStorage (a única classe que toca o disco), StoredDocument e FilingLimits (os limites de um envio, em um lugar só)
   Form/                    # form types (CnjNumberType, CaseSearchType, FilingFormType, UploadType), FilingData (o que o formulário de peticionamento coleta) e transformers
-  Presentation/            # EnumLabels (rótulos em português dos enums), CaseDeadlines e CaseDocumentsTable (dados da página do processo)
+  Presentation/            # EnumLabels (rótulos em português dos enums), CaseDeadlines e CaseDocumentsTable (dados da página do processo), ThemePreference e ThemeResolver (o tema escolhido, lido do cookie jus_tema)
   DesignSystem/            # SampleData: entidades em memória para o catálogo /design-system
   Repository/
   Security/                # LegalCaseVoter
   Twig/
     Components/            # classes dos Twig Components
-    Extension/             # filtros cnj, brl, bytes e label
+    Extension/             # FormattingExtension (filtros cnj, brl, bytes, label e initials) e ThemeExtension (funções jus_theme e jus_themes)
   ValueResolver/           # CnjNumberValueResolver
   DataFixtures/
 templates/
   base.html.twig
+  _theme_script.html.twig  # o script inline do <head> que resolve o tema "sistema" (seção 6.2)
+  _theme_switcher.html.twig    # o seletor de tema: um formulário para POST /tema
+  _error_card.html.twig    # o cartão das páginas de erro
   components/              # templates dos Twig Components (inclui anônimos)
   form/jus_theme.html.twig
   design_system/           # catálogo + examples/<componente>/<exemplo>.html.twig
-  case/                    # busca (search), página do processo (show) e peticionamento (file)
+  case/                    # busca (search, com o script inline _filters_script), página do processo (show) e peticionamento (file)
   security/                # login
   bundles/TwigBundle/Exception/   # error403, error404, error
 assets/
   app.ts                   # entrada do Encore: estilos, Bootstrap (alert, offcanvas), Web Components e comportamentos de layout
   styles/
-    tokens/                # _tokens.scss, _bootstrap-config.scss, _custom-properties.scss
+    tokens/                # _tokens.scss, _bootstrap-config.scss, _custom-properties.scss; palette.test.ts (contraste de cada par, nos dois temas)
     base/                  # _focus.scss: anel de foco do teclado
-    components/            # estilos próprios dos componentes (_timeline.scss, _data-table.scss, _case-card.scss)
-    app.scss
+    components/            # as peças compartilhadas (_surfaces, _navbar, _buttons, _forms, _badges, _alerts, _tabs, _pagination,
+                           # _timeline, _data-table, _case-card, _theme-switcher) e os layouts das telas (_login, _error-page,
+                           # _search, _case-page, _catalog)
+    app.scss               # app.test.ts, ao lado, confere a folha inteira, nos dois temas e nas duas larguras
   components/              # os Web Components; cada arquivo tem um .test.ts ao lado, menos o index.ts (que só registra)
     jus-element.ts         # JusElement: Shadow DOM + folha base compartilhada; sheet()
     jus-numero-processo.ts # aprimora o input nativo no lugar (sem Shadow DOM)
@@ -137,15 +143,19 @@ assets/
     validity.ts            # setInvalid (aria-invalid + is-invalid juntos), setFieldError (o motivo como texto, ligado ao input) e retireServerErrors
   behaviours/              # comportamentos de layout, sem custom elements (+ .test.ts)
     alert-focus.ts         # foco no alvo mais próximo depois de fechar um alerta
+    filters-panel.ts       # reabre o painel de filtros da busca quando a janela cresce para lg
     scroll-regions.ts      # região rolável só é parada de Tab enquanto transborda
     submit-once.ts         # formulário marcado com data-jus-submit-once não é enviado duas vezes
-    index.ts               # instala os três quando o documento está pronto
-  test-support/            # ajudas dos testes: axe.ts (axe-core), tokens.ts (paleta real), required.ts
+    theme-switcher.ts      # o seletor de tema aplica a escolha na hora e a grava com fetch
+    token-values.ts        # o catálogo mostra o valor de cada token de cor, lido da própria folha, nos dois temas
+    index.ts               # instala os seis quando o documento está pronto
+                           # (theme-inline-script.test.ts e filters-inline-script.test.ts executam os dois scripts inline dos templates)
+  test-support/            # ajudas dos testes: axe.ts (axe-core), tokens.ts (paleta real, no tema claro ou no escuro), contrast.ts (razão de contraste WCAG), required.ts
 tests/
-  Unit/                    # domínio, entidades, voter, form types, extensão Twig e o listener de cabeçalhos, sem kernel
+  Unit/                    # domínio, entidades, voter, form types, extensão Twig, a preferência de tema e o listener de cabeçalhos, sem kernel
   Component/               # Twig Components renderizados (InteractsWithTwigComponents)
   Integration/             # kernel e banco: persistência, busca (inclusive a paridade de visibilidade com o Voter), peticionamento (FilingService, DocumentStorage, FilingData), fixtures, form theme, filtros, mensagens em pt-BR
-  Functional/              # requests HTTP: login, layout, catálogo, busca, página do processo, peticionamento, download, páginas de erro, cabeçalhos de segurança
+  Functional/              # requests HTTP: login, layout, tema, catálogo, busca, página do processo, peticionamento, download, páginas de erro, cabeçalhos de segurança
   Support/                 # TestCases (usuários e processos de teste), QueryRecorder (conta as consultas SQL)
   fixtures/cnj-numbers.json    # casos compartilhados entre PHPUnit e Vitest
   fixtures/sample.pdf          # PDF mínimo (menos de 2 KB): o arquivo dos testes de envio e download e dos documentos das fixtures de demonstração
@@ -155,9 +165,9 @@ docs/
   design.md                # este documento
   adr/
   diagrams/
-  screenshots/             # os prints do README (gerados por tools/screenshots.mjs)
+  screenshots/             # os prints do README, nos temas claro e escuro (gerados por tools/screenshots.mjs)
 tools/
-  audit/pages.mjs          # auditoria das páginas renderizadas (seção 10.1)
+  audit/pages.mjs          # auditoria das páginas renderizadas, nos dois temas (seção 10.1)
   phpstan/object-manager.php  # o EntityManager que o PHPStan usa para ler o mapeamento do Doctrine
   screenshots.mjs          # captura dos prints do README
 README.md
@@ -180,7 +190,7 @@ Request → Controller → Voter → Repository / Domain → template Twig
         → Twig Components → HTML completo → navegador → Web Components aprimoram
 ```
 
-Toda resposta da requisição principal passa pelo `SecurityHeadersListener` (`kernel.response`) antes de sair, e leva quatro cabeçalhos: `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `X-Frame-Options: DENY` e `Content-Security-Policy: frame-ancestors 'none'` (a política tem só essa diretiva: nenhuma regra de script ou de estilo, que seria uma decisão à parte). O que a resposta já definiu não é sobrescrito: o download, por exemplo, define o próprio `X-Content-Type-Options`. Páginas, redirects, páginas de erro e o download levam os mesmos cabeçalhos; testes funcionais conferem uma amostra de cada um.
+Toda resposta da requisição principal passa pelo `SecurityHeadersListener` (`kernel.response`) antes de sair, e leva quatro cabeçalhos: `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `X-Frame-Options: DENY` e `Content-Security-Policy: frame-ancestors 'none'` (a política tem só essa diretiva: nenhuma regra de script ou de estilo, que seria uma decisão à parte; o código inline que uma política de script e de estilo precisaria cobrir, por hash ou nonce, está listado no [ADR 0008](adr/0008-modo-escuro-cookie-e-atributo-no-servidor.md)). O que a resposta já definiu não é sobrescrito: o download, por exemplo, define o próprio `X-Content-Type-Options`. Páginas, redirects, páginas de erro e o download levam os mesmos cabeçalhos; testes funcionais conferem uma amostra de cada um.
 
 ## 5. Domínio
 
@@ -253,9 +263,9 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 - Dias úteis restantes: contados de hoje (exclusive) até o vencimento (inclusive).
 - Estados de urgência:
 
-| Estado | Condição | Variante visual |
+| Estado | Condição | Tom do selo |
 |---|---|---|
-| `FULFILLED` | `fulfilledAt` preenchido | secondary |
+| `FULFILLED` | `fulfilledAt` preenchido | neutral |
 | `OVERDUE` | hoje > vencimento | danger |
 | `DUE_TODAY` | hoje = vencimento | danger |
 | `WARNING` | 1 a 3 dias úteis restantes | warning |
@@ -288,35 +298,75 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 
 ### 6.1 Design tokens
 
-- `_tokens.scss`: mapas SCSS de cores, tipografia, espaçamento, bordas, sombras e foco. É a única fonte dos valores.
-- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 (`$primary`, `$font-family-sans-serif`, `$font-family-monospace`, …) derivadas dos tokens, inclusive o anel de foco (sólido, em vez do primário a 25 % do Bootstrap).
-- `_custom-properties.scss`: emite os tokens como CSS custom properties em `:root` (`--jus-color-primary`, `--jus-space-3`, …).
-- Tokens de foco (`--jus-focus-width`, `--jus-focus-offset`, `--jus-focus-color`, `--jus-focus-color-inverse`): o anel do teclado tem pelo menos 3:1 com as cores ao redor, na cor primária sobre superfícies claras e em branco sobre as escuras (navbar e menu lateral). `base/_focus.scss` aplica o anel ao que o Bootstrap deixa para o navegador (links, `<summary>`) e aos botões.
+Os três arquivos ficam em `assets/styles/tokens/`. Os valores não são repetidos aqui: estão em `_tokens.scss` e na tabela "Cores nos dois temas" do catálogo ([`/design-system#tokens`](#66-catálogo-design-system)), que os lê da própria folha de estilo.
+
+- `_tokens.scss`: os mapas SCSS. É a única fonte dos valores.
+  - **Cores de marca** (`$colors`): `secondary`, `success`, `warning`, `danger`, `info` e `dark`, as que o Bootstrap usa nos botões e selos sólidos. Não mudam com o tema.
+  - **Papéis de cor** (`$themes`), com as mesmas chaves no tema `light` e no `dark`:
+    - `page` (o fundo da página) e `surface` (cartões, painéis, campos e a barra de navegação);
+    - `border` (as linhas finas entre e em volta das superfícies, decorativas) e `border-strong` (uma linha que precisa ser vista sem ser a borda de um controle, como o trilho da timeline);
+    - `text` e `text-muted` (o texto secundário e a borda de botões e campos);
+    - `primary` (links, ações e o estado pressionado), `primary-hover` (o botão primário sob o ponteiro) e `on-primary` (o texto sobre o `primary`);
+    - os tons de status, cada um com o fundo tingido e o texto do mesmo tom: `success-bg` e `success-text`, `warning-bg` e `warning-text`, `danger-bg` e `danger-text`, `info-bg` e `info-text`, `neutral-bg` e `neutral-text`.
+  - **Apelidos** (`$aliases`): os nomes de antes dos temas continuam definidos, cada um como um papel (`body` é `text`, `muted` é `text-muted`, `light` e `surface-alt` são `neutral-bg`).
+  - **Tipografia:** `$font-families` (`base` começa pela Inter, `mono` é a do sistema), `$font-sizes` (`display`, o título da apresentação do login; `page-title`, `section-title` e `small`) e `$font-weights` (`regular`, `medium` e `semibold`).
+  - `$spaces` (1 a 5), `$radii` (`sm`; `base`, de botões e campos; `lg`, de cartões), `$shadows` (`sm`, `base` e `card`) e `$shadows-dark` (no escuro, onde uma sombra não aparece, a `card` é uma borda de 1 px), e `$focus`.
+- `_bootstrap-config.scss`: variáveis do Bootstrap 5.3 derivadas dos tokens.
+  - Os modos de cor: `$enable-dark-mode: true` e `$color-mode-type: data`, ou seja, o tema escuro vale onde houver `data-bs-theme="dark"`.
+  - As variáveis claras e as `*-dark` (`$body-bg-dark`, `$body-color-dark`, `$border-color-dark`, `$link-color-dark`, os tons `*-bg-subtle-dark` e `*-text-emphasis-dark`…) saem de `$themes`, e o fundo da página é o `page`.
+  - Os componentes do Bootstrap que ficam sobre uma superfície (`$card-bg`, `$input-bg`, `$offcanvas-bg-color`, `$table-bg`…) recebem `var(--jus-color-surface)`, que segue o tema.
+  - O anel de foco é sólido, em vez do primário a 25 % do Bootstrap.
+- `_custom-properties.scss`: emite os tokens como CSS custom properties.
+  - Os papéis de cor, os apelidos e as sombras: os valores claros em `:root, [data-bs-theme='light']` e os escuros em `[data-bs-theme='dark']`. Um escopo `[data-bs-theme]` dentro da página (as amostras do catálogo, por exemplo) recebe os valores do seu tema.
+  - O resto (cores de marca, fontes, tamanhos, pesos, espaços, raios e foco), uma vez em `:root`.
+  - Os nomes: `--jus-color-<papel>`, `--jus-font-<família>`, `--jus-font-size-<nome>`, `--jus-font-weight-<nome>`, `--jus-space-<n>`, `--jus-radius-<nome>`, `--jus-shadow-<nome>` e `--jus-focus-<nome>`.
+- **Contraste medido.** `assets/styles/tokens/palette.test.ts` lê os valores compilados e mede, nos dois temas, cada par de texto e fundo (pelo menos 4,5:1) e cada borda de controle (pelo menos 3:1). A paleta não tem como regredir sem que um teste falhe.
+- **Foco.** Os tokens de foco são `--jus-focus-width`, `--jus-focus-offset`, `--jus-focus-color` e `--jus-focus-color-inverse`. O anel do teclado tem pelo menos 3:1 com as cores ao redor: no tema claro, na cor primária (sobre a página, a barra e o link "Pular para o conteúdo"); em branco sobre as superfícies escuras, que são o tema escuro inteiro e as áreas no azul da marca (`.text-bg-primary`, como a apresentação do login, nos dois temas). `base/_focus.scss` escolhe a cor pela propriedade herdada `--jus-focus-ring` e aplica o anel ao que o Bootstrap deixa para o navegador (links, `<summary>`) e aos botões.
 - Web Components só usam `var(--jus-*)`, que atravessa o Shadow DOM.
 - Estilos escritos mobile-first (`min-width` nos breakpoints).
 
 ### 6.2 Layout base
 
-- `base.html.twig` com link "Pular para o conteúdo", navbar responsiva (offcanvas no celular), área de mensagens flash (`<twig:Alert>`) e `<main id="conteudo">`.
-- A navbar mostra "Processos" (só com login; marcado com `aria-current` em toda a seção de processos, inclusive nas páginas de um processo e do peticionamento) e "Design System", mais "Entrar" para visitantes ou o nome do usuário e "Sair" para quem está logado.
+- `base.html.twig` com link "Pular para o conteúdo", navbar responsiva (offcanvas no celular), área de mensagens flash (`<twig:Alert>`), `<main id="conteudo">` (num `container`, sobre o fundo `page`) e um rodapé discreto com o aviso de dados fictícios.
+- **Tema.** O servidor desenha `<html lang="pt-BR" data-bs-theme="light|dark" data-jus-tema="sistema|claro|escuro">` a partir do cookie `jus_tema` (`jus_theme()`, seção 6.4): `claro` e `escuro` já chegam com o `data-bs-theme` certo, e `sistema` chega como `light`. O script inline de `_theme_script.html.twig`, no `<head>` antes das folhas de estilo, troca para `dark` quando o dispositivo prefere o escuro, antes da primeira pintura, e acompanha as mudanças do sistema; ele só age enquanto `data-jus-tema` é `sistema`. Sem JavaScript, "sistema" fica no claro. O porquê e as alternativas estão no [ADR 0008](adr/0008-modo-escuro-cookie-e-atributo-no-servidor.md).
+- **Barra de navegação** (`components/_navbar.scss`): a cor `surface` com uma linha embaixo, nos dois temas. A marca (`.jus-brand`) é um selo quadrado com a inicial, no `primary`, e o nome "Jus". Os links ficam na cor do texto, e a seção atual no `primary`, sublinhada, para que a cor não seja o único sinal.
+  - Os links são "Processos" (só com login; marcado com `aria-current` em toda a seção de processos, inclusive nas páginas de um processo e do peticionamento) e "Design System", mais "Entrar" para visitantes, ou a pessoa e "Sair" para quem está logado.
+  - A pessoa aparece como um avatar com as iniciais (`.jus-avatar`, filtro `initials`, oculto para leitores de tela) e o nome. Quando a linha fica curta, o nome cede: termina em reticências a partir de `lg`, e entre `md` e `lg` só o avatar aparece (o nome continua para leitores de tela, e o `title` o mostra sob o ponteiro).
+  - O seletor de tema fecha a linha.
+- **Seletor de tema** (`_theme_switcher.html.twig`): um formulário comum que envia para `POST /tema` (seção 7), com um grupo "Tema" de três botões (Sistema, Claro e Escuro; ícone, um "Tema: " oculto e o rótulo, visível a partir de `lg` e oculto, para leitores de tela, abaixo disso), `aria-pressed` no atual e uma região `aria-live` para o anúncio. O botão atual é preenchido com o `primary`. O layout o desenha uma vez, no menu: na barra a partir de `md` e no painel lateral no celular. Sem JavaScript, o formulário faz o POST e o servidor volta para a mesma página, já no tema escolhido.
 - Sem JavaScript o offcanvas não abre (quem o abre é um script do Bootstrap), e no celular os links da navbar ficariam fora de alcance. Um `<noscript><style>` no `<head>` de `base.html.twig` mostra então o painel onde ele está, como um bloco sob a marca, e esconde o botão que não faria nada (a partir de `md` o Bootstrap já mostra o painel em linha, ao lado da marca, e nunca o abre). A auditoria das páginas (seção 10.1) confere, com os scripts realmente desligados, que os links do menu estão dentro da janela a 375 px.
 - As páginas de erro (seção 8) estendem o mesmo layout.
-- Três pequenos comportamentos em JavaScript (`assets/behaviours/`, instalados quando o documento está pronto) cuidam do foco, da rolagem e do envio duplo; sem eles a página funciona do mesmo jeito:
+- Seis pequenos comportamentos em JavaScript (`assets/behaviours/`, instalados quando o documento está pronto) cuidam do foco, da rolagem, do envio duplo, do tema, do painel de filtros da busca e dos valores dos tokens no catálogo; sem eles a página funciona do mesmo jeito:
   - **Foco depois de fechar um alerta.** Se o alerta dispensável (`<twig:Alert dismissible>`) tinha o foco, no botão de fechar ou num link da mensagem, o foco vai, quando ele some, para o alvo de foco mais próximo antes dele, em vez de cair no topo do documento e obrigar a percorrer o cabeçalho de novo. O alvo é o último elemento marcado com `data-jus-focus-target` (e com `tabindex`, `-1`: focável por script, fora da ordem de Tab) dentro de `main#conteudo` que vem antes do alerta (ou o contém) e está visível; se não há nenhum, é o próprio `main#conteudo`, que o layout marca, e é o caso das mensagens do alto da página. A marca é opt-in: só as páginas sabem em que lugares vale pousar, e um `tabindex="-1"` qualquer (o painel do menu, um item de lista com `tabindex` móvel) não é alvo. A confirmação de um peticionamento fica abaixo das abas do processo, que a página marca (`nav#andamento`): fechá-la leva o foco para as abas, onde o redirect tinha parado, e não para o alto da página. (Foi essa a escolha, em vez de tirar o `dismissible` da confirmação: a mensagem continua podendo ser dispensada, e qualquer outro alerta dentro de uma seção com alvo de foco ganha o mesmo comportamento.) O foco é lido, e o alvo escolhido, em `close.bs.alert`, e não em `closed.bs.alert`: o Bootstrap 5.3 dispara o segundo depois de remover o elemento, num nó que já saiu do documento. Se o alvo saiu da página enquanto o alerta esmaecia, o foco vai para `main#conteudo`. Se a pessoa levou o foco para outro lugar enquanto o alerta esmaecia, ele fica onde está.
   - **Regiões de rolagem.** O servidor renderiza `tabindex="0"` nas regiões marcadas com `data-jus-scroll-region` (`role="region"` com `aria-label`; hoje, as tabelas de referência do catálogo, com `overflow-y-hidden`, porque a legenda oculta ultrapassa a tabela em 1 px e faria de toda região uma rolagem vertical). O script (um `ResizeObserver` na região e no que ela contém) tira o `tabindex` das que cabem na largura e o devolve quando passam a transbordar (janela mais estreita, fonte maior, conteúdo novo): uma parada de Tab só existe onde há o que rolar. Uma região que está com o foco mantém o `tabindex` até perdê-lo.
   - **Envio uma vez só.** Num formulário marcado com `data-jus-submit-once` (hoje, o do peticionamento), um envio que chegou a acontecer (o navegador só dispara `submit` depois da sua própria validação, e nenhum tratador o cancelou) desabilita os botões de envio e marca o formulário com `aria-busy="true"`, para que um segundo clique não junte a mesma petição de novo enquanto os PDFs ainda sobem. Os botões são desabilitados numa tarefa logo depois do evento, não dentro dele: só ali já se sabe se alguém cancelou o envio, e o botão apertado ainda faz parte dos dados enviados. Quando a página volta do cache de avançar e voltar (`pageshow` com `persisted`), os botões que o comportamento desabilitou voltam a funcionar e o `aria-busy` sai. Um envio **abortado** (a pessoa interrompe o carregamento, ou a conexão cai antes da resposta) deixa os botões desabilitados até a página ser carregada de novo: o navegador não dispara evento algum para uma navegação abortada, e reabri-los depois de um tempo deixaria passar o segundo clique justamente no envio lento que o comportamento protege. É uma troca aceita: a pessoa carrega a página de novo e, como depois de qualquer envio interrompido, confere a linha do tempo do processo antes de peticionar outra vez (o servidor pode ter recebido tudo). Sem JavaScript o formulário é enviado como sempre.
+  - **Tema na hora** (`theme-switcher.ts`). Um envio do seletor de tema por um dos seus botões é assumido pelo script: a página muda na hora (`data-jus-tema`, `data-bs-theme`, resolvendo "sistema" pelo `matchMedia`, e o `aria-pressed` de todo seletor da página), a região viva diz "Tema escuro aplicado." (a frase vem do botão), e o mesmo formulário é enviado com `fetch` (`Accept: application/json`, resposta 204), uma requisição por vez, na ordem das escolhas. Se a gravação falha, o formulário é reenviado como o navegador o enviaria sem o script, com a última escolha, e a página volta do servidor no tema gravado (ou mostra o erro que houver). Acompanhar o sistema depois de "Sistema" é trabalho do script do `<head>`, que lê `data-jus-tema`.
+  - **Painel de filtros** (`filters-panel.ts`). O servidor manda o `<details>` dos filtros da busca sempre aberto. Abaixo de `lg`, o script inline `case/_filters_script.html.twig`, logo depois do painel, o recolhe antes da primeira pintura quando o servidor o marcou com `data-jus-filters-active="false"` (nenhum filtro aplicado, nenhum campo com erro). O comportamento o reabre quando a janela cresce para `lg`, onde o painel é uma coluna sempre visível; quando a janela estreita, ele fica como está. Sem JavaScript, o painel fica aberto.
+  - **Valores dos tokens** (`token-values.ts`). Na tabela "Cores nos dois temas" do catálogo, cada célula marcada com `data-jus-token-value` e `data-jus-token-theme` recebe o valor que a folha de estilo dá à propriedade naquele tema, lido de um escopo `data-bs-theme` oculto (que é retirado depois). Assim nenhum valor é escrito no template. Sem JavaScript, as amostras de cor, que são as próprias propriedades, continuam lá.
 
 ### 6.3 Twig Components
 
 | Componente | Tipo | Props | Comportamento |
 |---|---|---|---|
-| `StatusBadge` | anônimo | `status: CaseStatus` | Mapeia o status para variante, ícone e rótulo; o rótulo é sempre texto (não só cor) |
+| `StatusBadge` | anônimo | `status: CaseStatus` | Mapeia o status para o tom do selo, o ícone e o rótulo; o rótulo é sempre texto (não só cor) |
 | `Alert` | anônimo | `type` (success, danger, warning, info; `error` vira danger), `dismissible` | Mensagem de feedback: `role="alert"` para danger e warning, `role="status"` para as demais. A gravidade não depende só da cor: ícone decorativo e prefixo oculto para leitores de tela ("Erro:", "Atenção:", "Sucesso:", "Informação:") |
 | `CaseCard` | classe | `case: LegalCase`, `href` (opcional), `latestEvent` (opcional), `latestEventKnown` | Número formatado, classe, partes por polo (rótulos do `PartySide`, uma linha por parte, "—" no polo vazio, com "Nenhuma parte." oculto para leitores de tela; o agrupamento é o de `LegalCase::getPartiesBySide()`, o mesmo da página do processo), órgão, status, selo "Sigiloso" e último evento. Com `href`, o número vira um link que cobre o cartão. Quem monta uma lista passa `latestEvent` com `latestEventKnown` verdadeiro: então `latestEvent` nulo significa "sem movimentações" e o cartão não toca na coleção de eventos do processo. A busca carrega os últimos eventos da página inteira numa consulta só, e os cartões nunca carregam nada sob demanda. Sem essas props, o cartão lê o primeiro evento da coleção (a mais recente) |
 | `Timeline` | classe | `events: list<CaseEvent>`, `emptyMessage` | `<ol>` agrupada por data; cada item tem `data-event-type`, `data-event-label` (rótulo em português, usado pelo filtro) e ícone por tipo |
 | `DataTable` | classe | `columns`, `rows`, `sort`, `direction`, `caption`, `anchor`, `emptyMessage` | Ordenação no servidor por links com query string (só colunas com `sortable`), com `Collator` `pt_BR` e números no texto pelo valor. Opções de coluna: `sortable`, `format` (`date`, `datetime`, `bytes`, `brl`, `label`) e `href` (chave da linha com a URL; a célula vira link). Cada `<td>` tem `data-label`; abaixo de `md` vira lista de cards só com CSS, e uma navegação "Ordenar por" repete os links de ordenação que o cabeçalho escondido levava |
-| `DeadlineIndicator` | classe | `deadline: Deadline` | Usa `DeadlineCalculator` e `ClockInterface`; exibe "Vence em N dias úteis (dd/mm)" com a variante do estado |
+| `DeadlineIndicator` | classe | `deadline: Deadline` | Usa `DeadlineCalculator` e `ClockInterface`; exibe "Vence em N dias úteis (dd/mm)" no tom do estado (seção 5.4) |
 | `Pagination` | classe | `page`, `pages`, `parameter` (padrão `pagina`), `label` (padrão "Paginação"), `anchor` (opcional) | `<nav>` com links entre páginas; nada é renderizado quando há uma página só. A página atual é limitada ao intervalo 1..`pages`, de modo que nenhum link aponta para fora, e aparece como texto com `aria-current="page"`. "Anterior" e "Próxima" só existem quando há para onde ir. Até 7 páginas, mostra todas; acima disso, mostra a primeira, a última e as vizinhas da atual, com reticências (ocultas para leitores de tela) quando ficam duas ou mais páginas escondidas. Se ficaria escondida uma página só, mostra essa página em vez das reticências. Os links são relativos (`?…`), mantêm a query string da request (só o `parameter` muda) e levam o `anchor`, quando há, para que a navegação continue na lista |
+
+**Aparência.** Os componentes seguem o tema só pelos tokens (seção 6.1); os estilos ficam em `assets/styles/components/`.
+
+- **Selos.** `StatusBadge` e `DeadlineIndicator` são pílulas (`rounded-pill`, `_badges.scss`) com o fundo tingido do tom e o texto do mesmo tom, sempre com ícone e texto, com pelo menos 4,5:1 nos dois temas. Os tons do status: em andamento é `success`, suspenso é `warning` e arquivado é `neutral`. Os dos prazos estão na tabela da seção 5.4. O selo "Sigiloso" é o tom forte: o texto como fundo, e a superfície como letra.
+- **Superfícies.** `.jus-surface` (`_surfaces.scss`) é o cartão ou painel: a cor `surface`, o raio `lg` e a sombra `card`, que é suave no claro e vira uma borda de 1 px no escuro. Ela veste o `CaseCard` (que, como o cartão inteiro é um link, ganha uma sombra mais funda sob o ponteiro e o anel de foco em volta do cartão), os painéis das telas e o catálogo. `.jus-page-header` é a faixa de cabeçalho das páginas: a superfície de ponta a ponta da janela, com uma linha embaixo.
+- **O resto.** `Alert` leva o fundo tingido e o texto do mesmo tom; a `DataTable` é um painel a partir de `md` e um cartão por linha abaixo disso; a `Pagination` tem links separados e arredondados, com a página atual no `primary`; a `Timeline` tem o trilho em `border-strong`; as abas são uma linha sublinhada, com a atual sobre uma barra no `primary`. Botões e campos têm o raio `base`: o `.btn-primary` fica em `primary` e `on-primary` nos dois temas (`_buttons.scss`), e os botões discretos têm a borda em `text-muted`, de pelo menos 3:1.
+- **Cores forçadas** (os temas de contraste do Windows), que tiram sombras e fundos:
+  - cada superfície ganha uma borda de verdade, e a faixa de cabeçalho, uma linha embaixo (`_surfaces.scss`; os cartões da `DataTable` também);
+  - selos e alertas têm uma borda transparente, que o sistema pinta;
+  - o anel de foco do `CaseCard` tem um contorno transparente pelo mesmo motivo;
+  - o botão do tema atual ganha uma borda mais grossa (`_theme-switcher.scss`), porque o preenchimento que o distinguia some;
+  - a apresentação do login ganha uma borda (`_login.scss`).
 
 ### 6.4 Extensão Twig e formulários
 
@@ -325,6 +375,8 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
   - `brl`: centavos → `R$ 1.234,56` via `NumberFormatter` (`pt_BR`).
   - `bytes`: tamanho de arquivo → `180 KB`, `1,5 MB` (uma casa decimal, `pt_BR`).
   - `label`: rótulo em português de um enum do processo (`EnumLabels`).
+  - `initials`: as iniciais de um nome, para o avatar da barra de navegação.
+- Extensão Twig do tema (`ThemeExtension`, funções por `#[AsTwigFunction]`): `jus_theme()` dá a escolha da requisição (`ThemePreference`, que o `ThemeResolver` lê do cookie `jus_tema`; ausente ou desconhecido, `sistema`) e `jus_themes()` as três escolhas, na ordem do seletor.
 - Form theme `form/jus_theme.html.twig`, estendendo `bootstrap_5_layout.html.twig`, configurado globalmente. A ligação de acessibilidade é a nativa do Symfony: campos com erro recebem `aria-invalid="true"`, e `aria-describedby` aponta para a ajuda e para cada mensagem de erro.
 - As mensagens da interface são em português: os textos da aplicação são escritos em pt-BR, e as mensagens do próprio Symfony (restrições de validação sem mensagem própria, CSRF) vêm do tradutor, com `pt_BR` como locale padrão e de fallback.
 - `CnjNumberType` (form type): DataTransformer `string ↔ CnjNumber`; o bloco do tema renderiza o input nativo (o campo enviado, com rótulo, ajuda e erros do servidor) dentro de `<jus-numero-processo>`, que o aprimora no lugar (seção 6.5).
@@ -342,6 +394,8 @@ O sigilo é o campo booleano `LegalCase.confidential`, independente do status.
 Os três componentes são Custom Elements puros, em `assets/components/`, registrados em `index.ts` por `define()`, que só chama `customElements.define` quando o nome está livre (carregar o bundle duas vezes não lança erro). São aprimoramento progressivo: sem JavaScript viram elementos desconhecidos e o controle nativo que cada um envolve (o input do número, a lista da timeline, o input de arquivos) funciona sozinho, com o servidor validando. O catálogo (seção 6.6) documenta atributos, comportamento e acessibilidade de cada um, com o exemplo vivo.
 
 **Classe base `JusElement`:** `attachShadow({ mode: 'open' })` e `adoptedStyleSheets` com uma folha base compartilhada (constructable stylesheet, criada uma vez e adotada por todos os componentes) seguida das folhas do próprio componente (`styles()`, criadas com `sheet()`). A folha base traz `:host`, `[hidden]`, `.visually-hidden`, o botão `.jus-button` (borda na cor `muted`, para ser reconhecido como controle; estado `aria-pressed`; estado `:disabled`, com cursor `not-allowed`, texto `muted` sobre o fundo claro e a borda discreta) e o anel de foco; as cores e os espaços vêm só de `var(--jus-*)`, e um teste confere, na folha base e nas folhas de cada componente, que não há cor literal nem propriedade personalizada de outra família e que os tokens usados são os que a página define. Usam a classe base os componentes que desenham controles próprios: `<jus-filtro-timeline>` e `<jus-upload>`.
+
+**Nos dois temas.** Os componentes não sabem do tema. As folhas só leem `var(--jus-*)`, e as propriedades de cor têm os valores claros em `:root, [data-bs-theme='light']` e os escuros em `[data-bs-theme='dark']` (seção 6.1): o Shadow DOM os herda do `<html>`, ou de um escopo `[data-bs-theme]` em volta do elemento, como nas amostras do catálogo. O botão pressionado (`aria-pressed`) é preenchido com o `primary`, com o rótulo em `on-primary`; o botão sob o ponteiro ganha o `neutral-bg`; e o anel de foco usa a `--jus-focus-ring` da página, que é a cor inversa no escuro. As bordas que identificam os controles (o `.jus-button`, na cor `muted`, e a área tracejada do `<jus-upload>`) são bordas de verdade, que as cores forçadas pintam na cor do sistema. Os testes conferem que cada token das folhas tem valor no tema escuro e rodam o axe com a paleta escura (`installTokens('dark')`).
 
 **`<jus-numero-processo>`**
 - Aprimora, **no próprio lugar**, o `<input>` nativo que o form theme renderiza dentro do elemento. Não usa Shadow DOM nem `ElementInternals`, ou seja, não é um campo form-associated que assume o lugar do input: o input do servidor já é acessível (rótulo, ajuda e erros ligados por `aria-describedby`) e já é o campo enviado. Assim nada é duplicado, não há segundo campo para sincronizar nem input para desabilitar, e nada depende do JavaScript: sem ele, o input e a validação do servidor continuam iguais.
@@ -374,9 +428,14 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 - Cada exemplo é um arquivo em `templates/design_system/examples/<componente>/<exemplo>.html.twig`.
 - A página renderiza o exemplo com `include()` e mostra o código-fonte do **mesmo arquivo** com `source()`, então a documentação não tem como divergir do código.
 - Cada componente tem: descrição, tabela de props/atributos, exemplos de cada variante e notas de acessibilidade.
+- **Layout** (`components/_catalog.scss`): a faixa de cabeçalho (`.jus-page-header`) com o título, a apresentação e uma nota de que o seletor de tema da barra vale para o catálogo; depois, a navegação das seções num cartão e as seções, um cartão cada. A partir de `lg`, a navegação é uma coluna lateral fixa (`position: sticky`) ao lado das seções; abaixo disso, fica acima delas, com os links em linhas. Os exemplos e o código ficam sobre o fundo `page`, com a borda fina e o raio `base`, e as linhas longas de código quebram em vez de rolar.
+- **Os tokens nos dois temas.** A seção de tokens tem a tabela das famílias e a tabela "Cores nos dois temas" (papel, claro, escuro e uso), com uma linha por papel de `$themes`, na ordem do mapa. Cada amostra é um elemento com `data-bs-theme="light"` ou `"dark"` e a classe do papel, gerada em `_catalog.scss` a partir de `$themes`, que pinta o fundo com a própria `--jus-color-<papel>`. Assim a coluna do claro mostra sempre o claro, e a do escuro o escuro, qualquer que seja o tema da página. O valor ao lado de cada amostra é escrito pelo comportamento `token-values.ts` (seção 6.2), lido da folha. Nenhum hex é escrito no template, e o `DesignSystemTest` compara os papéis, os apelidos e os nomes das famílias com o próprio `_tokens.scss`.
 
 ### 6.7 Acessibilidade
 
+- Contraste AA nos dois temas: texto com pelo menos 4,5:1, bordas e ícones que identificam controles com 3:1, e o foco com 3:1 contra as superfícies vizinhas (medidos por `palette.test.ts`, pelos testes de componente e pela auditoria das páginas, seção 10.1).
+- O seletor de tema é operável por teclado, tem nome ("Tema") e estado (`aria-pressed`), e a troca é anunciada numa região `aria-live="polite"`. O `<summary>` "Filtrar" do painel de filtros da busca diz quantos filtros estão aplicados.
+- `prefers-reduced-motion` é respeitado nas transições.
 - Status nunca depende só de cor (sempre há texto).
 - Timeline como lista ordenada; foco visível; tudo operável por teclado.
 - Erros de formulário ligados aos campos por `aria-describedby`.
@@ -396,13 +455,25 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 | GET, POST | `/processos/{numero}/peticionar` | `case_file` | `FILE` (sem `VIEW`: 404; com `VIEW` e sem `FILE`: 403) |
 | GET | `/documentos/{id}` | `document_download` | `VIEW` no processo do documento (sem `VIEW`: 404) |
 | GET | `/design-system` | `design_system` | público |
+| POST | `/tema` | `app_theme` | público (token CSRF sem sessão) |
 
 - O logout exige o token CSRF: o link "Sair" é gerado com `logout_path('main')`, e um `/logout` sem token responde 403 sem encerrar a sessão.
 - O e-mail do login não diferencia maiúsculas de minúsculas nem espaços nas pontas (ele é guardado em minúsculas e procurado assim, por `UserRepository::loadUserByIdentifier()`), e a senha continua exata.
 - `{numero}` usa o formato mascarado como forma canônica; o `CnjNumberValueResolver` aceita com ou sem máscara e responde 404 se o número for inválido, antes de consultar o banco.
 - `{id}` do download é o id do documento, um inteiro simples: sem zeros à esquerda (que dariam mais de um endereço ao mesmo documento) e que caiba no inteiro de 64 bits. Qualquer outra coisa é 404, como um id que não existe. A rota aceita só `GET` (e `HEAD`, que o roteador do Symfony aceita em toda rota `GET`: os mesmos cabeçalhos, sem o corpo); qualquer outro método dá 405.
 
+**Entrar (`/login`)**
+- A partir de `lg`, duas colunas da mesma altura (`components/_login.scss`): à esquerda a apresentação (`.jus-login-hero`), no azul da marca nos dois temas (`.text-bg-primary`, com o anel de foco inverso), com a marca, o título "Processo eletrônico, do jeito que deveria ser." (um parágrafo destacado, não um título), uma frase sobre o projeto e o aviso "Projeto de demonstração · dados fictícios"; à direita, o formulário num cartão (`.jus-surface`), com as contas de demonstração destacadas no tom de informação. Abaixo de `lg`, uma coluna só: a apresentação vira um cabeçalho curto acima do cartão. O único `h1` é "Entrar", o do formulário.
+
+**Tema (`POST /tema`)**
+- A rota do seletor de tema (seção 6.2), pública, porque o seletor está em toda página, o login e o catálogo inclusive. Os campos são `tema` (`sistema`, `claro` ou `escuro`), `voltar` (o caminho da página de onde veio) e `_token`.
+- O token é o CSRF **sem sessão** do id `theme` (`framework.csrf_protection.stateless_token_ids`, em `config/packages/csrf.yaml`). O Symfony não guarda nada e confere a origem da requisição: `Sec-Fetch-Site: same-origin`, ou, sem esse cabeçalho, um `Origin` ou `Referer` com o esquema e o host da requisição. Assim o visitante não ganha sessão, e a troca de tema de um visitante não consulta o banco. Os motivos e os limites (proxies confiáveis, por exemplo) estão no [ADR 0008](adr/0008-modo-escuro-cookie-e-atributo-no-servidor.md).
+- **Sucesso:** grava o cookie `jus_tema` com o valor escolhido (`HttpOnly`, `SameSite=Lax`, `Path=/`, validade de um ano, e `Secure` quando a requisição é HTTPS) e responde **303** para `voltar`. `voltar` só é aceito se for um caminho do próprio site (começa com uma barra e não com duas, sem barra invertida, espaços ou caracteres de controle); qualquer outro valor, ou nenhum, vira `/`. Numa página de erro, o seletor manda `/`, para não repetir o endereço que falhou.
+- Com `Accept: application/json` (o `fetch` do comportamento do seletor), a resposta é **204**, sem corpo nem redirect, com o mesmo cookie.
+- Um `tema` desconhecido (ou enviado como lista) não muda o cookie: num formulário, o mesmo 303 para `voltar`; com `Accept: application/json`, **400**. Um token inválido ou ausente é **403**, nos dois casos (seção 8).
+
 **Consulta (`/processos`)**
+- **Layout** (`components/_search.scss`): o `h1` "Processos", depois os filtros e os resultados. A partir de `lg`, os filtros são uma coluna própria, num cartão, com os campos empilhados e os botões Buscar e Limpar, e os resultados ficam ao lado: o `h2` com o total, os cartões numa coluna em `lg` e em duas a partir de `xl`, e a paginação. Abaixo de `lg`, os filtros ficam num `<details class="jus-filters">` acima dos resultados, com o `<summary>` "Filtrar" e, quando há filtros aplicados, o contador ("· 2 filtros"). O servidor manda o painel sempre aberto, marcado com `data-jus-filters-active`; o script inline que vem logo depois dele (`case/_filters_script.html.twig`) o recolhe antes da primeira pintura quando não há filtro aplicado nem campo com erro (seção 6.2). Sem JavaScript, o painel fica aberto. A ordem de leitura é filtros e depois resultados.
 - Formulário GET (`role="search"`) com parâmetros opcionais: `numero` (número CNJ, com ou sem máscara), `parte` (nome da parte, busca parcial sem diferenciar maiúsculas nem acentos), `status` e `pagina` (a partir de 1). Os filtros ficam na URL, que pode ser compartilhada e recarregada.
 - Número CNJ inválido → erro ao lado do campo, na própria página (status 200, sem exceção). Com JavaScript, o `<jus-numero-processo>` antecipa a regra e o navegador barra o envio de um número incompleto ou de DV inválido; o servidor continua decidindo.
 - Número válido que corresponde a um processo **que o usuário pode ver** → redireciona direto para `case_show`, na URL mascarada; os demais filtros (`parte`, `status`) são ignorados nesse redirect. Um `status` inválido mostra um erro ao lado do campo, na própria página, e não lista processos. Se o processo não existe ou é um sigiloso do qual o usuário não participa, a resposta é a mesma: "Nenhum processo encontrado." A busca nunca revela a existência de um processo sigiloso.
@@ -412,7 +483,12 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 
 **Processo (`/processos/{numero}`)**
 - Número sem máscara → redirect 301 para a URL mascarada, mantendo a query string (`aba`, `sort`, `direction`). Número inválido ou sem processo → 404, e o número digitado nunca é repetido na página. Sigiloso de outro advogado → o mesmo 404 e a mesma página, sem dado algum do processo: nada diferencia um sigiloso que o usuário não pode ver de um número que não existe (seção 8).
-- Capa: número, classe, assunto, órgão julgador, valor da causa (`|brl`), data de distribuição, selo "Sigiloso" e `<twig:StatusBadge>`.
+- **Layout** (`components/_case-page.scss`), na ordem do documento, que é a ordem da tela:
+  - a faixa de cabeçalho (`.jus-page-header`, a superfície de ponta a ponta): o link "← Processos" (para a busca; o nome acessível é "Voltar para Processos"), o número como `h1`, em fonte monoespaçada (quebra em telas estreitas, sem rolagem horizontal), o `<twig:StatusBadge>`, o selo "Sigiloso" quando é o caso, a classe e, só com `FILE`, o botão "Peticionar", no fim da linha;
+  - o `aside` "Dados da causa e partes" (`aria-label`): "Dados da causa" (`h2`; uma lista `dl` com assunto, órgão julgador, valor da causa `|brl`, distribuição e sigilo) e "Partes" (abaixo); a partir de `lg`, é a coluna estreita, à **esquerda**, e abaixo de `lg` vem logo depois da faixa;
+  - a coluna principal: "Prazos" e "Andamento", cada um num painel.
+
+  Nada reordena as colunas (nenhuma classe `order-*`), então a leitura, o foco e a tela seguem o mesmo caminho. A ordem dos títulos continua h1 → h2 → h3 → h4.
 - Partes por polo: "Polo ativo" e depois "Polo passivo", na ordem em que as partes foram cadastradas, cada polo com um `h3` e cada parte como `h4` (o `h2` é "Partes"), com advogados (nome e OAB) ou "Sem advogado constituído." Um polo sem partes mostra "—" (com o texto "Nenhuma parte." oculto, para leitores de tela).
 - Prazos com `<twig:DeadlineIndicator>`: os em aberto primeiro (por vencimento), depois os cumpridos.
 - Abas por link, `?aba=movimentacoes|documentos#andamento`, com `aria-current="page"` na ativa: só o painel ativo é renderizado, então funcionam sem JavaScript. Movimentações (`<twig:Timeline>` dentro de `<jus-filtro-timeline>`, que acrescenta o filtro por tipo e, sem JavaScript, não faz nada) e Documentos (`<twig:DataTable>`, colunas título, tipo, data e tamanho, com os documentos de todas as movimentações, os da movimentação mais recente primeiro; a ordenação por `sort` e `direction` mantém a aba). `aba`, `sort` ou `direction` desconhecidos ou malformados caem nos valores padrão (Movimentações, ordem natural), sem erro.
@@ -422,7 +498,8 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 
 **Peticionamento (`/processos/{numero}/peticionar`)**
 - Ordem das decisões, antes de o formulário existir: visitante → redirect para `/login`; número sem máscara → redirect 301 para a URL mascarada (a query string vai junto); número inválido, processo inexistente ou sem `VIEW` → o mesmo 404; com `VIEW` e sem `FILE` → 403 (seção 5.5). Só depois o formulário é construído e a requisição é lida, tanto em `GET` quanto em `POST`.
-- A página tem o título "Peticionar · Processo {número} · Jus", um `h1` "Peticionar" com o número e a classe do processo, o link "Voltar para o processo" e o formulário `FilingFormType` (seção 6.4): "Tipo de petição", "Descrição" e "Petição e anexos (PDF)" (o `<jus-upload>`), com o botão "Juntar petição". Sem JavaScript, o envio é um POST `multipart/form-data` comum, e o servidor valida tudo.
+- **Layout:** a mesma faixa de cabeçalho da página do processo, com o link "← Voltar para o processo", o `h1` "Peticionar" e o número (monoespaçado) com a classe; depois, o formulário num cartão (`.jus-surface`) de largura média (no máximo 720 px, alinhado ao título), com o resumo de erros, quando há, no topo do cartão.
+- A página tem o título "Peticionar · Processo {número} · Jus" e o formulário `FilingFormType` (seção 6.4): "Tipo de petição", "Descrição" e "Petição e anexos (PDF)" (o `<jus-upload>`), com o botão "Juntar petição". Sem JavaScript, o envio é um POST `multipart/form-data` comum, e o servidor valida tudo.
 - **Sucesso:** `FilingService` (seção 5.6), mensagem flash "Petição juntada ao processo." e redirect **303** (padrão PRG) para `case_show` em `?aba=movimentacoes#andamento`, de modo que a nova movimentação aparece no alto da linha do tempo e um F5 não repete o envio. O redirect cai em `#andamento`, bem abaixo do alto da página, e por isso a confirmação é uma mensagem de um tipo próprio (`filing`) que a página do processo mostra dentro da seção Andamento, entre as abas e o painel (um `<twig:Alert type="success" dismissible>`), e não na área de mensagens do alto, que as outras páginas continuam usando. Ela aparece uma vez só.
 - **Erro:** a página volta com **422**, o tipo e a descrição digitados mantidos, e nada é gravado (nem arquivo, nem registro).
   - Um resumo (`#resumo-erros`, um aviso `alert-danger` de texto, sem `role="alert"`, para não anunciar por cima do que a pessoa está lendo) lista cada campo inválido como um link para ele; cada campo também mostra o próprio erro (`aria-invalid`, `aria-describedby`, seção 6.4). O título da página começa com "Erro: ".
@@ -459,6 +536,8 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 | Sigiloso de outro advogado na URL (página, peticionamento ou download) | 404 "Página não encontrada", a mesma página de um número inexistente: o sistema nunca revela que um processo sigiloso existe |
 | Download de um documento que não existe, de um processo sem `VIEW`, cujo arquivo sumiu do disco ou cujo nome guardado não é um UUID | O mesmo 404 "Página não encontrada" nos quatro casos, sem `Content-Disposition` e sem nada do documento: quem pede não distingue um documento que não existe de um que não pode ver. Um id que não é um inteiro simples (texto, decimal, zeros à esquerda, maior que o inteiro de 64 bits) também dá 404, e outro método que não `GET` (ou `HEAD`, aceito em toda rota `GET`), 405 |
 | Ação que o usuário não pode executar num processo que **pode ver** (peticionar com `VIEW` e sem `FILE`: o servidor, o advogado que não representa parte alguma de um processo público, o processo arquivado) ou ação recusada pelo sistema (o logout sem token CSRF) | 403 "Acesso negado", sem detalhes da exceção. Quem não tem `VIEW` nunca chega ao 403: recebe o 404 da linha acima, em qualquer rota do processo |
+| Troca de tema (`POST /tema`) com o token CSRF inválido ou ausente (o navegador não atestou que a requisição vem do próprio site) | 403, num formulário ou com `Accept: application/json`; o cookie não muda |
+| Troca de tema com um `tema` desconhecido (ou enviado como lista) | Num formulário, 303 de volta para `voltar`, sem mudar o cookie; com `Accept: application/json`, 400 |
 | Não autenticado | Redirect para `/login`, nas rotas que existem |
 | `pagina`, `aba`, `sort` ou `direction` malformados | Valor padrão, sem erro |
 | `pagina` além da última página | Redirect para a última página |
@@ -471,7 +550,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 
 **Páginas de erro**
 - Ficam em `templates/bundles/TwigBundle/Exception/` (`error404`, `error403` e `error`, a página dos demais códigos), estendem `base.html.twig` e usam o layout do Design System, em português. Com `APP_DEBUG` ligado (o ambiente `dev`), o Symfony mostra a própria página de depuração; as do projeto são as que o visitante vê em produção. No `dev` elas podem ser vistas, depois de entrar (o controle de acesso cobre `^/`), em `/_error/404`, `/_error/403` e `/_error/500`.
-- Cada página tem um `h1`, um texto curto e um caminho de volta:
+- Cada página é um cartão (`.jus-surface`) no meio do conteúdo, não mais largo que um container pequeno (`_error_card.html.twig`, `components/_error-page.scss`): um ícone grande, só para os olhos (`aria-hidden`), num fundo redondo tingido do tom da página (informação no 404, atenção no 403, perigo nos demais), e, centralizados, um `h1`, um texto curto e um caminho de volta:
 
 | Código | `h1` | Caminho de volta |
 |---|---|---|
@@ -489,6 +568,7 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 - `DeadlineCalculator`: fim de semana, feriado fixo, feriados móveis, recesso, virada de ano, fusos diferentes.
 - `Easter`: anos de referência, incluindo os que exercitam a correção do algoritmo.
 - `LegalCaseVoter`: todas as combinações da tabela 5.5.
+- `ThemeResolver` e `ThemePreference`: o cookie ausente, válido, desconhecido ou enviado como lista, o `data-bs-theme` de cada escolha e os rótulos.
 - Entidades e suas guardas (seção 5.1), sem kernel: só o advogado de uma parte peticiona; a petição inicial só abre o processo (nem depois de outra petição, nem de outra movimentação, nem duas vezes); uma juntada exige o tipo de petição e as demais movimentações o recusam; um prazo só nasce de uma intimação do próprio processo, com pelo menos um dia útil, e não é cumprido antes de começar (nem numa segunda chamada), mantendo a primeira data de cumprimento.
 
 **PHPUnit — Component (`tests/Component/`)**
@@ -508,13 +588,16 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 - Login e logout; busca (filtros, redirect por número exato, filtro de sigilosos, paginação com parâmetros malformados); página do processo (200, 404 para número inválido, inexistente ou sigiloso de outro advogado, partes por polo, abas e ordenação sem JavaScript); páginas de erro com `debug` desligado; peticionamento e download (abaixo); catálogo público.
 - Peticionamento (`FilingPageTest`): o formulário e seus atributos (tipo sem a petição inicial, `maxlength`, os limites no `<jus-upload>` e na ajuda); o envio completo como um navegador sem JavaScript o faz, com o 303 para a aba de movimentações, a mensagem de sucesso, a movimentação na linha do tempo, os documentos na aba Documentos, os PDFs no disco e só os prazos do advogado cumpridos; a confirmação dentro da seção Andamento, uma vez só, com as outras mensagens no alto da página; cada tipo aceito; cada recusa (sem tipo, descrição vazia ou longa demais, sem arquivo, seis arquivos, arquivo que não é PDF, arquivo grande demais, token CSRF) com 422, a mensagem junto do campo e nada gravado; o resumo de erros (todos os campos inválidos como links, só os que falharam, o pedido de escolher os arquivos de novo só quando cabe); o título com "Erro: "; a mensagem do `post_max_size`; uma falha ao gravar, com a página 500 sem detalhes, o erro no log e nada guardado; o visitante, o sigiloso de outro advogado (o mesmo 404 de um número inexistente, em `GET` e `POST`), o servidor, o advogado sem parte e o processo arquivado (403, em `GET` e `POST`); o redirect da URL sem máscara e o 404 do número inválido; e o botão "Peticionar" na página do processo.
 - Download (`DocumentDownloadTest`): o advogado, o advogado sem parte num processo público, o servidor num sigiloso e o advogado da parte num sigiloso baixam o PDF, com os cabeçalhos da seção 7; o sigiloso de outro advogado, o arquivo que sumiu, o nome guardado que não é um UUID e ids que não são documentos (texto, decimal, negativo, zeros à esquerda, zero, o maior inteiro e um maior que ele) dão o mesmo 404; só `GET` (e `HEAD`, sem o corpo); o `Cache-Control` com `private` e `no-store`; visitante para o login; os nomes do `Content-Disposition` (acentos, espaços, `%`, aspas, sem extensão, outra extensão, 255 caracteres, barras, quebra de linha, vazio, só `.pdf` em qualquer caixa e com espaços).
+- Tema (`ThemeTest`): `POST /tema` com cada escolha (303, o cookie e as suas flags, `Secure` em HTTPS), para visitante e para quem está logado, sem abrir sessão nem consultar o banco; `voltar` inseguro (outro host, barra invertida, tabulação, quebra de linha, espaço) vira `/`; `tema` desconhecido ou malformado não muda nada; token inválido é 403, e o `Sec-Fetch-Site` ou o `Referer` atestam a origem; com `Accept: application/json`, 204, 400 ou 403; toda página, as de erro inclusive, chega no tema do cookie, com o script do tema no `<head>` antes dos estilos; e o seletor é um formulário só, no menu, com três botões nomeados e o atual pressionado.
 - O número de consultas de cada tela é fixo e verificado com `QueryRecorder`: 5 na busca (com 10 cartões, metade sem movimentações), 3 na página do processo, em qualquer aba (também para o advogado que vê o botão "Peticionar" e com os links de download), 2 no formulário de peticionamento e 2 no download.
 
 **Vitest 5 em modo browser (Playwright)**
 - Localmente os testes rodam no Google Chrome instalado (canal `chrome` do Playwright), sem baixar navegador; no CI (variável `CI` ou `TF_BUILD`) rodam no Chromium do Playwright, que o pipeline instala, pelo canal `chromium` (o navegador completo em modo headless novo, mais próximo do Chrome do que o headless shell). A configuração está em `vitest.config.ts`, e `npm test` é o comando nos dois casos.
 - `shared/cnj.ts` com o mesmo JSON do PHPUnit, inclusive os 25 pontos de código que o `trim()` do JavaScript remove (seção 5.3); `shared/bytes.ts` com os mesmos casos do filtro Twig `bytes`; `shared/validity.ts`.
 - Cada Web Component: comportamento, integração com o `<form>` (envio, validação nativa, `reset`), foco, ciclo de vida (mover, remover da página, reconectar) e acessibilidade. Os comportamentos de layout são testados com o Bootstrap e o `ResizeObserver` reais. O de envio uma vez só é testado com envios de verdade: um formulário válido, um que o navegador recusa, um cancelado por um tratador (antes ou depois do comportamento), a volta do cache de avançar e voltar (`pageshow` com `persisted`) e o envio real para um quadro à parte, que mostra que o botão apertado ainda vai nos dados.
-- **axe-core em todo teste de componente**, com a paleta real: `installTokens()` (`test-support/tokens.ts`) compila o `_custom-properties.scss` com os mesmos arquivos Sass da página e o coloca no documento, de modo que o contraste é medido com os tokens verdadeiros e os testes não mantêm uma segunda cópia da paleta. `expectNoAxeViolations()` (`test-support/axe.ts`) falha listando a regra e o seletor de cada violação, também dentro de um Shadow DOM.
+- **axe-core em todo teste de componente**, com a paleta real: `installTokens()` (`test-support/tokens.ts`) compila o `_custom-properties.scss` com os mesmos arquivos Sass da página e o coloca no documento, de modo que o contraste é medido com os tokens verdadeiros e os testes não mantêm uma segunda cópia da paleta. `installTokens('dark')` põe `data-bs-theme="dark"` no `<html>` durante o teste, para medir o tema escuro.
+- A paleta (`styles/tokens/palette.test.ts`): cada par de texto e fundo e cada borda de controle, nos dois temas, com a razão de contraste da WCAG (`test-support/contrast.ts`). As folhas da página (`styles/app.test.ts`): as superfícies, os selos, a barra, os layouts das telas em 1280 e 375 px e as cores forçadas, nos dois temas.
+- O tema: o `theme-switcher` (aplica a escolha e o `aria-pressed`, envia por `fetch`, anuncia, reenvia o formulário se a gravação falha, sem o comportamento o formulário segue normal, axe) e os dois scripts inline, executados a partir do próprio arquivo do template (`theme-inline-script.test.ts` e `filters-inline-script.test.ts`). `expectNoAxeViolations()` (`test-support/axe.ts`) falha listando a regra e o seletor de cada violação, também dentro de um Shadow DOM.
 - Motivo do modo browser: os componentes dependem de APIs reais do navegador (`DataTransfer`, `ResizeObserver`, constructable stylesheets, validação nativa de formulário, foco e ordem de Tab), que o jsdom não implementa ou só simula em parte; um teste com mocks destas APIs não provaria nada (ADR 0005).
 - O ESLint roda com o `strictTypeChecked` do typescript-eslint sobre todo o TypeScript do repositório, testes inclusive; sem `any`, `@ts-ignore` nem `eslint-disable`.
 
@@ -554,18 +637,24 @@ php -d upload_max_filesize=10M -d post_max_size=60M -S 127.0.0.1:8123 -t public
 npm run audit:pages -- --base-url=http://127.0.0.1:8123   # em outro terminal
 ```
 
-- Usa o Google Chrome instalado (`channel: 'chrome'`, sem baixar navegador) e entra como `advogado@jus.test`, da demonstração. Sem `--base-url`, assume `http://127.0.0.1:8000`.
+- Usa o Google Chrome instalado (`channel: 'chrome'`, sem baixar navegador) e entra como `advogado@jus.test`, da demonstração. Sem `--base-url`, assume `http://127.0.0.1:8000`, e recusa um endereço que não seja desta máquina (`localhost`, `127.x.x.x`, `[::1]`) sem `--allow-remote`, porque entra com a conta de demonstração e grava peticionamentos.
+- **Nos dois temas.** Tudo o que está abaixo, menos a passada pelo teclado, roda duas vezes: no tema claro e no escuro. O tema vem do cookie `jus_tema` (`claro` ou `escuro`), que cada contexto do navegador já tem antes da primeira requisição, como se a pessoa o tivesse escolhido antes. Cada página auditada precisa ter chegado no seu tema (`data-bs-theme` e `data-jus-tema` no `<html>`), senão ela reprova. O navegador é configurado para preferir o esquema de cores oposto: um cookie que não chegasse ao servidor deixaria a página em "sistema", que segue o navegador e cairia no outro tema, e a página reprovaria, em vez de o mesmo tema ser auditado duas vezes.
 - **Páginas, em 1280 px e em 375 px, com JavaScript:** entrar (visitante), busca (com resultados e sem resultados), a página do processo (abas Movimentações e Documentos), o peticionamento (vazio, com os erros do 422 depois de um envio vazio, para o qual o script desliga a validação do próprio navegador no formulário, e com arquivos escolhidos), o processo depois de um peticionamento (com a confirmação), as páginas de erro 404, 403 e 500, o catálogo e, em 375 px, o menu aberto. O caso usado é o primeiro, entre os resultados da busca, em que a advogada pode peticionar.
 - **Em cada página:** axe-core com as regras WCAG 2.0, 2.1 e 2.2, níveis A e AA, e a conferência de que `document.documentElement.scrollWidth <= innerWidth` (nada de rolagem horizontal). O que o axe não consegue decidir (`incomplete`: o fundo de um `select` tem uma imagem, um `textarea` vazio não tem valor, o painel do menu, `#menu-principal`, tem `aria-labelledby` sem `role`: é a marcação do Bootstrap, aceita em todas as larguras, porque a partir de 768 px o painel nunca é aberto e abaixo disso o `role="dialog"` só existe enquanto ele está aberto) é listado no relatório para quem ler conferir; não reprova a página.
-- **Teclado, com eventos reais (`page.keyboard`), a 1280 px:** o primeiro Tab para no link "Pular para o conteúdo" e Enter leva o foco a `main#conteudo`; depois de um envio vazio (422), cada link do resumo de erros (`#resumo-erros`) leva o foco ao seu campo; o Tab alcança o tipo, a descrição, o input de arquivos (dentro do `<jus-upload>`) e o botão de envio; escolhidos dois arquivos, o Tab alcança os botões "Remover", Enter remove um arquivo e deixa o foco num "Remover"; e fechar com Enter a confirmação de um peticionamento mantém o foco na página (nas abas, `#andamento`), não no alto.
-- **Sem JavaScript (`javaScriptEnabled: false`):** a entrada, a busca por um formulário comum, a troca de aba por links e um peticionamento inteiro (tipo, descrição, arquivo e envio) que termina na página do processo com a confirmação. Com os scripts desligados nada pode ser avaliado na página, nem o axe: as páginas que o navegador recebeu são então auditadas, a 1280 px e a 375 px, numa página que roda scripts mas tem o JavaScript da aplicação bloqueado (o mesmo HTML e o mesmo CSS, sem os aprimoramentos), e, no contexto realmente sem JavaScript, a 375 px e a 1280 px, confere-se que cada link do menu (Processos, Design System, Sair) está dentro da janela, pela caixa que ele ocupa, e não só que é visível.
-- O relatório diz, por página e largura, as violações (regra, impacto, ajuda, seletor) e a rolagem; o código de saída é 1 se houver violação, rolagem horizontal ou verificação que falhou, e 2 se a própria auditoria não pôde rodar.
-- A auditoria **grava peticionamentos** nos dados de demonstração (quatro por rodada, como uma pessoa faria); `composer setup` devolve os dados ao estado inicial. As páginas de erro vêm de `/_error/{código}`, rota do ambiente `dev` que desenha as páginas do projeto (num endereço inexistente, o `dev` mostra a página de depuração do Symfony, que não é nossa); em produção o mesmo endereço é um 404 e a página é a mesma.
+- **Teclado, com eventos reais (`page.keyboard`), a 1280 px, no tema claro** (para onde vai o foco não depende das cores): o primeiro Tab para no link "Pular para o conteúdo" e Enter leva o foco a `main#conteudo`; depois de um envio vazio (422), cada link do resumo de erros (`#resumo-erros`) leva o foco ao seu campo; o Tab alcança o tipo, a descrição, o input de arquivos (dentro do `<jus-upload>`) e o botão de envio; escolhidos dois arquivos, o Tab alcança os botões "Remover", Enter remove um arquivo e deixa o foco num "Remover"; e fechar com Enter a confirmação de um peticionamento mantém o foco na página (nas abas, `#andamento`), não no alto.
+- **Sem JavaScript (`javaScriptEnabled: false`):** a entrada, a busca por um formulário comum, a troca de aba por links e um peticionamento inteiro (tipo, descrição, arquivo e envio) que termina na página do processo com a confirmação. Com os scripts desligados nada pode ser avaliado na página, nem o axe: as páginas que o navegador recebeu são então auditadas, a 1280 px e a 375 px, numa página que roda scripts mas tem o JavaScript da aplicação bloqueado e os scripts inline retirados (o mesmo HTML e o mesmo CSS, sem os aprimoramentos: o painel de filtros da busca, por exemplo, fica aberto, como num navegador sem JavaScript), e, no contexto realmente sem JavaScript, a 375 px e a 1280 px, confere-se que cada link do menu (Processos, Design System, Sair) está dentro da janela, pela caixa que ele ocupa, e não só que é visível.
+- **O seletor de tema**, como visitante, no catálogo (público, e que não abre sessão), num navegador que prefere o claro e num contexto novo a cada vez, em 1280 px e em 375 px:
+  - **com JavaScript** (na barra a 1280 px; no menu lateral, que a auditoria abre, a 375 px): sem o cookie a página segue o sistema (o claro); o clique em "Escuro" põe `data-bs-theme="dark"` e `data-jus-tema="escuro"` na hora, com o botão pressionado, a escolha é gravada em segundo plano (204, sem a página ser carregada de novo) e anunciada ("Tema escuro aplicado."), e o cookie fica com `HttpOnly`, `SameSite=Lax`, um ano de validade e nenhum outro cookie (o visitante não ganha sessão); depois de recarregar, a página vem do servidor no escuro. Em seguida, "Sistema" faz o mesmo caminho de volta ao claro;
+  - **sem JavaScript** (`javaScriptEnabled: false`; a 375 px, o menu aparece pelo `<noscript>`): o clique envia o formulário, o servidor responde 303 para a mesma página, que volta no escuro, com o cookie; recarregar mantém o escuro; e "Sistema" volta ao claro do mesmo jeito.
+
+  Nada fica para trás: o contexto é descartado no fim de cada passada.
+- O relatório diz, por página, tema e largura, as violações (regra, impacto, ajuda, seletor), a rolagem e o tema em que a página chegou, e termina com um resumo por tema (páginas auditadas, violações, rolagens, páginas no tema errado, verificações) e o do seletor; o código de saída é 1 se houver violação, rolagem horizontal, página no tema errado ou verificação que falhou, e 2 se a própria auditoria não pôde rodar.
+- A auditoria **grava peticionamentos** nos dados de demonstração (sete por rodada, como uma pessoa faria: em cada tema, um em 1280 px e um em 375 px com JavaScript e um sem JavaScript, mais um na passada pelo teclado); `composer setup` devolve os dados ao estado inicial. As páginas de erro vêm de `/_error/{código}`, rota do ambiente `dev` que desenha as páginas do projeto (num endereço inexistente, o `dev` mostra a página de depuração do Symfony, que não é nossa); em produção o mesmo endereço é um 404 e a página é a mesma.
 
 ## 11. Documentação e fluxo de Git
 
-- **[README](../README.md) (pt-BR):** o que é, o aviso de que os dados são fictícios, prints de desktop e celular (gerados por `tools/screenshots.mjs`, em `docs/screenshots/`), como rodar (seção 3.3), usuários de demonstração, qualidade, destaques técnicos e links para ADRs e diagramas.
-- **Decisões de arquitetura (`docs/adr/`):** sete ADRs, listados na seção 12 e no [índice](adr/README.md).
+- **[README](../README.md) (pt-BR):** o que é, o aviso de que os dados são fictícios, prints nos temas claro e escuro, de desktop e celular (gerados por `tools/screenshots.mjs`, em `docs/screenshots/`), o seletor de tema, como rodar (seção 3.3), usuários de demonstração, qualidade, destaques técnicos e links para ADRs e diagramas.
+- **Decisões de arquitetura (`docs/adr/`):** oito ADRs, listados na seção 12 e no [índice](adr/README.md).
 - **Diagramas Mermaid (`docs/diagrams/`):** [contexto e containers](diagrams/contexto-e-containers.md), [entidades](diagrams/entidades.md) e [sequência do peticionamento](diagrams/sequencia-peticionamento.md); o [índice](diagrams/README.md) reúne os três.
 - **Código e commits em inglês**; interface e documentação em português.
 - **Git:** Conventional Commits; uma branch e um PR por funcionalidade.
@@ -583,6 +672,7 @@ Cada decisão tem o seu registro em [`docs/adr/`](adr/README.md), com contexto, 
 | [0005](adr/0005-vitest-em-modo-browser.md) | Vitest em modo browser para Web Components: os componentes dependem de APIs reais do navegador (`DataTransfer`, `ResizeObserver`, constructable stylesheets, validação nativa, foco), que o jsdom não cobre |
 | [0006](adr/0006-sqlite-como-banco-padrao.md) | SQLite como banco padrão |
 | [0007](adr/0007-campo-cnj-aprimora-o-input-nativo.md) | Campo do número CNJ: aprimorar o input nativo em vez de assumir o campo por Shadow DOM (sem `ElementInternals`) |
+| [0008](adr/0008-modo-escuro-cookie-e-atributo-no-servidor.md) | Modo escuro: a escolha no cookie `jus_tema`, o tema no atributo do `<html>` desenhado pelo servidor e um script inline para "sistema"; token CSRF sem sessão (conferência de origem) para a rota do tema |
 
 ## 13. Ordem de implementação
 
@@ -596,8 +686,9 @@ Cada decisão tem o seu registro em [`docs/adr/`](adr/README.md), com contexto, 
 8. Peticionamento (`FilingService`, `DocumentStorage`, download).
 9. Páginas de erro e revisão de acessibilidade.
 10. README, ADRs e diagramas.
+11. Redesenho visual e modo escuro: tokens claros e escuros, a preferência de tema e a rota `/tema`, o estilo global, os layouts das telas e do catálogo, e a auditoria e os prints nos dois temas.
 
-As etapas 1 a 10 estão concluídas. A 8 entregou a pasta `src/Filing/` com o armazenamento dos PDFs fora de `public/`; as guardas do domínio e o `FilingService`; a página de peticionamento com o formulário, o `<jus-upload>` no tema e os limites de `FilingLimits`; o download dos documentos com a regra 404/403 da seção 5.5; e as fixtures com PDFs de verdade. A 9 entregou as páginas de erro e a auditoria das páginas renderizadas (seção 10.1). A 10 entregou o [README](../README.md) com os prints, a licença MIT, os [ADRs](adr/README.md) e os [diagramas](diagrams/README.md).
+As etapas 1 a 11 estão concluídas. A 8 entregou a pasta `src/Filing/` com o armazenamento dos PDFs fora de `public/`; as guardas do domínio e o `FilingService`; a página de peticionamento com o formulário, o `<jus-upload>` no tema e os limites de `FilingLimits`; o download dos documentos com a regra 404/403 da seção 5.5; e as fixtures com PDFs de verdade. A 9 entregou as páginas de erro e a auditoria das páginas renderizadas (seção 10.1). A 10 entregou o [README](../README.md) com os prints, a licença MIT, os [ADRs](adr/README.md) e os [diagramas](diagrams/README.md). A 11 entregou a aparência atual (seções 6 e 7), o tema escuro com o seletor ([ADR 0008](adr/0008-modo-escuro-cookie-e-atributo-no-servidor.md)), a auditoria nos dois temas (seção 10.1) e os prints novos.
 
 ## 14. Critérios de aceite
 
@@ -608,4 +699,5 @@ As etapas 1 a 10 estão concluídas. A 8 entregou a pasta `src/Filing/` com o ar
 5. PHPStan nível max sem erros e sem baseline.
 6. 100% de cobertura de linhas em `src/Domain/`.
 7. Nenhuma violação do axe-core nos testes dos Web Components.
-8. README, 7 ADRs e 3 diagramas publicados.
+8. README, 8 ADRs e 3 diagramas publicados.
+9. Contraste AA nos temas claro e escuro, e o tema escolhido mantido entre as páginas, com e sem JavaScript.
