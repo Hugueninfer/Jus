@@ -61,6 +61,8 @@ final class CasePageTest extends WebTestCase
         self::assertSame(['Polo ativo', 'Polo passivo'], $crawler->filter('section[aria-labelledby="partes"] h3')->each(static fn (Crawler $h): string => trim($h->text())));
         $parties = $crawler->filter('section[aria-labelledby="partes"] .card');
         self::assertCount(2, $parties);
+        // Every card takes its edge (the card shadow, a border on the dark theme and in forced colours) from .jus-surface.
+        self::assertCount(2, $parties->filter('.jus-surface'));
         self::assertSame('Maria Oliveira', trim($parties->eq(0)->filter('h4')->text()));
         self::assertNotNull($ana->getOabNumber());
         self::assertStringContainsString('Ana Ribeiro ('.$ana->getOabNumber().')', $parties->eq(0)->text());

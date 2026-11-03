@@ -5,7 +5,7 @@
   gap: var(--jus-space-3);
   padding-block: var(--jus-space-2);
   padding-inline-start: var(--jus-space-3);
-  border-inline-start: 2px solid var(--jus-color-border-strong);
+  border-inline-start: calc(var(--bs-border-width) * 2) solid var(--jus-color-border-strong);
 
   > .bi {
     color: var(--jus-color-primary);

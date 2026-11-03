@@ -109,9 +109,9 @@ $form-check-input-indeterminate-border-color: var(--jus-color-primary);
 $form-range-thumb-bg: var(--jus-color-primary);
 $form-range-thumb-active-bg: var(--jus-color-primary-hover);
 
-// These two are painted into images (the switch knob), which cannot read a custom property: the light values.
+// The focused switch's knob is an image, which cannot read a custom property: Bootstrap would paint it from the focused
+// border colour above (a var()), so it gets the light primary value instead.
 $form-switch-focus-color: map.get($jus-light, 'primary');
-$form-switch-checked-color: map.get($jus-light, 'on-primary');
 
 // The messages of a field that failed (or passed) its check, on the dark theme: the status tones of the tokens.
 $form-invalid-color-dark: map.get($jus-dark, 'danger-text');

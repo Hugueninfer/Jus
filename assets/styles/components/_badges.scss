@@ -6,7 +6,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--jus-space-1);
-  border: 1px solid transparent;
+  border: var(--bs-border-width) solid transparent;
 }
 
 @each $tone in 'success', 'warning', 'danger', 'info', 'neutral' {

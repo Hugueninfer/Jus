@@ -14,7 +14,7 @@
   // The bar sits over the line of the row (the negative margin is Bootstrap's).
   .nav-link {
     padding-inline: 0;
-    border-width: 0 0 2px;
+    border-width: 0 0 calc(var(--bs-border-width) * 2);
     border-radius: 0;
     font-weight: var(--jus-font-weight-medium);
   }

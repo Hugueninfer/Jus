@@ -35,6 +35,11 @@
     background-color: var(--jus-color-surface);
     border-radius: var(--jus-radius-lg);
     box-shadow: var(--jus-shadow-card);
+
+    // Forced colours drop the shadow: a real border keeps the edge of the card.
+    @media (forced-colors: active) {
+      border: var(--bs-border-width) solid;
+    }
   }
 
   // In card mode let long unbreakable strings (file names, protocol numbers) wrap instead of widening the page.
@@ -70,9 +75,11 @@
       display: table-header-group;
     }
 
+    // A row of the table, no longer a card (in forced colours too: the panel has the border).
     tr {
       display: table-row;
       margin-block-end: 0;
+      border-width: 0;
       border-radius: 0;
       box-shadow: none;
     }
@@ -97,12 +104,21 @@
   }
 }
 
-// From md up the scrolling box around the table is the panel: the surface, the large radius and the card shadow.
+// Below md the cards wrap their text and need no scrolling box, which would clip their side edges (the card shadow). From
+// md up the box scrolls a very long value sideways again, and it is the panel: the surface, the large radius and the card
+// shadow, or a real border in forced colours, which drop the shadow.
 .jus-data-table-wrapper > .table-responsive {
+  overflow: visible;
+
   @include media-breakpoint-up(md) {
+    overflow-x: auto;
     margin-block-end: var(--jus-space-3);
     background-color: var(--jus-color-surface);
     border-radius: var(--jus-radius-lg);
     box-shadow: var(--jus-shadow-card);
+
+    @media (forced-colors: active) {
+      border: var(--bs-border-width) solid;
+    }
   }
 }

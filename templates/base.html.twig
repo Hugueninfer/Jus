@@ -58,8 +58,9 @@
                                     <a class="nav-link{{ app.current_route == 'design_system' ? ' active' }}" href="{{ path('design_system') }}"{% if app.current_route == 'design_system' %} aria-current="page"{% endif %}>Design System</a>
                                 </li>
                                 {% if app.user %}
-                                    <li class="nav-item ms-md-auto">
-                                        {# The initials are for the eye; the name beside them is what is read. #}
+                                    <li class="nav-item jus-navbar-user ms-md-auto">
+                                        {# The initials are for the eye; the name beside them is what is read. From md up this is the
+                                           item that gives way when the navbar runs short of room (components/_navbar.scss). #}
                                         <span class="navbar-text jus-user"><span class="jus-avatar" aria-hidden="true">{{ app.user.name|initials }}</span> <span class="jus-user-name">{{ app.user.name }}</span></span>
                                     </li>
                                     <li class="nav-item">

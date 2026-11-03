@@ -103,6 +103,8 @@ final class LayoutTest extends WebTestCase
         // The person as an avatar with the initials (for the eye only: the name follows as text) and the name.
         $user = $crawler->filter('header .jus-user');
         self::assertCount(1, $user);
+        // Its item of the menu is the one that gives way when the navbar runs short of room (components/_navbar.scss).
+        self::assertCount(1, $crawler->filter('header .navbar-nav > li.jus-navbar-user > .jus-user'));
         self::assertSame('JA', trim($user->filter('.jus-avatar')->text()));
         self::assertSame('true', $user->filter('.jus-avatar')->attr('aria-hidden'));
         self::assertSame('João Almeida', trim($user->filter('.jus-user-name')->text()));

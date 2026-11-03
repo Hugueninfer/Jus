@@ -76,6 +76,71 @@ function settle(element: Element): void {
   }
 }
 
+/**
+ * Runs the checks with the test window at the given width (the stylesheet changes at md and lg), and gives the window its
+ * own size back afterwards.
+ */
+async function atWidth(width: number, run: () => void | Promise<void>): Promise<void> {
+  const [previousWidth, previousHeight] = [window.innerWidth, window.innerHeight];
+  await browserPage.viewport(width, 800);
+  try {
+    await run();
+  } finally {
+    await browserPage.viewport(previousWidth, previousHeight);
+  }
+}
+
+/** Runs the checks as Windows contrast themes show the page: the system's colours, no shadows, no background images. */
+async function inForcedColours(run: () => void | Promise<void>): Promise<void> {
+  await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }] });
+  try {
+    await run();
+  } finally {
+    await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: '' }] });
+  }
+}
+
+/** The colours of a computed box-shadow, in the order of its shadows. */
+function shadowColours(shadow: string): string[] {
+  return Array.from(shadow.matchAll(/rgba?\([^)]*\)/g), (match) => match[0]);
+}
+
+/** The theme switcher as templates/_theme_switcher.html.twig renders it, with "Claro" as the current theme. */
+const SWITCHER = `
+  <form class="jus-theme-switcher" method="post" action="/tema" data-jus-theme-switcher>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Tema">
+      <button type="submit" class="btn btn-outline-secondary" name="tema" value="sistema" aria-pressed="false"><i class="bi bi-circle-half" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Sistema</span></button>
+      <button type="submit" class="btn btn-outline-secondary" name="tema" value="claro" aria-pressed="true"><i class="bi bi-sun" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Claro</span></button>
+      <button type="submit" class="btn btn-outline-secondary" name="tema" value="escuro" aria-pressed="false"><i class="bi bi-moon-stars" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Escuro</span></button>
+    </div>
+  </form>`;
+
+/** The navbar as templates/base.html.twig renders it for a person signed in: from md up the off-canvas panel is in line. */
+function navbarFor(name: string): string {
+  return `
+    <nav class="navbar navbar-expand-md jus-navbar" aria-label="Navegação principal">
+      <div class="container">
+        <a class="navbar-brand jus-brand" href="#inicio"><span class="jus-brand-mark" aria-hidden="true">J</span> <span class="jus-brand-name">Jus</span></a>
+        <button class="navbar-toggler" type="button" aria-label="Abrir menu"><span class="navbar-toggler-icon"></span></button>
+        <div class="offcanvas offcanvas-end" tabindex="-1" aria-label="Menu">
+          <div class="offcanvas-body">
+            <ul class="navbar-nav flex-grow-1 align-items-md-center gap-md-3">
+              <li class="nav-item"><a class="nav-link active" href="#processos" aria-current="page">Processos</a></li>
+              <li class="nav-item"><a class="nav-link" href="#catalogo">Design System</a></li>
+              <li class="nav-item jus-navbar-user ms-md-auto"><span class="navbar-text jus-user"><span class="jus-avatar" aria-hidden="true">MC</span> <span class="jus-user-name">${name}</span></span></li>
+              <li class="nav-item"><a class="nav-link" href="#sair">Sair</a></li>
+              <li class="nav-item py-2 py-md-0">${SWITCHER}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </nav>`;
+}
+
+/** A name longer than the navbar has room for between md and xl (twice over, so it runs short at every width). */
+const LONG_NAME = 'Maria Aparecida de Albuquerque Cavalcanti';
+const VERY_LONG_NAME = `${LONG_NAME} ${LONG_NAME}`;
+
 /** A little of everything the pages are made of, as Bootstrap, the layout and the Twig components render it. */
 const PAGE = `
   <a class="jus-skip-link visually-hidden-focusable position-absolute z-3 top-0 start-0 m-2 p-2 bg-body rounded shadow" href="#conteudo">Pular para o conteúdo</a>
@@ -87,17 +152,9 @@ const PAGE = `
         <ul class="navbar-nav">
           <li class="nav-item"><a class="nav-link active" href="#processos" aria-current="page">Processos</a></li>
           <li class="nav-item"><a class="nav-link" href="#catalogo">Design System</a></li>
-          <li class="nav-item"><span class="navbar-text jus-user"><span class="jus-avatar" aria-hidden="true">MS</span> <span class="jus-user-name">Maria Souza</span></span></li>
+          <li class="nav-item jus-navbar-user"><span class="navbar-text jus-user"><span class="jus-avatar" aria-hidden="true">MS</span> <span class="jus-user-name">Maria Souza</span></span></li>
           <li class="nav-item"><a class="nav-link" href="#sair">Sair</a></li>
-          <li class="nav-item">
-            <form class="jus-theme-switcher" method="post" action="/tema" data-jus-theme-switcher>
-              <div class="btn-group btn-group-sm" role="group" aria-label="Tema">
-                <button type="submit" class="btn btn-outline-secondary" name="tema" value="sistema" aria-pressed="false"><i class="bi bi-circle-half" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Sistema</span></button>
-                <button type="submit" class="btn btn-outline-secondary" name="tema" value="claro" aria-pressed="true"><i class="bi bi-sun" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Claro</span></button>
-                <button type="submit" class="btn btn-outline-secondary" name="tema" value="escuro" aria-pressed="false"><i class="bi bi-moon-stars" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Escuro</span></button>
-              </div>
-            </form>
-          </li>
+          <li class="nav-item">${SWITCHER}</li>
         </ul>
       </div>
     </nav>
@@ -227,19 +284,8 @@ describe('the page stylesheet', () => {
     expect(rootToken('color-scheme')).toBe('dark');
   });
 
-  describe('on a wide screen', () => {
-    let narrow: [number, number];
-
-    beforeEach(async () => {
-      narrow = [window.innerWidth, window.innerHeight];
-      await browserPage.viewport(1280, 800);
-    });
-
-    afterEach(async () => {
-      await browserPage.viewport(...narrow);
-    });
-
-    it('sizes the titles with the type scale of the tokens: page titles, then section titles, in the semibold weight', () => {
+  it('sizes the titles with the type scale of the tokens on a wide screen: page titles, then section titles, in the semibold weight', async () => {
+    await atWidth(1280, () => {
       const page = mount('<h1 class="h2">Processos</h1><h1 class="h3">Peticionar</h1><h2 class="h4">Prazos</h2>');
       const pageTitle = Number.parseFloat(rootToken('--jus-font-size-page-title')) * 16;
       const sectionTitle = Number.parseFloat(rootToken('--jus-font-size-section-title')) * 16;
@@ -248,14 +294,6 @@ describe('the page stylesheet', () => {
       expect(css(find(page, '.h3'), 'font-size')).toBe(`${String(pageTitle)}px`);
       expect(css(find(page, '.h4'), 'font-size')).toBe(`${String(sectionTitle)}px`);
       expect(css(find(page, '.h2'), 'font-weight')).toBe(rootToken('--jus-font-weight-semibold'));
-    });
-
-    it('lays the documents table out as one panel on the surface, with rounded corners', () => {
-      const wrapper = find(mount(DATA_TABLE), '.table-responsive');
-
-      expect(css(wrapper, 'border-top-left-radius')).toBe('12px');
-      expect(css(wrapper, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
-      sameColor(css(find(wrapper, 'td'), 'background-color'), rootToken('--jus-color-surface'));
     });
   });
 });
@@ -324,6 +362,9 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
       expect(parseColor(css(avatar, 'background-color')).alpha).toBe(1);
       expect(contrastOfText(avatar)).toBeGreaterThanOrEqual(TEXT);
       expect(avatar.getBoundingClientRect().width).toBe(avatar.getBoundingClientRect().height);
+      // The same size as the brand mark, from the spacing scale (twice space 3).
+      expect(avatar.getBoundingClientRect().width).toBe(find(document.body, '.jus-brand-mark').getBoundingClientRect().width);
+      expect(avatar.getBoundingClientRect().width).toBe(Number.parseFloat(rootToken('--jus-space-3')) * 16 * 2);
     });
 
     it('gives the menu button a boundary and an icon that stand out from the navbar', () => {
@@ -374,6 +415,74 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
       expect(document.activeElement).toBe(first);
       expect(first.matches(':focus-visible')).toBe(true);
       expect(Number(css(first, 'z-index'))).toBeGreaterThan(Number(css(pressed, 'z-index')));
+
+      // The ring itself: the token ring of the theme, kept off the button by a gap, at 3:1 or more against the navbar
+      // around it and against that gap.
+      settle(first);
+      const [gap, ring] = shadowColours(css(first, 'box-shadow'));
+      const navbarBackground = css(find(document.body, '.jus-navbar'), 'background-color');
+      sameColor(required(ring), rootToken('--jus-focus-ring'));
+      expect(contrastRatio(required(ring), navbarBackground)).toBeGreaterThanOrEqual(FOCUS);
+      expect(contrastRatio(required(ring), required(gap))).toBeGreaterThanOrEqual(FOCUS);
+    });
+
+    it.each([800, 1024])('keeps the navbar on one line at %i px, the items inside it, even with a long name', async (width) => {
+      await atWidth(width, () => {
+        const short = find(mount(navbarFor('Ana Ribeiro')), '.navbar');
+        const long = find(mount(navbarFor(VERY_LONG_NAME)), '.navbar');
+        const container = find(long, '.container').getBoundingClientRect();
+
+        expect(long.getBoundingClientRect().height).toBe(short.getBoundingClientRect().height);
+        for (const item of long.querySelectorAll('.navbar-brand, .navbar-nav > li')) {
+          const box = item.getBoundingClientRect();
+          expect(box.right, item.textContent).toBeLessThanOrEqual(container.right + 0.5);
+          expect(box.top, item.textContent).toBeGreaterThanOrEqual(container.top - 0.5);
+          expect(box.bottom, item.textContent).toBeLessThanOrEqual(container.bottom + 0.5);
+        }
+        // The links and the theme buttons never wrap (an icon above its word, in a squeezed switcher): only the name gives way.
+        // The icon font is not loaded here, so the wrap would not show in the heights; the rule is what is checked.
+        for (const link of long.querySelectorAll('.nav-link')) {
+          expect(link.getClientRects(), link.textContent).toHaveLength(1);
+          expect(css(link, 'white-space')).toBe('nowrap');
+        }
+        for (const button of long.querySelectorAll('.jus-theme-switcher .btn')) {
+          expect(css(button, 'white-space'), button.textContent).toBe('nowrap');
+        }
+        expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+      });
+    });
+
+    it('shows only the avatar between md and lg, the name staying there as text for screen readers', async () => {
+      await atWidth(800, () => {
+        const navbar = find(mount(navbarFor(LONG_NAME)), '.navbar');
+        const name = find(navbar, '.jus-user-name');
+
+        expect(find(navbar, '.jus-avatar').getBoundingClientRect().width).toBeGreaterThan(1);
+        expect(name.getBoundingClientRect().width).toBeLessThanOrEqual(1);
+        expect(css(name, 'position')).toBe('absolute');
+        expect(name.textContent).toBe(LONG_NAME);
+      });
+    });
+
+    it('shortens a name too long for the navbar with an ellipsis from lg up, and shows a short one whole', async () => {
+      await atWidth(1024, () => {
+        const long = find(mount(navbarFor(VERY_LONG_NAME)), '.jus-user-name');
+        const short = find(mount(navbarFor('Ana Ribeiro')), '.jus-user-name');
+
+        expect(css(long, 'text-overflow')).toBe('ellipsis');
+        expect(long.scrollWidth).toBeGreaterThan(long.clientWidth);
+        expect(long.getClientRects()).toHaveLength(1);
+        expect(short.scrollWidth).toBeLessThanOrEqual(short.clientWidth);
+      });
+    });
+
+    it('lets the name wrap in the menu of a phone', async () => {
+      await atWidth(375, () => {
+        const name = find(mount(PAGE.replace('Maria Souza', LONG_NAME)), '.jus-user-name');
+
+        expect(css(name, 'white-space')).toBe('normal');
+        expect(css(name, 'position')).not.toBe('absolute');
+      });
     });
 
     it('marks the current theme of the switcher by its border too, when the system forces its colours (the fill is lost)', async () => {
@@ -404,16 +513,48 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
   });
 
   describe('surfaces', () => {
-    it('draws a panel (.jus-surface) and every card with the surface role, the large radius and the card shadow', () => {
+    it('draws a panel and a card (.jus-surface) with the surface role, the large radius and the card shadow', () => {
       const page = mount(PAGE);
 
-      for (const surface of [find(page, 'section.jus-surface'), find(page, 'article.card')]) {
+      for (const surface of [find(page, 'section.jus-surface'), find(page, 'article.card.jus-surface')]) {
         sameColor(css(surface, 'background-color'), pick('#ffffff', '#141e2b'));
         expect(css(surface, 'border-top-left-radius')).toBe('12px');
         expect(css(surface, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
       }
       // The card shadow is the edge of a card: Bootstrap's own border would draw a second one.
       expect(css(find(page, 'article.card'), 'border-top-width')).toBe('0px');
+    });
+
+    it('gives the surfaces, the rows and the panel of the documents table and the page header a real border in forced colours, which drop shadows and border images', async () => {
+      const border = (element: Element, side: 'top' | 'bottom' = 'top'): string => `${css(element, `border-${side}-style`)} ${css(element, `border-${side}-width`)}`;
+
+      await atWidth(375, async () => {
+        const page = mount(`${PAGE}${DATA_TABLE}`);
+        const header = find(page, '.jus-page-header');
+        const surfaces = [find(page, 'section.jus-surface'), find(page, 'article.card.jus-surface'), find(page, '.jus-data-table tbody tr')];
+
+        // Outside forced colours the shadow (and, for the band, the border image) is the edge, and there is no border.
+        for (const surface of surfaces) {
+          expect(css(surface, 'border-top-width')).toBe('0px');
+        }
+        await inForcedColours(() => {
+          for (const surface of surfaces) {
+            expect(css(surface, 'box-shadow')).toBe('none');
+            expect(border(surface)).toBe('solid 1px');
+          }
+          expect(css(header, 'border-image-source')).toBe('none');
+          expect(border(header, 'bottom')).toBe('solid 1px');
+        });
+      });
+      await atWidth(1280, async () => {
+        const panel = find(mount(DATA_TABLE), '.jus-data-table-wrapper > .table-responsive');
+
+        await inForcedColours(() => {
+          expect(border(panel)).toBe('solid 1px');
+          // In table layout the row is no card: only the panel has the border.
+          expect(css(find(panel, 'tbody tr'), 'border-top-width')).toBe('0px');
+        });
+      });
     });
 
     it('gives a surface its edge as a one pixel border in the colour of the border role on the dark theme', () => {
@@ -451,13 +592,31 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
       }
     });
 
-    it('makes each row of the documents table a surface card on a narrow screen', () => {
-      const row = find(mount(DATA_TABLE), 'tbody tr');
+    it('makes each row of the documents table a surface card on a narrow screen, with nothing around it that clips its edge', async () => {
+      await atWidth(375, () => {
+        const wrapper = find(mount(DATA_TABLE), '.jus-data-table-wrapper > .table-responsive');
+        const row = find(wrapper, 'tbody tr');
 
-      expect(css(row, 'display')).toBe('block');
-      sameColor(css(row, 'background-color'), rootToken('--jus-color-surface'));
-      expect(css(row, 'border-top-left-radius')).toBe('12px');
-      expect(css(row, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
+        expect(css(row, 'display')).toBe('block');
+        sameColor(css(row, 'background-color'), rootToken('--jus-color-surface'));
+        expect(css(row, 'border-top-left-radius')).toBe('12px');
+        expect(css(row, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
+        // The cards wrap their text, so the box around them need not scroll; a scrolling box would cut the side shadow.
+        expect(css(wrapper, 'overflow-x')).toBe('visible');
+        expect(css(wrapper, 'overflow-y')).toBe('visible');
+      });
+    });
+
+    it('lays the documents table out as one panel on the surface from md up, with rounded corners, scrolling sideways inside', async () => {
+      await atWidth(1280, () => {
+        const wrapper = find(mount(DATA_TABLE), '.jus-data-table-wrapper > .table-responsive');
+
+        expect(css(wrapper, 'border-top-left-radius')).toBe('12px');
+        expect(css(wrapper, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
+        sameColor(css(wrapper, 'background-color'), rootToken('--jus-color-surface'));
+        sameColor(css(find(wrapper, 'td'), 'background-color'), rootToken('--jus-color-surface'));
+        expect(css(wrapper, 'overflow-x')).toBe('auto');
+      });
     });
 
     it('draws the timeline rail in the strong border colour, which stays visible on the page and on a surface', () => {
