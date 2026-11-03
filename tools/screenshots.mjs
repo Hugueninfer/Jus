@@ -161,9 +161,13 @@ async function fillFilingForm(page) {
 
 async function captureAs(page, name, viewport, theme, files) {
   await settle(page);
-  const shown = await page.locator('html').getAttribute('data-bs-theme');
-  if (shown !== theme.bootstrapTheme) {
-    throw new CaptureError(`${page.url()} came with data-bs-theme="${String(shown)}", not "${theme.bootstrapTheme}": the ${THEME_COOKIE} cookie did not take effect.`);
+  const html = page.locator('html');
+  const shown = await html.getAttribute('data-bs-theme');
+  const choice = await html.getAttribute('data-jus-tema');
+  // The context prefers the same scheme as the theme, so "sistema" would still resolve to the right data-bs-theme:
+  // only data-jus-tema tells whether the cookie reached the server.
+  if (shown !== theme.bootstrapTheme || choice !== theme.cookie) {
+    throw new CaptureError(`${page.url()} came with data-bs-theme="${String(shown)}" and data-jus-tema="${String(choice)}", not "${theme.bootstrapTheme}" and "${theme.cookie}": the ${THEME_COOKIE} cookie did not take effect.`);
   }
   const fileName = `${name}-${viewport.suffix}${theme.suffix}.png`;
   await page.screenshot({ path: `${OUTPUT_DIR}${fileName}`, animations: 'disabled', caret: 'hide' });

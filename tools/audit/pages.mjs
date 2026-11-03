@@ -21,7 +21,8 @@
  * It refuses a `--base-url` that is not on this machine (localhost, 127.x.x.x, [::1]) unless `--allow-remote` is passed,
  * since it signs in with the demo account and files petitions.
  *
- * The exit code is 1 when anything fails (a violation, a horizontal scroll, a failed check) and 2 when the audit itself
+ * The exit code is 1 when anything fails (a violation, a horizontal scroll, a page in the wrong theme, a failed check) and
+ * 2 when the audit itself
  * could not run (Google Chrome is not installed, the server is not reachable, the demo account cannot sign in, a wrong
  * argument).
  */

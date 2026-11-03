@@ -457,6 +457,8 @@ Os três componentes são Custom Elements puros, em `assets/components/`, regist
 | GET | `/design-system` | `design_system` | público |
 | POST | `/tema` | `app_theme` | público (token CSRF sem sessão) |
 
+O layout do catálogo está em §6.6 e o das páginas de erro em §8.
+
 - O logout exige o token CSRF: o link "Sair" é gerado com `logout_path('main')`, e um `/logout` sem token responde 403 sem encerrar a sessão.
 - O e-mail do login não diferencia maiúsculas de minúsculas nem espaços nas pontas (ele é guardado em minúsculas e procurado assim, por `UserRepository::loadUserByIdentifier()`), e a senha continua exata.
 - `{numero}` usa o formato mascarado como forma canônica; o `CnjNumberValueResolver` aceita com ou sem máscara e responde 404 se o número for inválido, antes de consultar o banco.

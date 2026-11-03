@@ -43,7 +43,7 @@ A escolha fica num cookie, o servidor desenha a página já no tema, e um script
 
 **O token CSRF sem sessão é uma conferência de origem**
 
-`config/packages/csrf.yaml` põe `theme` em `framework.csrf_protection.stateless_token_ids`. Para esse id, o Symfony (`SameOriginCsrfTokenManager`) não guarda nada: o valor no formulário é só uma marca. A requisição vale se o navegador disser que ela vem do próprio site:
+`config/packages/csrf.yaml` põe `theme` em `framework.csrf_protection.stateless_token_ids`. Para esse id, o Symfony (`SameOriginCsrfTokenManager`) não guarda token nem abre sessão: o valor no formulário é só uma marca. A requisição vale se o navegador disser que ela vem do próprio site:
 
 - pelo cabeçalho `Sec-Fetch-Site`, que precisa ser `same-origin`, quando o navegador o envia;
 - sem ele, por um `Origin` ou um `Referer` com o esquema e o host da requisição;
