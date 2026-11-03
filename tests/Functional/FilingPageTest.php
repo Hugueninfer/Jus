@@ -729,7 +729,7 @@ final class FilingPageTest extends WebTestCase
 
         // user refresh, the case with its parties and their lawyers: not its movements and documents, which the form does not show
         self::assertCount(2, QueryRecorder::instance()->selects(), implode(\PHP_EOL, QueryRecorder::instance()->selects()));
-        self::assertCount(1, $crawler->filter('form'));
+        self::assertCount(1, $crawler->filter('main form'));
     }
 
     /**

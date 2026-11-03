@@ -1,8 +1,13 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="{{ jus_theme().bootstrapTheme }}" data-jus-tema="{{ jus_theme().value }}">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {# With the theme "sistema" the server cannot know the colour scheme of the device, so it renders the light theme and this
+           script, before anything is painted, switches to dark when the device asks for it, and follows it afterwards. It acts
+           only while the page says "sistema" (the attribute, never the cookie, which the script cannot read), so it is always
+           there. A script policy (CSP) would need a hash or a nonce for it, and for the <noscript> style below. #}
+        <script>(() => { const root = document.documentElement; const query = matchMedia('(prefers-color-scheme: dark)'); const apply = () => { if (root.dataset.jusTema === 'sistema') root.dataset.bsTheme = query.matches ? 'dark' : 'light'; }; apply(); query.addEventListener('change', apply); })();</script>
         <meta name="description" content="Design System e painel de processo eletrônico fictício.">
         <title>{% block title %}Jus{% endblock %}</title>
         <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4e79'/%3E%3Ctext x='16' y='23' font-size='20' font-family='sans-serif' text-anchor='middle' fill='%23fff'%3EJ%3C/text%3E%3C/svg%3E">
@@ -62,6 +67,9 @@
                                         <a class="nav-link{{ app.current_route == 'app_login' ? ' active' }}" href="{{ path('app_login') }}"{% if app.current_route == 'app_login' %} aria-current="page"{% endif %}>Entrar</a>
                                     </li>
                                 {% endif %}
+                                <li class="nav-item py-2 py-md-0">
+                                    {{ include('_theme_switcher.html.twig') }}
+                                </li>
                             </ul>
                         </div>
                     </div>

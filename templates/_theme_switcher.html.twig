@@ -1,0 +1,21 @@
+{# The choice of theme: a plain form, so that it works without JavaScript (it posts to /tema, which saves the cookie and comes
+   back to this page). assets/behaviours/theme-switcher.ts takes the submit over when scripts are on. The layout renders it
+   once, in the menu: in the navbar from md up, in the off-canvas panel on a phone. #}
+{% set current = jus_theme() %}
+{% set icons = {'sistema': 'bi-circle-half', 'claro': 'bi-sun', 'escuro': 'bi-moon-stars'} %}
+{# Where the form sends the person back to: the page they are on. Not on an error page, which does not echo what was asked
+   for (an unknown case number, say), and not outside a request (the page of last resort for a failure before routing): the home page then. #}
+{% set back = app.request is not null and not app.request.attributes.has('exception') ? app.request.requestUri : '/' %}
+<form method="post" action="{{ path('app_theme') }}" class="jus-theme-switcher" data-jus-theme-switcher>
+    <input type="hidden" name="_token" value="{{ csrf_token('theme') }}">
+    <input type="hidden" name="voltar" value="{{ back }}">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Tema">
+        {% for theme in jus_themes() %}
+            <button type="submit" class="btn btn-outline-light" name="tema" value="{{ theme.value }}" aria-pressed="{{ theme == current ? 'true' : 'false' }}" data-jus-theme-announcement="{{ theme.value == 'sistema' ? 'Tema do sistema aplicado.' : 'Tema ' ~ theme.label|lower ~ ' aplicado.' }}">
+                <i class="bi {{ icons[theme.value] }}" aria-hidden="true"></i>
+                <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">{{ theme.label }}</span>
+            </button>
+        {% endfor %}
+    </div>
+    <p class="visually-hidden" aria-live="polite" data-jus-theme-status></p>
+</form>

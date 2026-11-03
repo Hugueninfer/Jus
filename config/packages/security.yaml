@@ -27,6 +27,8 @@ security:
     access_control:
         - { path: ^/login$, roles: PUBLIC_ACCESS }
         - { path: ^/design-system(/|$), roles: PUBLIC_ACCESS }
+        # The theme switcher is on every page, and so is posted by visitors too.
+        - { path: ^/tema$, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }
 
 when@test:

@@ -1,3 +1,9 @@
-# Session-based CSRF tokens: the login form posts a classic hidden token.
+# Two kinds of CSRF token live side by side.
 framework:
-    csrf_protection: true
+    csrf_protection:
+        # The classic, session-based token (the default for any id not listed below): the login and logout forms use it.
+        # "theme" is the theme switcher, which is on every page, the sign-in one included, and so is posted by visitors who
+        # have no session. Its token needs none: the request is vouched for by the headers the browser sends
+        # (Sec-Fetch-Site, or Origin/Referer, compared with the host of the request; see SameOriginCsrfTokenManager), and
+        # the value in the form is only a marker. Behind a reverse proxy, trusted_proxies must be set so the host is right.
+        stateless_token_ids: ['theme']

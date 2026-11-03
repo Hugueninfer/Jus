@@ -64,6 +64,15 @@ const PAGE = `
           <li class="nav-item"><a class="nav-link active" href="#processos" aria-current="page">Processos</a></li>
           <li class="nav-item"><a class="nav-link" href="#sair">Sair</a></li>
           <li class="nav-item"><span class="navbar-text text-white">Maria Souza</span></li>
+          <li class="nav-item">
+            <form class="jus-theme-switcher" method="post" action="/tema" data-jus-theme-switcher>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Tema">
+                <button type="submit" class="btn btn-outline-light" name="tema" value="sistema" aria-pressed="false"><i class="bi bi-circle-half" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Sistema</span></button>
+                <button type="submit" class="btn btn-outline-light" name="tema" value="claro" aria-pressed="true"><i class="bi bi-sun" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Claro</span></button>
+                <button type="submit" class="btn btn-outline-light" name="tema" value="escuro" aria-pressed="false"><i class="bi bi-moon-stars" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">Escuro</span></button>
+              </div>
+            </form>
+          </li>
         </ul>
       </div>
     </nav>
@@ -205,6 +214,26 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
     for (const label of navbar.querySelectorAll('.navbar-brand, .nav-link, .navbar-text')) {
       expect(contrastOfText(label), label.textContent).toBeGreaterThanOrEqual(TEXT);
     }
+  });
+
+  it('draws the theme switcher on the navbar with a visible current theme, and legible buttons', () => {
+    const navbar = find(mount(PAGE), '.navbar');
+    const navbarBackground = css(navbar, 'background-color');
+    const buttons = Array.from(navbar.querySelectorAll<HTMLElement>('.jus-theme-switcher .btn'));
+    const current = buttons.filter((button) => button.getAttribute('aria-pressed') === 'true');
+
+    expect(buttons).toHaveLength(3);
+    expect(current).toHaveLength(1);
+    for (const button of buttons) {
+      // Text and icon over the fill of the button (the current one) or the navbar; the border against the navbar (1.4.11).
+      expect(contrastOfText(button), button.textContent).toBeGreaterThanOrEqual(TEXT);
+      expect(contrastRatio(css(button, 'border-top-color'), navbarBackground), button.textContent).toBeGreaterThanOrEqual(FOCUS);
+    }
+    // The current theme is not told by colour alone: it is a filled button among outlined ones, and it stands out from the navbar.
+    for (const button of buttons.filter((other) => !current.includes(other))) {
+      expect(parseColor(css(button, 'background-color')).alpha).toBe(0);
+    }
+    expect(contrastRatio(css(required(current[0]), 'background-color'), navbarBackground)).toBeGreaterThanOrEqual(FOCUS);
   });
 
   it('keeps the focus ring at 3:1 or more against the surfaces around it', () => {

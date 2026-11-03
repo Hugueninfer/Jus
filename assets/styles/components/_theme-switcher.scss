@@ -1,0 +1,19 @@
+// The theme switcher of the navbar: three buttons that work as one choice, the pressed one being the current theme (the
+// markup says it with aria-pressed, and the behaviour keeps that up to date, so it is the one hook the style needs).
+.jus-theme-switcher {
+  // Bootstrap fills an outline button this way while it is pressed with the mouse; here it is the resting look of the
+  // chosen theme, in the colours of the variant (light on the blue navbar, in both themes).
+  .btn[aria-pressed='true'] {
+    color: var(--bs-btn-active-color);
+    background-color: var(--bs-btn-active-bg);
+    border-color: var(--bs-btn-active-border-color);
+  }
+
+  // The word is on show from lg up. Below that the navbar is short of room, and the icon stands for it; the text stays for
+  // screen readers.
+  @include media-breakpoint-down(lg) {
+    .jus-theme-switcher-label {
+      @include visually-hidden;
+    }
+  }
+}
