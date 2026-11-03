@@ -1,0 +1,46 @@
+@use 'sass:map';
+
+// The error pages (templates/_error_card.html.twig): one card in the middle of the main content, no wider than a small
+// container, with the icon, the title, the explanation and the way out centred in it.
+.jus-error-page {
+  display: grid;
+  justify-items: center;
+
+  @include media-breakpoint-up(md) {
+    padding-block: var(--jus-space-5);
+  }
+}
+
+.jus-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--jus-space-3);
+  inline-size: 100%;
+  max-inline-size: map.get($container-max-widths, 'sm');
+  padding: var(--jus-space-5) var(--jus-space-4);
+  text-align: center;
+
+  h1,
+  p {
+    margin-block-end: 0;
+  }
+}
+
+// The icon, for the eye only (the title says it all): large, on a round tinted fill of the tone of the page.
+.jus-error-icon {
+  display: inline-grid;
+  place-items: center;
+  inline-size: calc(var(--jus-space-5) + var(--jus-space-3));
+  block-size: calc(var(--jus-space-5) + var(--jus-space-3));
+  border-radius: 50%;
+  font-size: var(--jus-font-size-page-title);
+  line-height: 1;
+}
+
+@each $tone in ('info', 'warning', 'danger') {
+  .jus-error-icon-#{$tone} {
+    background-color: var(--jus-color-#{$tone}-bg);
+    color: var(--jus-color-#{$tone}-text);
+  }
+}

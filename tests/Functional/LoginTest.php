@@ -8,6 +8,7 @@ use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class LoginTest extends WebTestCase
@@ -29,6 +30,46 @@ final class LoginTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Entrar');
+    }
+
+    public function testTheLoginPageShowsAPresentationBesideTheFormCard(): void
+    {
+        $client = self::createClient();
+
+        $crawler = $client->request('GET', '/login');
+
+        $layout = $crawler->filter('main#conteudo .jus-login');
+        self::assertCount(1, $layout);
+        // The presentation comes first (beside the card from lg up, above it below lg), then the card with the form.
+        self::assertCount(1, $layout->filter('.jus-login-hero + .jus-login-card'));
+
+        // The presentation: the brand blue in both themes (an area base/_focus.scss gives the inverse focus ring), the
+        // brand, the title as a highlighted paragraph (the page has one heading, the h1 of the form) and the notice.
+        $hero = $layout->filter('.jus-login-hero');
+        self::assertCount(1, $hero);
+        self::assertContains('text-bg-primary', explode(' ', (string) $hero->attr('class')));
+        self::assertCount(0, $hero->filter('h1, h2, h3, h4, h5, h6'));
+        self::assertSame('true', $hero->filter('.jus-brand-mark')->attr('aria-hidden'));
+        self::assertSame('Jus', trim($hero->filter('.jus-brand-name')->text()));
+        self::assertSame('Processo eletrônico, do jeito que deveria ser.', trim($hero->filter('p.jus-login-hero-title')->text()));
+        self::assertStringContainsString('Consulta, prazos e peticionamento num painel acessível, que funciona até sem JavaScript.', $hero->text());
+        self::assertSame('Projeto de demonstração · dados fictícios', trim($hero->filter('.jus-login-hero-note')->text()));
+
+        // The form, on a surface card, under the only h1 of the page.
+        $card = $layout->filter('.jus-login-card');
+        self::assertContains('jus-surface', explode(' ', (string) $card->attr('class')));
+        self::assertCount(1, $crawler->filter('h1'));
+        self::assertSame('Entrar', trim($card->filter('h1')->text()));
+        self::assertCount(1, $card->filter('form[action="/login"]'));
+        self::assertCount(1, $card->filter('form input#username[autofocus]'));
+
+        // The demonstration accounts stand out, after the form: each address and the shared password, as code.
+        $accounts = $card->filter('form + .jus-demo-accounts');
+        self::assertCount(1, $accounts);
+        self::assertStringContainsString('Contas de demonstração', $accounts->text());
+        self::assertSame(['advogado@jus.test', 'servidor@jus.test', 'jus-demo'], $accounts->filter('code')->each(static fn (Crawler $code): string => $code->text()));
+        self::assertStringContainsString('(advogada)', $accounts->text());
+        self::assertStringContainsString('(servidor)', $accounts->text());
     }
 
     public function testALawyerLogsInWithEmailAndPassword(): void

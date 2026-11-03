@@ -3,35 +3,51 @@
 {% block title %}Entrar · Jus{% endblock %}
 
 {% block body %}
-    <div class="row justify-content-center">
-        <div class="col-12 col-sm-10 col-md-7 col-lg-5">
-            <div class="card jus-surface">
-                <div class="card-body p-4">
-                    <h1 class="h3 mb-3">Entrar</h1>
+    {# From lg up the presentation and the card are two columns of the same height; below lg the presentation is a short
+       header above the card (components/_login.scss). It is the brand blue in both themes (.text-bg-primary), where the
+       focus ring takes the inverse colour (base/_focus.scss). Its title is a highlighted paragraph: the one heading of the
+       page is the h1 of the form. #}
+    <div class="jus-login">
+        <div class="jus-login-hero text-bg-primary">
+            <p class="jus-brand">
+                <span class="jus-brand-mark" aria-hidden="true">J</span>
+                <span class="jus-brand-name">Jus</span>
+            </p>
+            <p class="jus-login-hero-title">Processo eletrônico, do jeito que deveria ser.</p>
+            <p class="jus-login-hero-text">Consulta, prazos e peticionamento num painel acessível, que funciona até sem JavaScript.</p>
+            <p class="jus-login-hero-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Projeto de demonstração · dados fictícios</p>
+        </div>
 
-                    {% if error %}
-                        <twig:Alert type="danger">
-                            {{ error.messageKey == 'Invalid CSRF token.' ? 'Sua sessão expirou. Tente novamente.' : 'E-mail ou senha inválidos.' }}
-                        </twig:Alert>
-                    {% endif %}
+        <div class="jus-login-card jus-surface">
+            <h1 class="h3 mb-3">Entrar</h1>
 
-                    <form method="post" action="{{ path('app_login') }}">
-                        <div class="mb-3">
-                            <label class="form-label" for="username">E-mail</label>
-                            <input class="form-control" type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="password">Senha</label>
-                            <input class="form-control" type="password" id="password" name="_password" autocomplete="current-password" required>
-                        </div>
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-                        <button class="btn btn-primary w-100" type="submit">Entrar</button>
-                    </form>
+            {% if error %}
+                <twig:Alert type="danger">
+                    {{ error.messageKey == 'Invalid CSRF token.' ? 'Sua sessão expirou. Tente novamente.' : 'E-mail ou senha inválidos.' }}
+                </twig:Alert>
+            {% endif %}
 
-                    <p class="small text-body-secondary mt-3 mb-0">
-                        Contas de demonstração: <code>advogado@jus.test</code> (advogada) ou <code>servidor@jus.test</code> (servidor), senha <code>jus-demo</code>.
-                    </p>
+            <form method="post" action="{{ path('app_login') }}">
+                <div class="mb-3">
+                    <label class="form-label" for="username">E-mail</label>
+                    <input class="form-control" type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label" for="password">Senha</label>
+                    <input class="form-control" type="password" id="password" name="_password" autocomplete="current-password" required>
+                </div>
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+                <button class="btn btn-primary w-100" type="submit">Entrar</button>
+            </form>
+
+            {# The accounts of the demo data (src/DataFixtures/AppFixtures.php), on the tinted fill of the information tone. #}
+            <div class="jus-demo-accounts">
+                <p class="jus-demo-accounts-title"><i class="bi bi-person-badge" aria-hidden="true"></i> Contas de demonstração</p>
+                <ul class="list-unstyled">
+                    <li><code>advogado@jus.test</code> (advogada)</li>
+                    <li><code>servidor@jus.test</code> (servidor)</li>
+                </ul>
+                <p>Senha das duas: <code>jus-demo</code></p>
             </div>
         </div>
     </div>

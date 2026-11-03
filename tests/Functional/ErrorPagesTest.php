@@ -41,6 +41,7 @@ final class ErrorPagesTest extends WebTestCase
         self::assertSame('Entrar', trim($action->text()));
         self::assertSame('/login', $action->attr('href'));
         self::assertStringNotContainsString('/nao-existe', (string) $this->client->getResponse()->getContent());
+        self::assertIsTheErrorCard($crawler, 'bi-signpost-2', 'O endereço pode estar incorreto, ou o conteúdo não existe mais.');
     }
 
     public function testAnInvalidCaseNumberUsesTheNotFoundPage(): void
@@ -100,6 +101,8 @@ final class ErrorPagesTest extends WebTestCase
         self::assertSelectorTextContains('nav', 'Ana Ribeiro');
         self::assertSelectorTextNotContains('nav', 'Entrar');
 
+        self::assertIsTheErrorCard($crawler, 'bi-shield-lock', 'Você não tem permissão para fazer isso. Se acha que deveria ter, fale com a secretaria responsável.');
+
         // Refusing the request did not sign the user out.
         $this->client->request('GET', '/processos');
         self::assertResponseIsSuccessful();
@@ -113,6 +116,7 @@ final class ErrorPagesTest extends WebTestCase
         self::assertResponseStatusCodeSame(405);
         self::assertSame('Algo deu errado', trim($crawler->filter('main#conteudo h1')->text()));
         self::assertStringNotContainsString('Method Not Allowed', (string) $this->client->getResponse()->getContent());
+        self::assertIsTheErrorCard($crawler, 'bi-exclamation-triangle', 'Não foi possível concluir a operação. Tente de novo em instantes.');
     }
 
     public function testServerErrorsShowNoDetails(): void
@@ -134,5 +138,28 @@ final class ErrorPagesTest extends WebTestCase
         self::assertStringNotContainsString('SQLSTATE', $html);
         self::assertStringNotContainsString('RuntimeException', $html);
         self::assertStringNotContainsString('Stack trace', $html);
+        self::assertIsTheErrorCard($crawler, 'bi-exclamation-triangle', 'Não foi possível concluir a operação. Tente de novo em instantes.');
+    }
+
+    /**
+     * Every error page is one card on the surface, centred in the main content: a large icon (for the eye only), the
+     * h1, the explanation and the one way out, in that order.
+     */
+    private static function assertIsTheErrorCard(Crawler $crawler, string $icon, string $message): void
+    {
+        $card = $crawler->filter('main#conteudo .jus-error-page > .jus-error.jus-surface');
+        self::assertCount(1, $card);
+
+        $parts = $card->children();
+        self::assertSame(['span', 'h1', 'p', 'a'], $parts->each(static fn (Crawler $part): string => $part->nodeName()));
+
+        $iconBox = $parts->eq(0);
+        self::assertContains('jus-error-icon', explode(' ', (string) $iconBox->attr('class')));
+        self::assertSame('true', $iconBox->attr('aria-hidden'));
+        self::assertSame('', trim($iconBox->text()));
+        self::assertContains($icon, explode(' ', (string) $iconBox->filter('i.bi')->attr('class')));
+
+        self::assertSame($message, trim($parts->eq(2)->text()));
+        self::assertContains('btn', explode(' ', (string) $parts->eq(3)->attr('class')));
     }
 }

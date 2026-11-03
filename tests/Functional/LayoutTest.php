@@ -108,6 +108,9 @@ final class LayoutTest extends WebTestCase
         self::assertSame('JA', trim($user->filter('.jus-avatar')->text()));
         self::assertSame('true', $user->filter('.jus-avatar')->attr('aria-hidden'));
         self::assertSame('João Almeida', trim($user->filter('.jus-user-name')->text()));
+        // From lg up a long name ends in an ellipsis, and between md and lg only the avatar shows: the whole name is
+        // the title of both, shown under the pointer.
+        self::assertSame('João Almeida', $user->attr('title'));
         self::assertCount(0, $crawler->filter('header .bi-person-circle'));
         self::assertSame('Processos', trim($crawler->filter('header a[href="/processos"]')->text()));
         self::assertSame('page', $crawler->filter('header a[href="/processos"]')->attr('aria-current'));

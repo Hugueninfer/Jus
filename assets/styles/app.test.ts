@@ -239,6 +239,49 @@ const DATA_TABLE = `
     </div>
   </div>`;
 
+/** The sign-in page as templates/security/login.html.twig renders it, in the main content of the layout. */
+const LOGIN = `
+  <main id="conteudo" class="container py-4">
+    <div class="jus-login">
+      <div class="jus-login-hero text-bg-primary">
+        <p class="jus-brand"><span class="jus-brand-mark" aria-hidden="true">J</span> <span class="jus-brand-name">Jus</span></p>
+        <p class="jus-login-hero-title">Processo eletrônico, do jeito que deveria ser.</p>
+        <p class="jus-login-hero-text">Consulta, prazos e peticionamento num painel acessível, que funciona até sem JavaScript.</p>
+        <p class="jus-login-hero-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Projeto de demonstração · dados fictícios</p>
+      </div>
+      <div class="jus-login-card jus-surface">
+        <h1 class="h3 mb-3">Entrar</h1>
+        <form method="post" action="#entrar">
+          <div class="mb-3"><label class="form-label" for="username">E-mail</label><input class="form-control" type="email" id="username"></div>
+          <div class="mb-3"><label class="form-label" for="password">Senha</label><input class="form-control" type="password" id="password"></div>
+          <button class="btn btn-primary w-100" type="submit">Entrar</button>
+        </form>
+        <div class="jus-demo-accounts">
+          <p class="jus-demo-accounts-title"><i class="bi bi-person-badge" aria-hidden="true"></i> Contas de demonstração</p>
+          <ul class="list-unstyled"><li><code>advogado@jus.test</code> (advogada)</li><li><code>servidor@jus.test</code> (servidor)</li></ul>
+          <p>Senha das duas: <code>jus-demo</code></p>
+        </div>
+      </div>
+    </div>
+  </main>`;
+
+/** An error page as templates/_error_card.html.twig renders it, in the given tone, in the main content of the layout. */
+function errorPage(tone: string): string {
+  return `
+    <main id="conteudo" class="container py-4">
+      <div class="jus-error-page">
+        <div class="jus-error jus-surface">
+          <span class="jus-error-icon jus-error-icon-${tone}" aria-hidden="true"><i class="bi bi-signpost-2"></i></span>
+          <h1 class="h3">Página não encontrada</h1>
+          <p class="lead">O endereço pode estar incorreto, ou o conteúdo não existe mais.</p>
+          <a class="btn btn-primary" href="#entrar">Entrar</a>
+        </div>
+      </div>
+    </main>`;
+}
+
+const ERROR_TONES = ['info', 'warning', 'danger'];
+
 beforeEach(() => {
   style = document.createElement('style');
   style.textContent = appCss;
@@ -774,6 +817,63 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
     expect(css(alert, 'border-top-style')).toBe('solid');
   });
 
+  describe('the sign-in page', () => {
+    it('paints the presentation the brand blue in both themes, its text at 4.5:1 or more, with the inverse focus ring', () => {
+      const hero = find(mount(LOGIN), '.jus-login-hero');
+      const background = css(hero, 'background-color');
+
+      sameColor(background, '#1f4e79');
+      for (const text of hero.querySelectorAll('.jus-brand-name, .jus-login-hero-title, .jus-login-hero-text, .jus-login-hero-note')) {
+        expect(contrastOfText(text), text.textContent).toBeGreaterThanOrEqual(TEXT);
+      }
+      sameColor(css(hero, '--jus-focus-ring'), rootToken('--jus-focus-color-inverse'));
+      expect(contrastRatio(css(hero, '--jus-focus-ring'), background)).toBeGreaterThanOrEqual(FOCUS);
+    });
+
+    it('draws the brand mark on the blue as an outline in the text colour, around a legible initial', () => {
+      const hero = find(mount(LOGIN), '.jus-login-hero');
+      const mark = find(hero, '.jus-brand-mark');
+
+      expect(parseColor(css(mark, 'background-color')).alpha).toBe(0);
+      sameColor(css(mark, 'color'), css(hero, 'color'));
+      sameColor(required(shadowColours(css(mark, 'box-shadow'))[0]), css(hero, 'color'));
+      expect(contrastOfText(mark)).toBeGreaterThanOrEqual(TEXT);
+    });
+
+    it('puts the form on a surface card and the demonstration accounts on the tinted information fill, legible', () => {
+      const page = mount(LOGIN);
+      const card = find(page, '.jus-login-card');
+      const accounts = find(page, '.jus-demo-accounts');
+
+      sameColor(css(card, 'background-color'), rootToken('--jus-color-surface'));
+      expect(css(card, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
+      sameColor(css(accounts, 'background-color'), rootToken('--jus-color-info-bg'));
+      sameColor(css(accounts, 'color'), rootToken('--jus-color-info-text'));
+      for (const text of accounts.querySelectorAll('p, li, code')) {
+        expect(contrastOfText(text), text.textContent).toBeGreaterThanOrEqual(TEXT);
+      }
+    });
+
+    it('has no accessibility violations, with the real palette', async () => {
+      await expectNoAxeViolations(mount(LOGIN));
+    });
+  });
+
+  describe('the error pages', () => {
+    it.each(ERROR_TONES)('draws the large icon of the %s tone on its tinted round fill, legible', (tone) => {
+      const icon = find(mount(errorPage(tone)), '.jus-error-icon');
+
+      sameColor(css(icon, 'background-color'), rootToken(`--jus-color-${tone}-bg`));
+      sameColor(css(icon, 'color'), rootToken(`--jus-color-${tone}-text`));
+      expect(css(icon, 'border-top-left-radius')).toBe('50%');
+      expect(contrastOfText(icon)).toBeGreaterThanOrEqual(TEXT);
+    });
+
+    it('has no accessibility violations, with the real palette', async () => {
+      await expectNoAxeViolations(mount(errorPage('info')));
+    });
+  });
+
   it('keeps the focus ring at 3:1 or more against the surfaces around it', () => {
     const ring = rootToken('--jus-focus-ring');
 
@@ -806,6 +906,67 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
     const page = mount(`${PAGE}${TIMELINE}${DATA_TABLE}`);
 
     await expectNoAxeViolations(page);
+  });
+});
+
+describe('the layout of the sign-in page', () => {
+  it('sets the presentation beside the card from lg up, both as tall as the taller one, the title in the display size', async () => {
+    await atWidth(1280, () => {
+      const page = mount(LOGIN);
+      const hero = find(page, '.jus-login-hero').getBoundingClientRect();
+      const card = find(page, '.jus-login-card').getBoundingClientRect();
+
+      expect(hero.right).toBeLessThan(card.left);
+      expect(hero.top).toBe(card.top);
+      expect(hero.height).toBe(card.height);
+      expect(hero.width).toBeGreaterThan(card.width);
+      expect(css(find(page, '.jus-login-hero-title'), 'font-size')).toBe(`${String(Number.parseFloat(rootToken('--jus-font-size-display')) * 16)}px`);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('makes the presentation a short header above the card below lg, the two as wide as each other, without a sideways scroll', async () => {
+    await atWidth(375, () => {
+      const page = mount(LOGIN);
+      const hero = find(page, '.jus-login-hero').getBoundingClientRect();
+      const card = find(page, '.jus-login-card').getBoundingClientRect();
+
+      expect(hero.bottom).toBeLessThan(card.top);
+      expect([hero.left, hero.width]).toEqual([card.left, card.width]);
+      expect(hero.height).toBeLessThan(card.height);
+      expect(css(find(page, '.jus-login-hero-title'), 'font-size')).toBe(`${String(Number.parseFloat(rootToken('--jus-font-size-section-title')) * 16)}px`);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('keeps the presentation and the accounts apart from what is around them in forced colours, which drop their fills', async () => {
+    const page = mount(LOGIN);
+
+    await inForcedColours(() => {
+      for (const area of [find(page, '.jus-login-hero'), find(page, '.jus-demo-accounts')]) {
+        expect(`${css(area, 'border-top-style')} ${css(area, 'border-top-width')}`, area.className).toBe('solid 1px');
+      }
+    });
+  });
+});
+
+describe('the layout of the error pages', () => {
+  it.each([375, 1280])('centres the card in the main content at %i px, without a sideways scroll', async (width) => {
+    await atWidth(width, () => {
+      const page = mount(errorPage('info'));
+      const main = find(page, 'main');
+      const content = main.getBoundingClientRect();
+      const card = find(page, '.jus-error').getBoundingClientRect();
+      const padding = Number.parseFloat(css(main, 'padding-left'));
+
+      expect(Math.abs(card.left + card.width / 2 - (content.left + content.width / 2))).toBeLessThan(1);
+      expect(card.width).toBeLessThanOrEqual(content.width - 2 * padding);
+      for (const part of find(page, '.jus-error').children) {
+        const box = part.getBoundingClientRect();
+        expect(Math.abs(box.left + box.width / 2 - (card.left + card.width / 2)), part.tagName).toBeLessThan(1);
+      }
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
   });
 });
 

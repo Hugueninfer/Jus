@@ -1,0 +1,117 @@
+@use 'sass:map';
+
+// The sign-in page (templates/security/login.html.twig): a presentation and the card with the form. Below lg it is one
+// column no wider than a small container, the presentation a short header above the card; from lg up, two columns of the
+// same height, the presentation the wider one from xl up.
+.jus-login {
+  display: grid;
+  gap: var(--jus-space-4);
+  max-inline-size: map.get($container-max-widths, 'sm');
+  margin-inline: auto;
+
+  @include media-breakpoint-up(lg) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-inline-size: none;
+  }
+
+  @include media-breakpoint-up(xl) {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+}
+
+// The presentation: the brand blue in both themes (.text-bg-primary, white text at 8:1 or more), a dark area where the
+// focus ring takes the inverse colour (base/_focus.scss). A short header below lg; from lg up the notice goes to the
+// bottom of the column and the title takes the display size.
+.jus-login-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jus-space-2);
+  padding: var(--jus-space-4);
+  border-radius: var(--jus-radius-lg);
+
+  p {
+    margin-block-end: 0;
+  }
+
+  // On the blue the brand mark is drawn in the text colour, as an outline around the initial (the filled square of the
+  // navbar is the blue itself).
+  .jus-brand-mark {
+    background-color: transparent;
+    color: inherit;
+    box-shadow: inset 0 0 0 calc(var(--bs-border-width) * 2) currentcolor;
+  }
+
+  @include media-breakpoint-up(lg) {
+    gap: var(--jus-space-3);
+    padding: var(--jus-space-5);
+  }
+
+  // Forced colours drop the fill: a border keeps the area apart from the page.
+  @media (forced-colors: active) {
+    border: var(--bs-border-width) solid;
+  }
+}
+
+.jus-login-hero-title {
+  font-size: var(--jus-font-size-section-title);
+  font-weight: var(--jus-font-weight-semibold);
+  line-height: $headings-line-height;
+  text-wrap: balance;
+
+  @include media-breakpoint-up(lg) {
+    margin-block-start: auto;
+    font-size: var(--jus-font-size-display);
+  }
+}
+
+.jus-login-hero-note {
+  font-size: var(--jus-font-size-small);
+
+  @include media-breakpoint-up(lg) {
+    margin-block-start: auto;
+  }
+}
+
+// The card with the form; from lg up its content sits in the middle of the column.
+.jus-login-card {
+  padding: var(--jus-space-4);
+
+  @include media-breakpoint-up(lg) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--jus-space-5);
+  }
+}
+
+// The demonstration accounts stand out on the tinted fill of the information tone (4.5:1 or more in both themes). The
+// border is there, transparent, for forced colours, which paint it in the system's colour and drop the fill.
+.jus-demo-accounts {
+  margin-block-start: var(--jus-space-4);
+  padding: var(--jus-space-3);
+  border: var(--bs-border-width) solid transparent;
+  border-radius: var(--jus-radius-base);
+  background-color: var(--jus-color-info-bg);
+  color: var(--jus-color-info-text);
+  font-size: var(--jus-font-size-small);
+
+  p,
+  ul {
+    margin-block-end: 0;
+  }
+
+  ul {
+    margin-block: var(--jus-space-1);
+  }
+
+  // Bootstrap sets code a size smaller than the text around it, which is already the small size here.
+  code {
+    color: inherit;
+    font-size: inherit;
+    font-weight: var(--jus-font-weight-semibold);
+  }
+}
+
+.jus-demo-accounts-title {
+  font-weight: var(--jus-font-weight-semibold);
+}
