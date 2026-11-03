@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
 import { required } from '../test-support/required';
-import { installTokens } from '../test-support/tokens';
+import { installTokens, type Theme } from '../test-support/tokens';
 import './index';
 import { JusUpload } from './jus-upload';
+
+const THEMES: Theme[] = ['light', 'dark'];
 
 const KB = 1024;
 const MB = KB * KB;
@@ -1622,35 +1624,43 @@ describe('<jus-upload>', () => {
   });
 
   describe('accessibility', () => {
-    it('has no accessibility violations, empty, with files, with an invalid choice and while dragging, with the real palette', async () => {
-      const { main, element, input } = mount(LIMITS, [], { input: 'class="form-control"' });
-      await expectNoAxeViolations(main);
+    describe.each(THEMES)('with the real palette of the %s theme', (theme) => {
+      // The tokens of the theme in place of the light ones installed above; the afterEach above takes them off again.
+      beforeEach(() => {
+        removeTokens();
+        removeTokens = installTokens(theme);
+      });
 
-      choose(input, [fileOf('peticao.pdf', 1536), fileOf('procuracao.pdf', 512)]);
-      await expectNoAxeViolations(main);
+      it('has no accessibility violations, empty, with files, with an invalid choice and while dragging', async () => {
+        const { main, element, input } = mount(LIMITS, [], { input: 'class="form-control"' });
+        await expectNoAxeViolations(main);
 
-      choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf'), fileOf('notas.txt', KB, 'text/plain')]);
-      expectMarked(input, true);
-      expect(errorShown()).toBe(true);
-      await expectNoAxeViolations(main);
+        choose(input, [fileOf('peticao.pdf', 1536), fileOf('procuracao.pdf', 512)]);
+        await expectNoAxeViolations(main);
 
-      element.dispatchEvent(dragEvent('dragenter', [fileOf('a.pdf')]));
-      expect(zoneOf(element).classList.contains('is-dragging')).toBe(true);
-      await expectNoAxeViolations(main);
-    });
+        choose(input, [fileOf('a.pdf'), fileOf('b.pdf'), fileOf('c.pdf'), fileOf('d.pdf'), fileOf('notas.txt', KB, 'text/plain')]);
+        expectMarked(input, true);
+        expect(errorShown()).toBe(true);
+        await expectNoAxeViolations(main);
 
-    it('has no accessibility violations while disabled, with files in the list', async () => {
-      const { main } = mount(LIMITS, [fileOf('a.pdf')], { input: 'class="form-control" disabled' });
+        element.dispatchEvent(dragEvent('dragenter', [fileOf('a.pdf')]));
+        expect(zoneOf(element).classList.contains('is-dragging')).toBe(true);
+        await expectNoAxeViolations(main);
+      });
 
-      await expectNoAxeViolations(main);
-    });
+      it('has no accessibility violations while disabled, with files in the list', async () => {
+        const { main } = mount(LIMITS, [fileOf('a.pdf')], { input: 'class="form-control" disabled' });
 
-    it('has no accessibility violations after a drop that ignored a file', async () => {
-      const { main, element } = mount();
+        await expectNoAxeViolations(main);
+      });
 
-      drop(element, [fileOf('a.pdf'), fileOf('notas.txt', KB, 'text/plain')]);
+      it('has no accessibility violations after a drop that ignored a file', async () => {
+        const { main, element } = mount();
 
-      await expectNoAxeViolations(main);
+        drop(element, [fileOf('a.pdf'), fileOf('notas.txt', KB, 'text/plain')]);
+
+        await expectNoAxeViolations(main);
+      });
     });
 
     it('gives every button an accessible name', () => {

@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
 import { required } from '../test-support/required';
-import { installTokens } from '../test-support/tokens';
+import { installTokens, type Theme } from '../test-support/tokens';
 import './index';
 import { JusNumeroProcesso } from './jus-numero-processo';
+
+const THEMES: Theme[] = ['light', 'dark'];
 
 const DIGITS = '00000013920248260100';
 const MASKED = '0000001-39.2024.8.26.0100';
@@ -869,53 +871,61 @@ describe('<jus-numero-processo>', () => {
   });
 
   describe('accessibility', () => {
-    it('has no accessibility violations, empty, typed, or marked invalid', async () => {
-      const { main, input } = mount();
-      await expectNoAxeViolations(main);
+    describe.each(THEMES)('with the real palette of the %s theme', (theme) => {
+      // The tokens of the theme in place of the light ones installed above; the afterEach above takes them off again.
+      beforeEach(() => {
+        removeTokens();
+        removeTokens = installTokens(theme);
+      });
 
-      await typeInto(input, DIGITS);
-      await expectNoAxeViolations(main);
+      it('has no accessibility violations, empty, typed, or marked invalid', async () => {
+        const { main, input } = mount();
+        await expectNoAxeViolations(main);
 
-      await userEvent.clear(input);
-      await typeInto(input, '123');
-      await userEvent.tab();
-      expectMarkedInvalid(input, true);
-      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
-      await expectNoAxeViolations(main);
+        await typeInto(input, DIGITS);
+        await expectNoAxeViolations(main);
 
-      await userEvent.clear(input);
-      await typeInto(input, WRONG_CHECK_DIGITS);
-      await userEvent.tab();
-      expect(errorText()).toBe(INVALID_MESSAGE);
-      await expectNoAxeViolations(main);
+        await userEvent.clear(input);
+        await typeInto(input, '123');
+        await userEvent.tab();
+        expectMarkedInvalid(input, true);
+        expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+        await expectNoAxeViolations(main);
 
-      await userEvent.clear(input);
-      expect(errorText()).toBe('');
-      await expectNoAxeViolations(main);
-    });
+        await userEvent.clear(input);
+        await typeInto(input, WRONG_CHECK_DIGITS);
+        await userEvent.tab();
+        expect(errorText()).toBe(INVALID_MESSAGE);
+        await expectNoAxeViolations(main);
 
-    it('has no accessibility violations with the server feedback, and after it is retired', async () => {
-      const { main, input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
-      await expectNoAxeViolations(main);
+        await userEvent.clear(input);
+        expect(errorText()).toBe('');
+        await expectNoAxeViolations(main);
+      });
 
-      await typeInto(input, '0');
-      expect(required(document.getElementById('numero_error1')).hidden).toBe(true);
-      expect(errorText()).toBe(INCOMPLETE_MESSAGE);
-      await expectNoAxeViolations(main);
+      it('has no accessibility violations with the server feedback, and after it is retired', async () => {
+        const { main, input } = mount(SERVER_ATTRIBUTES, SERVER_FEEDBACK);
+        await expectNoAxeViolations(main);
 
-      await userEvent.clear(input);
-      await typeInto(input, DIGITS);
-      expectMarkedInvalid(input, false);
-      await expectNoAxeViolations(main);
-    });
+        await typeInto(input, '0');
+        expect(required(document.getElementById('numero_error1')).hidden).toBe(true);
+        expect(errorText()).toBe(INCOMPLETE_MESSAGE);
+        await expectNoAxeViolations(main);
 
-    it('has no accessibility violations with a required empty field the browser reported invalid', async () => {
-      const { main, form, input } = mount('required');
+        await userEvent.clear(input);
+        await typeInto(input, DIGITS);
+        expectMarkedInvalid(input, false);
+        await expectNoAxeViolations(main);
+      });
 
-      form.checkValidity();
+      it('has no accessibility violations with a required empty field the browser reported invalid', async () => {
+        const { main, form, input } = mount('required');
 
-      expectMarkedInvalid(input, true);
-      await expectNoAxeViolations(main);
+        form.checkValidity();
+
+        expectMarkedInvalid(input, true);
+        await expectNoAxeViolations(main);
+      });
     });
 
     it('keeps the label as the accessible name of the native input', () => {
