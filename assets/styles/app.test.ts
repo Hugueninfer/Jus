@@ -1459,6 +1459,12 @@ describe('the layout of the search', () => {
       await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: '' }] });
     }
   });
+
+  it('turns only the chevron of the filters panel, not one in the summary of another open <details>', () => {
+    const chevron = find(mount('<details open><summary>Outro <i class="bi bi-chevron-down jus-filters-chevron" aria-hidden="true"></i></summary><p>Texto.</p></details>'), '.jus-filters-chevron');
+
+    expect(css(chevron, 'transform')).toBe('none');
+  });
 });
 
 /** The columns the data of the cause is laid out in: the distinct left edges of its pairs of name and value. */

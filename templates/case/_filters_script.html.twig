@@ -1,0 +1,8 @@
+{# Right after the filters panel of the search (templates/case/search.html.twig), which the server always sends open: below
+   lg, when the server marked it data-jus-filters-active="false" (no filter applied, no field with an error), this folds it
+   as soon as it is parsed, before the first paint, so the results come first and nothing moves once the page shows.
+   Without JavaScript the panel stays open. The query is Bootstrap's lg breakpoint, as in assets/behaviours/filters-panel.ts,
+   which opens a folded panel again when the window grows to lg. A script policy (CSP) would need a hash or a nonce for
+   this script, as for the theme script in the head (templates/_theme_script.html.twig). The tests run this very file
+   (assets/behaviours/filters-inline-script.test.ts): keep the one <script> and no Twig inside it. #}
+<script>(() => { if (!matchMedia('(max-width: 991.98px)').matches) return; for (const panel of document.querySelectorAll('details.jus-filters[data-jus-filters-active="false"]')) panel.open = false; })();</script>

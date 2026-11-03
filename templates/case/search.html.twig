@@ -5,19 +5,21 @@
 {% block body %}
     <h1 class="h2 mb-3">Processos</h1>
 
-    {# The filters in use (a field left empty is none) and whether any field has an error: the panel stays open for
-       either, and its summary counts the filters. #}
-    {% set filters_in_use = [form.numero, form.parte, form.status]|filter(field => field.vars.value is not empty)|length %}
-    {% set filters_active = filters_in_use > 0 or not form.vars.valid %}
+    {# The filters applied (a field left empty is none) and whether any field has an error. A field with an error runs no
+       search, so then no filter was applied and none is counted. The panel stays open for either, and its summary counts
+       the filters applied. #}
+    {% set filters_applied = form.vars.valid ? [form.numero, form.parte, form.status]|filter(field => field.vars.value is not empty)|length : 0 %}
+    {% set filters_active = filters_applied > 0 or not form.vars.valid %}
 
     {# The filters, then the results (components/_search.scss). From lg up the filters are a column of their own, the
        summary of their panel hidden. Below lg the panel is above the results: the server sends it open, so that without
-       JavaScript the filters are simply there, and assets/behaviours/filters-panel.ts folds it when no filter is in use
-       and no field has an error. #}
+       JavaScript the filters are simply there, and the inline script right after it folds it before the first paint
+       when no filter is applied and no field has an error (assets/behaviours/filters-panel.ts opens it again if the
+       window grows to lg). #}
     <div class="row g-4 jus-search">
         <div class="col-12 col-lg-4 col-xxl-3 jus-search-filters">
             <details class="jus-filters" open data-jus-filters-active="{{ filters_active ? 'true' : 'false' }}">
-                <summary><i class="bi bi-funnel" aria-hidden="true"></i> Filtrar{% if filters_in_use > 0 %} · {{ filters_in_use }} {{ filters_in_use == 1 ? 'filtro' : 'filtros' }}{% endif %}<i class="bi bi-chevron-down jus-filters-chevron" aria-hidden="true"></i></summary>
+                <summary><i class="bi bi-funnel" aria-hidden="true"></i> Filtrar{% if filters_applied > 0 %} · {{ filters_applied }} {{ filters_applied == 1 ? 'filtro' : 'filtros' }}{% endif %}<i class="bi bi-chevron-down jus-filters-chevron" aria-hidden="true"></i></summary>
 
                 {{ form_start(form, {attr: {class: 'jus-surface jus-filters-form', role: 'search', 'aria-label': 'Buscar processos'}}) }}
                     {{ form_row(form.numero) }}
@@ -29,6 +31,7 @@
                     </div>
                 {{ form_end(form, {render_rest: false}) }}
             </details>
+            {{ include('case/_filters_script.html.twig') }}
         </div>
 
         <div class="col-12 col-lg-8 col-xxl-9 jus-search-results">

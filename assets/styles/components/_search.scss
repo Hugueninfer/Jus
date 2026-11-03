@@ -1,7 +1,8 @@
 // The search (templates/case/search.html.twig): the filters, then the results. From lg up the filters are a column of
 // their own, the form always shown on its surface card: the summary of their <details> is hidden there while it is open
-// (assets/behaviours/filters-panel.ts never folds it from lg up, and opens it again if the window grows to lg). Below lg
-// the summary is the "Filtrar" button above the results; while it is folded, it is the one way to the form.
+// (it is folded only below lg, by templates/case/_filters_script.html.twig, and assets/behaviours/filters-panel.ts opens
+// it again if the window grows to lg). Below lg the summary is the "Filtrar" button above the results; while it is
+// folded, it is the one way to the form.
 .jus-filters {
   > summary {
     display: flex;
@@ -43,7 +44,7 @@
   margin-inline-start: auto;
   transition: transform 0.15s ease-in-out;
 
-  [open] > summary > & {
+  .jus-filters[open] > summary > & {
     transform: rotate(180deg);
   }
 

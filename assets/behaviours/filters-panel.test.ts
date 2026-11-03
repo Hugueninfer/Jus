@@ -4,24 +4,21 @@ import { expectNoAxeViolations } from '../test-support/axe';
 import { required } from '../test-support/required';
 import { installFiltersPanel } from './filters-panel';
 
-/** A phone, the last width below lg, the first width of lg, and a desktop. */
+/** A phone and a desktop, below and above Bootstrap's lg breakpoint. */
 const PHONE = 375;
-const LAST_BELOW_LG = 991;
-const LG = 992;
 const DESKTOP = 1280;
 
 const pages: HTMLElement[] = [];
 let size: [number, number];
 
 /**
- * The panel as templates/case/search.html.twig renders it: always open, with what the server knows about the filters
- * (`active` is the value of data-jus-filters-active; null leaves the attribute out).
+ * The panel as templates/case/search.html.twig renders it, with what the server knows about the filters (`active` is the
+ * value of data-jus-filters-active), and folded or not as the inline script after it left it.
  */
-function mount(active: string | null = 'false'): HTMLDetailsElement {
-  const attribute = active === null ? '' : ` data-jus-filters-active="${active}"`;
+function mount(active = 'false', open = true): HTMLDetailsElement {
   const page = document.createElement('div');
   page.setHTMLUnsafe(`
-    <details class="jus-filters" open${attribute}>
+    <details class="jus-filters"${open ? ' open' : ''} data-jus-filters-active="${active}">
       <summary><i class="bi bi-funnel" aria-hidden="true"></i> Filtrar</summary>
       <form role="search" aria-label="Buscar processos" action="#busca" class="jus-surface">
         <label class="form-label" for="parte">Nome da parte</label>
@@ -39,6 +36,19 @@ async function atWidth(width: number): Promise<void> {
   await browserPage.viewport(width, 800);
 }
 
+/** Resolves once the window has crossed the lg breakpoint, and the listeners of the behaviour have run. */
+function crossingLg(): Promise<void> {
+  return new Promise((resolve) => {
+    window.matchMedia('(max-width: 991.98px)').addEventListener(
+      'change',
+      () => {
+        setTimeout(resolve, 0);
+      },
+      { once: true },
+    );
+  });
+}
+
 describe('installFiltersPanel', () => {
   beforeEach(() => {
     size = [window.innerWidth, window.innerHeight];
@@ -51,82 +61,58 @@ describe('installFiltersPanel', () => {
     await browserPage.viewport(...size);
   });
 
-  it.each([PHONE, LAST_BELOW_LG])('folds the panel at %i px when no filter is in use and no field has an error', async (width) => {
+  it.each([
+    { width: PHONE, open: false },
+    { width: PHONE, open: true },
+    { width: DESKTOP, open: true },
+  ])('leaves the panel as the page has it on load at $width px (open: $open): the inline script folds it', async ({ width, open }) => {
     await atWidth(width);
-    const panel = mount('false');
+    const panel = mount('false', open);
 
     installFiltersPanel(document);
 
-    expect(panel.open).toBe(false);
+    expect(panel.open).toBe(open);
   });
 
-  it('leaves the panel open below lg when a filter is in use or a field has an error, where the person can see it', async () => {
+  it.each(['false', 'true'])('opens a folded panel (active: %s) again when the window grows to lg, where its summary is hidden', async (active) => {
     await atWidth(PHONE);
-    const panel = mount('true');
-
+    const panel = mount(active, false);
     installFiltersPanel(document);
 
-    expect(panel.open).toBe(true);
-  });
-
-  it.each([LG, DESKTOP])('leaves the panel open at %i px, where it is a column of its own, even with no filter in use', async (width) => {
-    await atWidth(width);
-    const panel = mount('false');
-
-    installFiltersPanel(document);
-
-    expect(panel.open).toBe(true);
-  });
-
-  it.each([null, '', 'no'])('leaves alone a panel whose state the server did not give as "false" (%s)', async (active) => {
-    await atWidth(PHONE);
-    const panel = mount(active);
-
-    installFiltersPanel(document);
-
-    expect(panel.open).toBe(true);
-  });
-
-  it('opens a folded panel again when the window grows to lg, where its summary is hidden', async () => {
-    await atWidth(PHONE);
-    const panel = mount('false');
-    installFiltersPanel(document);
-    expect(panel.open).toBe(false);
-
+    const crossed = crossingLg();
     await atWidth(DESKTOP);
+    await crossed;
 
-    await expect.poll(() => panel.open).toBe(true);
+    expect(panel.open).toBe(true);
   });
 
   it('does not fold the panel when the window narrows: the person may be using it', async () => {
     await atWidth(DESKTOP);
     const panel = mount('false');
     installFiltersPanel(document);
-    const narrowed = new Promise<void>((resolve) => {
-      window.matchMedia('(max-width: 991.98px)').addEventListener('change', () => {
-        resolve();
-      }, { once: true });
-    });
 
+    const crossed = crossingLg();
     await atWidth(PHONE);
-    await narrowed;
+    await crossed;
 
     expect(panel.open).toBe(true);
   });
 
-  it('keeps the summary as the way to open the folded panel', async () => {
+  it('leaves alone a <details> that is not the filters panel', async () => {
     await atWidth(PHONE);
-    const panel = mount('false');
+    const other = mount('false', false);
+    other.removeAttribute('data-jus-filters-active');
     installFiltersPanel(document);
 
-    required(panel.querySelector('summary')).click();
+    const crossed = crossingLg();
+    await atWidth(DESKTOP);
+    await crossed;
 
-    expect(panel.open).toBe(true);
+    expect(other.open).toBe(false);
   });
 
   it('has no accessibility violations, folded or open', async () => {
-    await atWidth(PHONE);
-    const panel = mount('false');
+    const panel = mount('false', false);
     installFiltersPanel(document);
 
     await expectNoAxeViolations(required(panel.parentElement));
