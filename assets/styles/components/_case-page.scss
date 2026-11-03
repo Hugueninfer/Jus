@@ -1,0 +1,132 @@
+@use 'sass:map';
+
+// The case page (templates/case/show.html.twig) and its filing page (templates/case/file.html.twig): the header band
+// (.jus-page-header, components/_surfaces.scss), then the body. Each section of the case keeps its title on the page and
+// its content on a surface card.
+
+// The way back, above the title in the band: a link of its own, the arrow before it, underlined under the pointer.
+.jus-back-link {
+  margin-block-end: var(--jus-space-2);
+  font-size: var(--jus-font-size-small);
+  font-weight: var(--jus-font-weight-medium);
+
+  a {
+    text-decoration-line: none;
+
+    &:hover {
+      text-decoration-line: underline;
+    }
+  }
+}
+
+// What the case is, below its number (on the filing page, the number and the class below the title).
+.jus-case-class {
+  margin-block: var(--jus-space-1) 0;
+  color: var(--jus-color-text-muted);
+}
+
+// The number, its badges and the class on one side, the filing button on the other; the button goes below them when the
+// line runs short.
+.jus-case-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jus-space-3);
+}
+
+.jus-case-header-title {
+  min-inline-size: 0;
+}
+
+// A case number has no place to break (digits around the hyphen and the dots): on a very narrow screen it may break
+// anywhere rather than widen the page.
+.jus-case-number {
+  overflow-wrap: anywhere;
+}
+
+// The two columns of the body, the aside and the main one: each a column of sections, as far apart as the columns are.
+.jus-case-aside,
+.jus-case-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jus-space-4);
+}
+
+// The panels: the data of the cause, each side of the parties, the deadlines and the timeline.
+.jus-case-panel,
+.jus-case-data,
+.jus-party-side {
+  padding: var(--jus-space-3);
+}
+
+// The data of the cause: a name above each value. One column on a phone and in the aside (lg up), two in between, where
+// the aside is as wide as the page.
+.jus-case-data {
+  display: grid;
+  gap: var(--jus-space-3);
+  margin-block-end: 0;
+
+  @include media-breakpoint-between(sm, lg) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  dt {
+    color: var(--jus-color-text-muted);
+    font-size: var(--jus-font-size-small);
+    font-weight: var(--jus-font-weight-medium);
+  }
+
+  dd {
+    margin-block-end: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+// The parties, a card for each side: the side as a small title above them, a line between one party and the next.
+.jus-party-side + .jus-party-side {
+  margin-block-start: var(--jus-space-3);
+}
+
+.jus-party-side-title {
+  margin-block-end: var(--jus-space-2);
+  color: var(--jus-color-text-muted);
+  font-size: var(--jus-font-size-small);
+  font-weight: var(--jus-font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.jus-party {
+  overflow-wrap: anywhere;
+
+  + .jus-party {
+    margin-block-start: var(--jus-space-3);
+    padding-block-start: var(--jus-space-3);
+    border-block-start: var(--bs-border-width) solid var(--jus-color-border);
+  }
+}
+
+// The deadlines: the badge, then the party and the summons, a line between one deadline and the next.
+.jus-deadlines > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--jus-space-2);
+
+  + li {
+    margin-block-start: var(--jus-space-2);
+    padding-block-start: var(--jus-space-2);
+    border-block-start: var(--bs-border-width) solid var(--jus-color-border);
+  }
+}
+
+// The filing form, on a card of medium width under the band, lined up with its title. On a phone the sides get less
+// room, which the native file input needs to show its text.
+.jus-filing-card {
+  max-inline-size: map.get($container-max-widths, 'md');
+  padding: var(--jus-space-3) var(--jus-space-2);
+
+  @include media-breakpoint-up(md) {
+    padding: var(--jus-space-4);
+  }
+}

@@ -8,7 +8,7 @@
 <ol {{ attributes.defaults({class: 'list-unstyled jus-timeline', role: 'list'}) }}>
     {% for day, events in this.days %}
         <li class="jus-timeline-day">
-            <h3 class="h6 text-body-secondary mt-3 mb-2"><time datetime="{{ day }}">{{ day|date('d/m/Y') }}</time></h3>
+            <h3 class="h6 text-body-secondary mb-2"><time datetime="{{ day }}">{{ day|date('d/m/Y') }}</time></h3>
             <ol class="list-unstyled" role="list">
                 {% for event in events %}
                     {% set documentCount = event.documents|length %}

@@ -44,30 +44,110 @@ final class CasePageTest extends WebTestCase
         self::assertSelectorTextContains('title', 'Processo 0000001-39.2024.8.26.0100 · Jus');
         self::assertCount(1, $crawler->filter('h1'));
         self::assertSame('0000001-39.2024.8.26.0100', trim($crawler->filter('h1')->text()));
-        self::assertSame('Voltar para a busca', trim($crawler->filter('main > p a')->text()));
-        self::assertSame('/processos', $crawler->filter('main > p a')->attr('href'));
         self::assertSelectorTextContains('main header .badge', 'Em andamento');
         self::assertSelectorTextNotContains('main', 'Sigiloso');
+        self::assertSame('Procedimento Comum Cível', trim($crawler->filter('main header.jus-page-header .jus-case-class')->text()));
 
-        $cover = $crawler->filter('main dl')->text(null, false); // the no-break space of the currency is not whitespace to collapse
-        self::assertStringContainsString('Procedimento Comum Cível', $cover);
-        self::assertStringContainsString('Indenização por dano moral', $cover);
-        self::assertStringContainsString('1ª Vara Cível', $cover);
-        self::assertStringContainsString("R\$\u{00A0}15.000,00", $cover);
-        self::assertSame('2024-03-04', $crawler->filter('main dl time')->attr('datetime'));
-        self::assertSame('04/03/2024', $crawler->filter('main dl time')->text());
+        // The data of the cause, a name and a value each, in the aside.
+        $data = $crawler->filter('aside section[aria-labelledby="dados-da-causa"] dl');
+        self::assertCount(1, $data);
+        $pairs = $data->filter('dl > div')->each(static fn (Crawler $pair): array => [trim($pair->filter('dt')->text()), trim($pair->filter('dd')->text(null, false))]);
+        // The no-break space of the currency is not whitespace to collapse.
+        self::assertSame(
+            [['Assunto', 'Indenização por dano moral'], ['Órgão julgador', '1ª Vara Cível'], ['Valor da causa', "R\$\u{00A0}15.000,00"], ['Distribuição', '04/03/2024'], ['Sigilo', 'Público']],
+            $pairs,
+        );
+        self::assertSame('2024-03-04', $data->filter('time')->attr('datetime'));
 
-        self::assertSame(['Partes', 'Prazos', 'Andamento'], $crawler->filter('main h2')->each(static fn (Crawler $h): string => trim($h->text())));
+        self::assertSame(['Dados da causa', 'Partes', 'Prazos', 'Andamento'], $crawler->filter('main h2')->each(static fn (Crawler $h): string => trim($h->text())));
         self::assertSame(['Polo ativo', 'Polo passivo'], $crawler->filter('section[aria-labelledby="partes"] h3')->each(static fn (Crawler $h): string => trim($h->text())));
-        $parties = $crawler->filter('section[aria-labelledby="partes"] .card');
+        $parties = $crawler->filter('section[aria-labelledby="partes"] li.jus-party');
         self::assertCount(2, $parties);
-        // Every card takes its edge (the card shadow, a border on the dark theme and in forced colours) from .jus-surface.
-        self::assertCount(2, $parties->filter('.jus-surface'));
         self::assertSame('Maria Oliveira', trim($parties->eq(0)->filter('h4')->text()));
         self::assertNotNull($ana->getOabNumber());
         self::assertStringContainsString('Ana Ribeiro ('.$ana->getOabNumber().')', $parties->eq(0)->text());
         self::assertSame('Empresa X Ltda.', trim($parties->eq(1)->filter('h4')->text()));
         self::assertStringContainsString('Sem advogado constituído.', $parties->eq(1)->text());
+    }
+
+    public function testLaysThePageOutAsAHeaderBandThenTheAsideAndTheMainColumn(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana);
+        $this->client->loginUser($ana);
+
+        $crawler = $this->client->request('GET', self::URL);
+
+        self::assertResponseIsSuccessful();
+        // The band comes first in the main content, where it meets the navbar (components/_surfaces.scss).
+        $header = $crawler->filter('main#conteudo > header.jus-page-header:first-child');
+        self::assertCount(1, $header);
+        $back = $header->filter('p.jus-back-link > a');
+        self::assertSame('/processos', $back->attr('href'));
+        // The arrow is for the eye; the name of the link says where it goes back to, the visible text included.
+        self::assertSame('true', $back->filter('i.bi-arrow-left')->attr('aria-hidden'));
+        self::assertSame('Voltar para', trim($back->filter('.visually-hidden')->text()));
+        self::assertSame('Voltar para Processos', trim($back->text()));
+        $title = $header->filter('h1');
+        self::assertSame('0000001-39.2024.8.26.0100', trim($title->text()));
+        self::assertContains('font-monospace', explode(' ', (string) $title->attr('class')));
+        self::assertSame('Procedimento Comum Cível', trim($header->filter('p.jus-case-class')->text()));
+        self::assertCount(1, $header->filter('.jus-badge-success'));
+        self::assertSame('/processos/0000001-39.2024.8.26.0100/peticionar', $header->filter('a.btn.btn-primary')->attr('href'));
+
+        // Then the body: the aside first, in the document as on the screen. Below lg it comes right after the band; from
+        // lg up it is the narrow column beside the main one. Nothing reorders the columns, so reading, focus and the
+        // screen go the same way.
+        $row = $crawler->filter('main#conteudo > header.jus-page-header + div.row.jus-case');
+        self::assertCount(1, $row);
+        self::assertSame(
+            ['aside', 'div'],
+            $row->children()->each(static fn (Crawler $column): string => $column->nodeName()),
+        );
+        self::assertSame('col-12 col-lg-4 jus-case-aside', $row->children()->eq(0)->attr('class'));
+        self::assertSame('col-12 col-lg-8 jus-case-main', $row->children()->eq(1)->attr('class'));
+        // No order utility (order-lg-1, ...) anywhere in the page; [class*="order-"] alone would match border-* too.
+        self::assertCount(0, $crawler->filter('main [class^="order-"], main [class*=" order-"]'));
+
+        // The aside is named for what it holds, the two sections named by their headings.
+        $aside = $row->filter('aside');
+        self::assertSame('Dados da causa e partes', $aside->attr('aria-label'));
+        self::assertNull($aside->attr('aria-labelledby'));
+        self::assertSame(['Dados da causa', 'Partes'], $aside->filter('section > h2')->each(static fn (Crawler $h): string => trim($h->text())));
+        self::assertSame(['dados-da-causa', 'partes'], $aside->children()->each(static fn (Crawler $section): ?string => $section->attr('aria-labelledby')));
+        self::assertSame(['prazos', 'andamento-titulo'], $row->filter('.jus-case-main')->children()->each(static fn (Crawler $section): ?string => $section->attr('aria-labelledby')));
+
+        // Every panel is a surface: the data of the cause, each side of the parties, the deadlines and the timeline.
+        self::assertContains('jus-surface', explode(' ', (string) $aside->filter('dl')->attr('class')));
+        self::assertCount(2, $aside->filter('section[aria-labelledby="partes"] > .jus-surface'));
+        self::assertCount(1, $crawler->filter('section[aria-labelledby="prazos"] > .jus-surface'));
+        self::assertCount(1, $crawler->filter('section[aria-labelledby="andamento-titulo"] > .jus-surface > jus-filtro-timeline'));
+    }
+
+    public function testTheHeadingsGoDownOneLevelAtATime(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $case = $this->data->legalCase('0000001', $ana);
+        $case->addParty('João Souza', '987.654.321-00', PartySide::Plaintiff);
+        $this->em->flush();
+        $this->client->loginUser($ana);
+
+        $crawler = $this->client->request('GET', self::URL);
+
+        $headings = $crawler->filter('main h1, main h2, main h3, main h4, main h5, main h6')->each(static fn (Crawler $h): string => $h->nodeName().':'.trim($h->text()));
+        // The case, the aside (its data, then the parties by side), the deadlines and the movements, with the days of the
+        // timeline under Andamento.
+        self::assertSame(
+            ['h1:0000001-39.2024.8.26.0100', 'h2:Dados da causa', 'h2:Partes', 'h3:Polo ativo', 'h4:Maria Oliveira', 'h4:João Souza', 'h3:Polo passivo', 'h4:Empresa X Ltda.', 'h2:Prazos', 'h2:Andamento'],
+            \array_slice($headings, 0, 10),
+        );
+        self::assertSame(['h3:24/03/2024', 'h3:04/03/2024'], \array_slice($headings, 10));
+        $level = 0;
+        foreach ($headings as $heading) {
+            $next = (int) $heading[1];
+            self::assertLessThanOrEqual($level + 1, $next, $heading);
+            $level = $next;
+        }
     }
 
     public function testGroupsThePartiesBySideWhateverTheOrderTheyWereAdded(): void
@@ -105,8 +185,8 @@ final class CasePageTest extends WebTestCase
         self::assertCount(2, $sides);
         self::assertSame(['Maria Oliveira', 'João Souza'], $sides->eq(0)->filter('h4')->each(static fn (Crawler $h): string => trim($h->text())));
         self::assertSame(['Empresa X Ltda.', 'Empresa Y S.A.'], $sides->eq(1)->filter('h4')->each(static fn (Crawler $h): string => trim($h->text())));
-        self::assertStringContainsString('Ana Ribeiro', $sides->eq(0)->filter('.card')->eq(0)->text());
-        self::assertStringContainsString('Sem advogado constituído.', $sides->eq(0)->filter('.card')->eq(1)->text());
+        self::assertStringContainsString('Ana Ribeiro', $sides->eq(0)->filter('li.jus-party')->eq(0)->text());
+        self::assertStringContainsString('Sem advogado constituído.', $sides->eq(0)->filter('li.jus-party')->eq(1)->text());
     }
 
     public function testASideWithoutPartiesShowsADash(): void
@@ -136,7 +216,7 @@ final class CasePageTest extends WebTestCase
         $empty = $crawler->filter('section[aria-labelledby="partes"] > div')->eq(1);
         self::assertSame('—', trim($empty->filter('p')->filter('[aria-hidden="true"]')->text()));
         self::assertSame('Nenhuma parte.', trim($empty->filter('p .visually-hidden')->text()));
-        self::assertCount(0, $empty->filter('.card'));
+        self::assertCount(0, $empty->filter('li.jus-party'));
     }
 
     public function testRedirectsPlainNumbersToTheMaskedUrl(): void
@@ -283,6 +363,9 @@ final class CasePageTest extends WebTestCase
         $confidential = $crawler->filter('main header .badge')->reduce(static fn (Crawler $badge): bool => str_contains($badge->text(), 'Sigiloso'));
         self::assertSame(['badge', 'rounded-pill', 'jus-badge', 'jus-badge-inverse'], explode(' ', (string) $confidential->attr('class')));
         self::assertSame('true', $confidential->filter('i.bi-lock')->attr('aria-hidden'));
+        // The data of the cause says it too, in words.
+        $secrecy = $crawler->filter('section[aria-labelledby="dados-da-causa"] dl > div')->reduce(static fn (Crawler $pair): bool => 'Sigilo' === trim($pair->filter('dt')->text()));
+        self::assertSame('Sigiloso', trim($secrecy->filter('dd')->text()));
     }
 
     public function testAnonymousVisitorsAreSentToTheLoginPage(): void
@@ -531,7 +614,8 @@ final class CasePageTest extends WebTestCase
         $crawler = $this->client->request('GET', self::URL);
 
         self::assertResponseIsSuccessful();
-        $link = $crawler->filter('header a[href="/processos"]');
+        // The navbar's link, not the way back in the header band of the page.
+        $link = $crawler->filter('body > header a[href="/processos"]');
         self::assertSame('Processos', trim($link->text()));
         self::assertStringContainsString('active', (string) $link->attr('class'));
         // Not "page": the link leads to the search, which is not the page being shown.

@@ -12,6 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 
 final class CaseSearchPageTest extends WebTestCase
 {
@@ -50,6 +51,87 @@ final class CaseSearchPageTest extends WebTestCase
         self::assertCount(1, $cards);
         self::assertSame('/processos/0000001-39.2024.8.26.0100', $cards->filter('h3 a')->attr('href'));
         self::assertStringContainsString('Decisão', $cards->filter('.jus-case-card-last-event')->text());
+    }
+
+    public function testPutsTheFiltersInAPanelBeforeTheResults(): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        for ($i = 1; $i <= 11; ++$i) {
+            $this->data->legalCase(\sprintf('%07d', $i), $ana);
+        }
+        $this->signIn($ana);
+
+        $crawler = $this->client->request('GET', '/processos');
+
+        // The filters, then the results, in the grid of the page: a column each from lg up.
+        $search = $crawler->filter('main#conteudo .jus-search');
+        self::assertCount(1, $search);
+        self::assertCount(1, $search->filter('.jus-search-filters + .jus-search-results'));
+        self::assertCount(1, $crawler->filter('.jus-search-results h2#resultados'));
+        self::assertCount(1, $crawler->filter('.jus-search-results ul.jus-case-list'));
+        self::assertCount(1, $crawler->filter('.jus-search-results nav[aria-label="Paginação dos resultados"]'));
+
+        // The panel is a <details>, always sent open: without JavaScript the filters are simply there. From lg up its
+        // summary is hidden; below lg the inline script right after it folds it, before the first paint, when no filter
+        // is in use (templates/case/_filters_script.html.twig).
+        $panel = $crawler->filter('.jus-search-filters > details.jus-filters');
+        self::assertCount(1, $panel);
+        self::assertNotNull($panel->attr('open'), 'The panel is sent open.');
+        self::assertSame('false', $panel->attr('data-jus-filters-active'));
+        self::assertSame('Filtrar', $panel->filter('summary')->text());
+        self::assertCount(1, $panel->filter('details > summary:first-child'));
+        $script = $crawler->filter('.jus-search-filters > details.jus-filters + script');
+        self::assertCount(1, $script);
+        self::assertStringContainsString("matchMedia('(max-width: 991.98px)')", $script->text());
+        self::assertStringContainsString('details.jus-filters[data-jus-filters-active="false"]', $script->text());
+
+        // The form keeps its landmark, its name and its labels, on a surface card, the fields one under the other.
+        $form = $panel->filter('summary + form[role="search"]');
+        self::assertCount(1, $form);
+        self::assertSame('Buscar processos', $form->attr('aria-label'));
+        self::assertContains('jus-surface', explode(' ', (string) $form->attr('class')));
+        foreach (['numero' => 'Número do processo', 'parte' => 'Nome da parte', 'status' => 'Status'] as $field => $label) {
+            self::assertSame($label, trim($form->filter(\sprintf('label[for="%s"]', $field))->text()));
+        }
+        self::assertSame(['Buscar', 'Limpar'], $form->filter('button[type="submit"], a[href="/processos"]')->each(static fn (Crawler $action): string => trim($action->text())));
+
+        // One card a row up to lg and in the column of lg, two from xl up.
+        self::assertSame('col-12 col-xl-6', $crawler->filter('ul.jus-case-list > li')->attr('class'));
+    }
+
+    #[DataProvider('provideFiltersApplied')]
+    public function testCountsTheFiltersAppliedInTheSummaryAndKeepsThePanelOpenForThemOrAnError(string $query, string $summary, string $active): void
+    {
+        $ana = $this->data->lawyer('ana@jus.test', 'Ana Ribeiro');
+        $this->data->legalCase('0000001', $ana, plaintiff: 'Maria Oliveira');
+        $this->signIn($ana);
+
+        $crawler = $this->client->request('GET', '/processos?'.$query);
+
+        self::assertResponseIsSuccessful();
+        $panel = $crawler->filter('details.jus-filters');
+        self::assertNotNull($panel->attr('open'), 'The panel is sent open.');
+        self::assertSame($active, $panel->attr('data-jus-filters-active'));
+        self::assertSame($summary, $panel->filter('summary')->text());
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function provideFiltersApplied(): iterable
+    {
+        yield 'no filter' => ['', 'Filtrar', 'false'];
+        yield 'a page is no filter' => ['pagina=1', 'Filtrar', 'false'];
+        yield 'an empty field is no filter' => ['parte=&status=', 'Filtrar', 'false'];
+        yield 'blanks are no filter' => ['parte=%20%20', 'Filtrar', 'false'];
+        yield 'one filter' => ['parte=maria', 'Filtrar · 1 filtro', 'true'];
+        yield 'two filters' => ['parte=maria&status=active', 'Filtrar · 2 filtros', 'true'];
+        yield 'a valid number of no case, and a party' => ['numero=0000009-16.2024.8.26.0100&parte=maria', 'Filtrar · 2 filtros', 'true'];
+        // A field with an error runs no search, so no filter was applied: none is counted, and the panel stays open
+        // for the error.
+        yield 'an invalid number' => ['numero=123', 'Filtrar', 'true'];
+        yield 'an unknown status' => ['status=bogus', 'Filtrar', 'true'];
+        yield 'a party beside an invalid number' => ['numero=123&parte=maria', 'Filtrar', 'true'];
     }
 
     public function testFiltersByPartyIgnoringAccents(): void

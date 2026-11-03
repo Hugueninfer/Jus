@@ -1,0 +1,150 @@
+@use 'sass:map';
+@use '../tokens/tokens' as t;
+
+// The design system catalogue (templates/design_system/index.html.twig): the header band, then the navigation of the
+// sections on a card and the sections, a card each. Inside a section the examples sit on the page colour, as the
+// components do on a page, and their code in a block of the same palette.
+
+// A word on the theme switcher of the navbar, below the introduction.
+.jus-catalog-themes {
+  margin-block-end: 0;
+  color: var(--jus-color-text-muted);
+}
+
+// The navigation: links in rows below lg; from lg up a list that stays in view beside the sections, a little below the
+// top of the window, scrolling by itself if the window is shorter than it.
+.jus-catalog-nav {
+  padding: var(--jus-space-2);
+
+  .nav {
+    --bs-nav-link-color: var(--jus-color-text);
+    --bs-nav-link-hover-color: var(--jus-color-text);
+    --bs-nav-link-padding-x: var(--jus-space-2);
+    --bs-nav-link-padding-y: var(--jus-space-1);
+
+    gap: var(--jus-space-1);
+  }
+
+  .nav-link {
+    border-radius: var(--jus-radius-sm);
+
+    &:hover {
+      background-color: var(--jus-color-neutral-bg);
+    }
+  }
+
+  @include media-breakpoint-up(lg) {
+    position: sticky;
+    inset-block-start: var(--jus-space-4);
+    max-block-size: calc(100vh - 2 * var(--jus-space-4));
+    overflow-y: auto;
+  }
+}
+
+// The sections, one below the other as far apart as the columns; a jump to one leaves room above its card.
+.jus-catalog-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jus-space-4);
+}
+
+.jus-catalog-section {
+  padding: var(--jus-space-3);
+  scroll-margin-block-start: var(--jus-space-4);
+
+  @include media-breakpoint-up(md) {
+    padding: var(--jus-space-4);
+  }
+}
+
+// An example and its code: the page colour framed in the border colour, so the card around them keeps its own.
+.jus-catalog-example,
+.jus-catalog-code {
+  border: var(--bs-border-width) solid var(--jus-color-border);
+  border-radius: var(--jus-radius-base);
+  background-color: var(--jus-color-page);
+}
+
+// The frame closes the example: its last piece (an alert, a list) keeps no space of its own below it.
+.jus-catalog-example {
+  margin-block-end: var(--jus-space-2);
+  padding: var(--jus-space-3);
+
+  > :last-child {
+    margin-block-end: 0;
+  }
+}
+
+.jus-catalog-details {
+  margin-block-end: var(--jus-space-4);
+
+  > summary {
+    color: var(--jus-color-primary);
+    font-size: var(--jus-font-size-small);
+    font-weight: var(--jus-font-weight-medium);
+    cursor: pointer;
+  }
+
+  &[open] > summary {
+    margin-block-end: var(--jus-space-2);
+  }
+}
+
+// The code wraps its long lines rather than scroll sideways: a scrolling block holds nothing the keyboard could reach
+// it by.
+.jus-catalog-code {
+  margin-block-end: 0;
+  padding: var(--jus-space-3);
+  font-size: var(--jus-font-size-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  code {
+    color: var(--jus-color-text);
+  }
+}
+
+// A reference table, framed like the examples, its text as far from the frame as an example's; the frame closes the
+// table, so its last row has no line of its own.
+.jus-catalog-reference {
+  border: var(--bs-border-width) solid var(--jus-color-border);
+  border-radius: var(--jus-radius-base);
+
+  tr > :first-child {
+    padding-inline-start: var(--jus-space-3);
+  }
+
+  tr > :last-child {
+    padding-inline-end: var(--jus-space-3);
+  }
+
+  tbody tr:last-child > * {
+    border-block-end-width: 0;
+  }
+}
+
+// The swatches of the table of colours: each one the custom property of its role, painted inside the scope of its
+// theme (data-bs-theme on the swatch), so the page shows the values of the stylesheet and writes none. A class for each
+// role of the token map; the edge is the strong border colour of the swatch's theme. Forced colours would replace the
+// fill, which is what a swatch is there to show.
+.jus-token-sample {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jus-space-2);
+}
+
+.jus-token-swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  inline-size: var(--jus-space-5);
+  block-size: var(--jus-space-4);
+  border: var(--bs-border-width) solid var(--jus-color-border-strong);
+  border-radius: var(--jus-radius-sm);
+  forced-color-adjust: none;
+}
+
+@each $role, $value in map.get(t.$themes, 'light') {
+  .jus-token-swatch-#{$role} {
+    background-color: var(--jus-color-#{$role});
+  }
+}

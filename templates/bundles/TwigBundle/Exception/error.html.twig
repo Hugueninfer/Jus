@@ -3,7 +3,11 @@
 {% block title %}Algo deu errado · Jus{% endblock %}
 
 {% block body %}
-    <h1 class="h2">Algo deu errado</h1>
-    <p class="lead">Não foi possível concluir a operação. Tente de novo em instantes.</p>
-    <a class="btn btn-primary" href="{{ path('app_home') }}">Voltar ao início</a>
+    {{ include('_error_card.html.twig', {
+        icon: 'exclamation-triangle',
+        tone: 'danger',
+        heading: 'Algo deu errado',
+        message: 'Não foi possível concluir a operação. Tente de novo em instantes.',
+        action: {href: path('app_home'), label: 'Voltar ao início'},
+    }) }}
 {% endblock %}

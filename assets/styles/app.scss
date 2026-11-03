@@ -21,3 +21,10 @@
 @import 'components/data-table';
 @import 'components/case-card';
 @import 'components/theme-switcher';
+
+// The layouts of the pages that have one of their own.
+@import 'components/login';
+@import 'components/error-page';
+@import 'components/search';
+@import 'components/case-page';
+@import 'components/catalog';

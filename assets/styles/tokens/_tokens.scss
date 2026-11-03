@@ -81,7 +81,10 @@ $font-families: (
   'base': ('Inter Variable', system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif),
   'mono': (ui-monospace, sfmono-regular, menlo, consolas, monospace),
 );
+
+// 'display' is the title of a presentation area (the sign-in page, from lg up): larger than any heading.
 $font-sizes: (
+  'display': 2.25rem,
   'page-title': 1.75rem,
   'section-title': 1.25rem,
   'small': 0.875rem,

@@ -157,7 +157,9 @@ describe.each(THEMES)('the %s theme tokens', (theme) => {
     expect(token('font-mono')).toContain('monospace');
   });
 
-  it('defines the type scale: page title, section title and small text, and the weights', () => {
+  it('defines the type scale: display, page title, section title and small text, and the weights', () => {
+    expect(token('font-size-display')).toMatch(/rem$/);
+    expect(Number.parseFloat(token('font-size-display'))).toBeGreaterThan(Number.parseFloat(token('font-size-page-title')));
     expect(token('font-size-page-title')).toMatch(/rem$/);
     expect(token('font-size-section-title')).toMatch(/rem$/);
     expect(token('font-size-small')).toMatch(/rem$/);

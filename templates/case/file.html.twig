@@ -10,39 +10,38 @@
 {% block title %}{{ refused ? 'Erro: ' }}Peticionar · Processo {{ case.number|cnj }} · Jus{% endblock %}
 
 {% block body %}
-    <p class="mb-2"><a href="{{ path('case_show', {numero: case.number|cnj}) }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar para o processo</a></p>
-
-    <header class="mb-4">
+    {# The header band of the case page (components/_surfaces.scss), then the form on a card of medium width
+       (components/_case-page.scss), with what went wrong at the top of it. #}
+    <header class="jus-page-header">
+        <p class="jus-back-link"><a href="{{ path('case_show', {numero: case.number|cnj}) }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar para o processo</a></p>
         <h1 class="h3 mb-1">Peticionar</h1>
-        <p class="mb-0"><span class="font-monospace">{{ case.number|cnj }}</span> · {{ case.caseClass }}</p>
+        <p class="jus-case-class"><span class="font-monospace">{{ case.number|cnj }}</span> · {{ case.caseClass }}</p>
     </header>
 
-    <div class="row">
-        <div class="col-lg-8">
-            {% if invalidFields is not empty %}
-                {# Each field says what is wrong next to itself; this lists them for a reader who lands on the top of the page.
-                   Plain text with links, not an alert: nothing is announced over what the reader is doing. #}
-                <div class="alert alert-danger" id="resumo-erros">
-                    <p class="fw-semibold mb-1"><i class="bi bi-x-octagon-fill" aria-hidden="true"></i> <span class="visually-hidden">Erro:</span> Corrija os campos indicados e envie a petição de novo:</p>
-                    <ul class="mb-0">
-                        {% for field in invalidFields %}
-                            <li><a class="alert-link" href="#{{ field.vars.id }}">{{ field.vars.label }}</a></li>
-                        {% endfor %}
-                    </ul>
-                    {% if chooseFilesAgain %}
-                        <p class="mt-2 mb-0" id="arquivos-novamente">Selecione os arquivos novamente.</p>
-                    {% endif %}
-                </div>
-            {% elseif chooseFilesAgain %}
-                {# No field failed (the token did), so there is no summary to hold it. #}
-                <p class="alert alert-warning" id="arquivos-novamente">Selecione os arquivos novamente.</p>
-            {% endif %}
+    <div class="jus-surface jus-filing-card">
+        {% if invalidFields is not empty %}
+            {# Each field says what is wrong next to itself; this lists them for a reader who lands on the top of the page.
+               Plain text with links, not an alert: nothing is announced over what the reader is doing. #}
+            <div class="alert alert-danger" id="resumo-erros">
+                <p class="fw-semibold mb-1"><i class="bi bi-x-octagon-fill" aria-hidden="true"></i> <span class="visually-hidden">Erro:</span> Corrija os campos indicados e envie a petição de novo:</p>
+                <ul class="mb-0">
+                    {% for field in invalidFields %}
+                        <li><a class="alert-link" href="#{{ field.vars.id }}">{{ field.vars.label }}</a></li>
+                    {% endfor %}
+                </ul>
+                {% if chooseFilesAgain %}
+                    <p class="mt-2 mb-0" id="arquivos-novamente">Selecione os arquivos novamente.</p>
+                {% endif %}
+            </div>
+        {% elseif chooseFilesAgain %}
+            {# No field failed (the token did), so there is no summary to hold it. #}
+            <p class="alert alert-warning" id="arquivos-novamente">Selecione os arquivos novamente.</p>
+        {% endif %}
 
-            {# Marked so that, with JavaScript, a second click cannot send the petition again while the first is still on its way. #}
-            {{ form_start(form, {attr: {'data-jus-submit-once': ''}}) }}
-                {{ form_widget(form) }}
-                <button type="submit" class="btn btn-primary">Juntar petição</button>
-            {{ form_end(form) }}
-        </div>
+        {# Marked so that, with JavaScript, a second click cannot send the petition again while the first is still on its way. #}
+        {{ form_start(form, {attr: {'data-jus-submit-once': ''}}) }}
+            {{ form_widget(form) }}
+            <button type="submit" class="btn btn-primary">Juntar petição</button>
+        {{ form_end(form) }}
     </div>
 {% endblock %}

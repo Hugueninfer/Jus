@@ -5,6 +5,9 @@
       rows      - list of rows, each a list of cells (the first cell is the name being documented)
       monospace - optional list of column indexes shown as code (default: the first two)
 
+    A section with cells of its own (the swatches of the tokens) embeds the table and fills its rows block instead of
+    passing rows.
+
     On narrow screens the last column keeps a readable width and the table scrolls sideways inside its wrapper: a focusable
     region named after the caption, so keyboard users can scroll it and screen readers announce which table it holds.
     The tabindex is the default without JavaScript; behaviours/scroll-regions.ts removes it from the regions that do not overflow.
@@ -12,7 +15,7 @@
     vertical scroller, and Chrome puts a scroller without focusable content in the tab order by itself, tabindex or not.
 #}
 {% set monospace = monospace ?? [0, 1] %}
-<div class="table-responsive overflow-y-hidden mb-3" role="region" tabindex="0" data-jus-scroll-region aria-label="{{ caption }}">
+<div class="table-responsive overflow-y-hidden mb-3 jus-catalog-reference" role="region" tabindex="0" data-jus-scroll-region aria-label="{{ caption }}">
     <table class="table table-sm align-middle mb-0">
         <caption class="visually-hidden">{{ caption }}</caption>
         <thead>
@@ -23,19 +26,21 @@
             </tr>
         </thead>
         <tbody>
-            {% for row in rows %}
-                <tr>
-                    {% for cell in row %}
-                        {% if loop.first %}
-                            <th scope="row" class="text-nowrap"><code>{{ cell }}</code></th>
-                        {% elseif loop.index0 in monospace %}
-                            <td><code>{{ cell }}</code></td>
-                        {% else %}
-                            <td>{{ cell }}</td>
-                        {% endif %}
-                    {% endfor %}
-                </tr>
-            {% endfor %}
+            {% block rows %}
+                {% for row in rows %}
+                    <tr>
+                        {% for cell in row %}
+                            {% if loop.first %}
+                                <th scope="row" class="text-nowrap"><code>{{ cell }}</code></th>
+                            {% elseif loop.index0 in monospace %}
+                                <td><code>{{ cell }}</code></td>
+                            {% else %}
+                                <td>{{ cell }}</td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            {% endblock %}
         </tbody>
     </table>
 </div>

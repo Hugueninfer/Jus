@@ -28,6 +28,101 @@ final class DesignSystemTest extends WebTestCase
         }
     }
 
+    public function testLaysTheSectionsOutAsCardsBesideTheirNavigation(): void
+    {
+        self::mockTime('2026-03-04 09:00:00');
+        $client = self::createClient();
+
+        $crawler = $client->request('GET', '/design-system');
+
+        // The header band, with a word on the theme switcher of the navbar.
+        $header = $crawler->filter('main#conteudo > header.jus-page-header:first-child');
+        self::assertCount(1, $header);
+        self::assertSame('Design System', trim($header->filter('h1')->text()));
+        $themes = $header->filter('p.jus-catalog-themes');
+        self::assertCount(1, $themes);
+        self::assertStringContainsString('seletor de tema', $themes->text());
+        self::assertStringContainsString('claro e no escuro', $themes->text());
+
+        // The navigation of the sections on a card of its own (a sticky column from lg up), then the sections, a card each.
+        $row = $crawler->filter('main#conteudo > header.jus-page-header + div.row.jus-catalog');
+        self::assertCount(1, $row);
+        $nav = $row->filter('.col-12.col-lg-3 > nav.jus-surface.jus-catalog-nav[aria-label="Componentes"]');
+        self::assertCount(1, $nav);
+        $sections = $row->filter('.col-12.col-lg-9 > section');
+        self::assertSame(
+            $nav->filter('a')->each(static fn (Crawler $link): string => substr((string) $link->attr('href'), 1)),
+            $sections->each(static fn (Crawler $section): string => (string) $section->attr('id')),
+        );
+        $sections->each(static function (Crawler $section): void {
+            self::assertSame(['jus-surface', 'jus-catalog-section'], explode(' ', (string) $section->attr('class')), (string) $section->attr('id'));
+        });
+
+        // Each example on the page colour, its code in a block of the same palette, each table in a framed region.
+        $figures = $crawler->filter('section figure');
+        self::assertGreaterThan(0, $figures->count());
+        self::assertCount($figures->count(), $crawler->filter('section figure.jus-catalog-example'));
+        self::assertCount($figures->count(), $crawler->filter('section details.jus-catalog-details > pre.jus-catalog-code > code'));
+        self::assertCount($crawler->filter('section table.table-sm')->count(), $crawler->filter('section .jus-catalog-reference > table.table-sm'));
+    }
+
+    public function testTheTokensSectionShowsEveryColourRoleInBothThemesFromTheTokensThemselves(): void
+    {
+        self::mockTime('2026-03-04 09:00:00');
+        $client = self::createClient();
+        $tokens = (string) file_get_contents(\dirname(__DIR__, 2).'/assets/styles/tokens/_tokens.scss');
+        $roles = self::keysOf(self::mapIn($tokens, '$themes', 'light'));
+        self::assertSame($roles, self::keysOf(self::mapIn($tokens, '$themes', 'dark')), 'Both themes have the same roles.');
+        self::assertContains('primary-hover', $roles);
+        self::assertContains('border-strong', $roles);
+
+        $crawler = $client->request('GET', '/design-system');
+
+        // A row for each role of the tokens, in their order: its custom property, a swatch in each theme, a word on its use.
+        $table = $crawler->filter('section#tokens table')->reduce(static fn (Crawler $candidate): bool => 'Cores nos dois temas' === trim($candidate->filter('caption')->text()));
+        self::assertCount(1, $table);
+        self::assertSame(['Papel', 'Claro', 'Escuro', 'Uso'], $table->filter('thead th')->each(static fn (Crawler $th): string => trim($th->text())));
+        $rows = $table->filter('tbody tr');
+        self::assertSame(
+            array_map(static fn (string $role): string => '--jus-color-'.$role, $roles),
+            $rows->each(static fn (Crawler $row): string => trim($row->filter('th')->text())),
+        );
+        $rows->each(static function (Crawler $row, int $index) use ($roles): void {
+            $role = $roles[$index];
+            foreach (['light' => 1, 'dark' => 2] as $theme => $column) {
+                $cell = $row->children()->eq($column);
+                // The swatch is the custom property itself, in the scope of its theme: a class made from the same map.
+                $swatch = $cell->filter('.jus-token-swatch');
+                self::assertSame(['jus-token-swatch', 'jus-token-swatch-'.$role], explode(' ', (string) $swatch->attr('class')), $role);
+                self::assertSame($theme, $swatch->attr('data-bs-theme'), $role);
+                self::assertSame('true', $swatch->attr('aria-hidden'), $role);
+                // The value is read from the stylesheet in the browser (assets/behaviours/token-values.ts), not written here.
+                $value = $cell->filter('code[data-jus-token-value]');
+                self::assertSame('--jus-color-'.$role, $value->attr('data-jus-token-value'), $role);
+                self::assertSame($theme, $value->attr('data-jus-token-theme'), $role);
+                // Until it is, screen readers hear what the cell holds (the swatch itself is hidden from them).
+                self::assertSame('Amostra da cor; o valor é lido com JavaScript.', trim($value->text()), $role);
+                self::assertCount(1, $value->filter('.visually-hidden'), $role);
+            }
+            self::assertNotSame('', trim($row->children()->eq(3)->text()), $role);
+        });
+
+        // No colour value is written in the section: the tokens are the one place they are.
+        self::assertDoesNotMatchRegularExpression('/#[0-9a-f]{3}(?:[0-9a-f]{3})?\b|rgba?\(/i', $crawler->filter('section#tokens')->html());
+
+        // The old names, kept as aliases of a role, and the brand colours, which do not change with the theme.
+        $families = $crawler->filter('section#tokens table')->first()->text();
+        foreach (self::mapIn($tokens, '$aliases') as $alias => $role) {
+            self::assertStringContainsString($alias.' (= '.$role.')', $families);
+        }
+        // The other families name their tokens as the maps do.
+        foreach (['$font-sizes', '$font-weights', '$radii', '$shadows', '$focus'] as $map) {
+            self::assertStringContainsString(implode(', ', self::keysOf(self::mapIn($tokens, $map))), $families, $map);
+        }
+        $brand = $crawler->filter('section#tokens figure code')->each(static fn (Crawler $code): string => trim($code->text()));
+        self::assertSame(array_map(static fn (string $name): string => '--jus-color-'.$name, self::keysOf(self::mapIn($tokens, '$colors'))), $brand);
+    }
+
     public function testEachExampleShowsItsOwnSource(): void
     {
         self::mockTime('2026-03-04 09:00:00');
@@ -201,5 +296,37 @@ final class DesignSystemTest extends WebTestCase
             ['on_track', 'warning', 'overdue', 'fulfilled'],
             $crawler->filter('section#deadline-indicator [data-urgency]')->each(static fn (Crawler $badge): string => (string) $badge->attr('data-urgency')),
         );
+    }
+
+    /**
+     * The entries of a Sass map of the tokens, or of one of its maps (`$themes`, 'light'), name => value as written.
+     *
+     * @return array<string, string>
+     */
+    private static function mapIn(string $scss, string $variable, ?string $key = null): array
+    {
+        if (1 !== preg_match('/^'.preg_quote($variable, '/').':\s*\((.*?)^\);/ms', $scss, $map)) {
+            self::fail('No map '.$variable.' in the tokens.');
+        }
+        $body = $map[1];
+        if (null !== $key) {
+            if (1 !== preg_match('/\''.preg_quote($key, '/').'\':\s*\((.*?)\),/s', $body, $nested)) {
+                self::fail('No map '.$key.' in '.$variable.'.');
+            }
+            $body = $nested[1];
+        }
+        preg_match_all('/\'([a-z-]+)\':\s*\'?([^\',\n]+)\'?,/', $body, $entries, \PREG_SET_ORDER);
+
+        return array_column($entries, 2, 1);
+    }
+
+    /**
+     * @param array<string, string> $map
+     *
+     * @return list<string>
+     */
+    private static function keysOf(array $map): array
+    {
+        return array_map(strval(...), array_keys($map));
     }
 }

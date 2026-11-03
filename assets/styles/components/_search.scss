@@ -1,0 +1,58 @@
+// The search (templates/case/search.html.twig): the filters, then the results. From lg up the filters are a column of
+// their own, the form always shown on its surface card: the summary of their <details> is hidden there while it is open
+// (it is folded only below lg, by templates/case/_filters_script.html.twig, and assets/behaviours/filters-panel.ts opens
+// it again if the window grows to lg). Below lg the summary is the "Filtrar" button above the results; while it is
+// folded, it is the one way to the form.
+.jus-filters {
+  > summary {
+    display: flex;
+    align-items: center;
+    gap: var(--jus-space-2);
+    padding: var(--jus-space-2) var(--jus-space-3);
+    border: var(--bs-border-width) solid var(--jus-color-text-muted);
+    border-radius: var(--jus-radius-base);
+    background-color: var(--jus-color-surface);
+    color: var(--jus-color-text);
+    font-weight: var(--jus-font-weight-medium);
+    cursor: pointer;
+
+    // The chevron, which turns as the panel opens, takes the place of the browser's marker. The state is the summary's
+    // own (expanded or collapsed), as screen readers announce it.
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &:hover {
+      background-color: var(--jus-color-neutral-bg);
+    }
+  }
+
+  &[open] > summary {
+    margin-block-end: var(--jus-space-3);
+  }
+
+  @include media-breakpoint-up(lg) {
+    &[open] > summary {
+      display: none;
+    }
+  }
+}
+
+.jus-filters-chevron {
+  margin-inline-start: auto;
+  transition: transform 0.15s ease-in-out;
+
+  .jus-filters[open] > summary > & {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.jus-filters-form {
+  padding: var(--jus-space-4);
+}

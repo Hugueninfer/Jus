@@ -1,0 +1,11 @@
+{# The card of the error pages (templates/bundles/TwigBundle/Exception): centred in the main content, a large icon for the
+   eye only, the title, the explanation and the one way out (components/_error-page.scss). Takes icon (a Bootstrap Icons
+   name), tone (info, warning or danger: the tinted fill of the icon), heading, message and action ({href, label}). #}
+<div class="jus-error-page">
+    <div class="jus-error jus-surface">
+        <span class="jus-error-icon jus-error-icon-{{ tone }}" aria-hidden="true"><i class="bi bi-{{ icon }}"></i></span>
+        <h1 class="h3">{{ heading }}</h1>
+        <p class="lead">{{ message }}</p>
+        <a class="btn btn-primary" href="{{ action.href }}">{{ action.label }}</a>
+    </div>
+</div>

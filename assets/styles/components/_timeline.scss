@@ -1,3 +1,14 @@
+// The list starts and ends where its container does (a card of the case page, a figure of the catalogue); the days are
+// apart from each other. Only the days shown count: the filter (<jus-filtro-timeline>) hides some with the hidden
+// attribute, and the first one left starts at the top as well.
+.jus-timeline {
+  margin-block-end: 0;
+}
+
+.jus-timeline-day:not([hidden]) ~ .jus-timeline-day:not([hidden]) > h3 {
+  margin-block-start: var(--jus-space-3);
+}
+
 // Each event carries its own left border, which stacks into a vertical line down the day: the strong border colour, a
 // line that stays visible on the page and on a card alike (the plain border colour is about 1.1:1 on the page).
 .jus-timeline-event {

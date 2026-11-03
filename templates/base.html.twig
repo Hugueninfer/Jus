@@ -60,8 +60,10 @@
                                 {% if app.user %}
                                     <li class="nav-item jus-navbar-user ms-md-auto">
                                         {# The initials are for the eye; the name beside them is what is read. From md up this is the
-                                           item that gives way when the navbar runs short of room (components/_navbar.scss). #}
-                                        <span class="navbar-text jus-user"><span class="jus-avatar" aria-hidden="true">{{ app.user.name|initials }}</span> <span class="jus-user-name">{{ app.user.name }}</span></span>
+                                           item that gives way when the navbar runs short of room (components/_navbar.scss): the
+                                           name ends in an ellipsis from lg up and only the avatar shows between md and lg, so
+                                           the title gives the whole name under the pointer, over the avatar or the name. #}
+                                        <span class="navbar-text jus-user" title="{{ app.user.name }}"><span class="jus-avatar" aria-hidden="true">{{ app.user.name|initials }}</span> <span class="jus-user-name">{{ app.user.name }}</span></span>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ logout_path('main') }}">Sair</a>
