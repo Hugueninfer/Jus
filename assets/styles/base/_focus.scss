@@ -30,6 +30,12 @@
 }
 
 // Inputs and the close button use Bootstrap's ring, set from the tokens in _bootstrap-config.scss; nav links and the
-// navbar toggler draw it in their own text colour. The white close button (.btn-close-white, and every close button on
-// the dark theme) keeps the ring colour of its surface on purpose: the filter that paints its icon white (invert,
-// grayscale, brightness 200 %) renders that ring white too, which is the inverse colour that surface asks for anyway.
+// navbar toggler draw it in their own text colour.
+
+// On the dark theme Bootstrap paints the close button white with a filter (invert, grayscale, brightness 200 %),
+// which paints its focus ring too: the light ring colour comes out of it white, the inverse one black. So the close
+// button takes the light ring colour there, and shows it white. A [data-bs-theme='light'] scope inside a dark page
+// takes the filter off again, and the light ring is the one its surface asks for.
+[data-bs-theme='dark'] .btn-close {
+  --jus-focus-ring: var(--jus-focus-color);
+}

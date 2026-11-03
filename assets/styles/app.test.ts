@@ -105,6 +105,93 @@ function shadowColours(shadow: string): string[] {
   return Array.from(shadow.matchAll(/rgba?\([^)]*\)/g), (match) => match[0]);
 }
 
+/** The red, green and blue channels of a colour, from 0 to 1, as the filter functions take and give them. */
+type Channels = readonly [number, number, number];
+
+/**
+ * The filter functions Bootstrap's close button meets on the dark theme, with the formulas of the Filter Effects spec
+ * (the transfer functions and the colour matrix their filter primitives stand for), on the sRGB channels.
+ */
+const FILTER_FUNCTIONS: Record<string, (channels: Channels, amount: number) => Channels> = {
+  // A table transfer [amount, 1 − amount] on each channel; amounts above 1 count as 1.
+  invert: ([red, green, blue], amount) => {
+    const share = Math.min(amount, 1);
+    const flip = (value: number): number => share * (1 - value) + (1 - share) * value;
+
+    return [flip(red), flip(green), flip(blue)];
+  },
+  // The colour matrix of the spec, with the luminance weights of sRGB; amounts above 1 count as 1.
+  grayscale: ([red, green, blue], amount) => {
+    const rest = 1 - Math.min(amount, 1);
+
+    return [
+      (0.2126 + 0.7874 * rest) * red + (0.7152 - 0.7152 * rest) * green + (0.0722 - 0.0722 * rest) * blue,
+      (0.2126 - 0.2126 * rest) * red + (0.7152 + 0.2848 * rest) * green + (0.0722 - 0.0722 * rest) * blue,
+      (0.2126 - 0.2126 * rest) * red + (0.7152 - 0.7152 * rest) * green + (0.0722 + 0.9278 * rest) * blue,
+    ];
+  },
+  // A linear transfer with the amount as its slope.
+  brightness: ([red, green, blue], amount) => [red * amount, green * amount, blue * amount],
+};
+
+/**
+ * The colour that a computed `filter` (a list such as "invert(1) grayscale(1) brightness(2)", or "none") paints the given
+ * colour: each function in turn, its result clamped to 0–1. A function the list above does not know fails the test
+ * rather than being guessed at.
+ */
+function throughFilter(colour: string, filter: string): string {
+  const { red, green, blue, alpha } = parseColor(colour);
+  const clamp = (value: number): number => Math.min(1, Math.max(0, value));
+  let channels: Channels = [red / 255, green / 255, blue / 255];
+
+  if (filter !== 'none') {
+    if (!/^(?:\s*[a-z-]+\([^)]*\))+\s*$/.test(filter)) {
+      throw new Error(`Cannot read the filter ${JSON.stringify(filter)}.`);
+    }
+    for (const [, name, argument] of filter.matchAll(/([a-z-]+)\(([^)]*)\)/g)) {
+      const apply = FILTER_FUNCTIONS[required(name)];
+      if (apply === undefined) {
+        throw new Error(`Cannot apply the filter function ${JSON.stringify(name)}.`);
+      }
+      const text = required(argument).trim();
+      const amount = text.endsWith('%') ? Number.parseFloat(text) / 100 : Number.parseFloat(text);
+      const [nextRed, nextGreen, nextBlue] = apply(channels, amount);
+      channels = [clamp(nextRed), clamp(nextGreen), clamp(nextBlue)];
+    }
+  }
+
+  const [filteredRed, filteredGreen, filteredBlue] = channels.map((value) => String(Math.round(value * 255)));
+
+  return `rgba(${required(filteredRed)}, ${required(filteredGreen)}, ${required(filteredBlue)}, ${String(alpha)})`;
+}
+
+/**
+ * The colour the focus ring of a focused element shows on screen: the outer colour of its box-shadow (a gap may come
+ * first), through the element's own filter, which paints the shadow too. A focused close button is fully opaque.
+ */
+function paintedRing(element: Element): string {
+  expect(css(element, 'opacity')).toBe('1');
+  const ring = required(shadowColours(css(element, 'box-shadow')).at(-1));
+
+  return throughFilter(ring, css(element, 'filter'));
+}
+
+/**
+ * Gives an element the keyboard focus (and :focus-visible) as a person does, tabbing in from a button placed just
+ * before it, then ends its transitions so the computed styles are the focused ones.
+ */
+async function tabInto(element: HTMLElement): Promise<void> {
+  const before = document.createElement('button');
+  before.textContent = 'Antes';
+  element.before(before);
+  before.focus();
+
+  await userEvent.tab();
+
+  expect(document.activeElement).toBe(element);
+  settle(element);
+}
+
 /** The theme switcher as templates/_theme_switcher.html.twig renders it, with "Claro" as the current theme. */
 const SWITCHER = `
   <form class="jus-theme-switcher" method="post" action="/tema" data-jus-theme-switcher>
@@ -247,6 +334,30 @@ const DATA_TABLE = `
       </table>
     </div>
   </div>`;
+
+/** A dismissible alert as <twig:Alert dismissible> renders it (the filing confirmation, say), in the given status. */
+function dismissibleAlert(status: string): string {
+  return `
+    <div class="alert alert-${status} d-flex gap-2 alert-dismissible fade show" role="status">
+      <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
+      <div><span class="visually-hidden">Aviso:</span> Petição protocolada.</div>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>`;
+}
+
+/** The menu of templates/base.html.twig on a phone, open: the off-canvas panel, its header and the "Fechar menu" button. */
+const OPEN_MENU = `
+  <nav class="navbar navbar-expand-md jus-navbar" aria-label="Navegação principal">
+    <div class="container">
+      <div class="offcanvas offcanvas-end show" tabindex="-1" aria-labelledby="menu-titulo">
+        <div class="offcanvas-header">
+          <h2 class="offcanvas-title h5" id="menu-titulo">Menu</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar menu"></button>
+        </div>
+        <div class="offcanvas-body"><ul class="navbar-nav"><li class="nav-item"><a class="nav-link" href="#processos">Processos</a></li></ul></div>
+      </div>
+    </div>
+  </nav>`;
 
 /** The sign-in page as templates/security/login.html.twig renders it, in the main content of the layout. */
 const LOGIN = `
@@ -1345,6 +1456,40 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
     expect(contrastRatio('#ffffff', css(area, 'background-color'))).toBeGreaterThanOrEqual(FOCUS);
   });
 
+  describe('the focus ring of the controls Bootstrap draws', () => {
+    it.each(['success', 'danger', 'warning', 'info'])('keeps the ring of the close button of a dismissible %s alert at 3:1 or more against the fill, as painted', async (status) => {
+      const button = find(mount(dismissibleAlert(status)), '.btn-close');
+
+      await tabInto(button);
+
+      sameColor(backgroundBehind(button), rootToken(`--jus-color-${status}-bg`));
+      expect(contrastRatio(paintedRing(button), backgroundBehind(button))).toBeGreaterThanOrEqual(FOCUS);
+    });
+
+    it('keeps the ring of the close button of the open menu at 3:1 or more against the panel, as painted', async () => {
+      await atWidth(375, async () => {
+        const button = find(mount(OPEN_MENU), '.btn-close');
+
+        await tabInto(button);
+
+        sameColor(backgroundBehind(button), rootToken('--jus-color-surface'));
+        expect(contrastRatio(paintedRing(button), backgroundBehind(button))).toBeGreaterThanOrEqual(FOCUS);
+      });
+    });
+
+    it.each(['.form-control', '.form-check-input'])('draws the ring of a focused %s in the ring colour of its surface, at 3:1 or more against it and the field', async (selector) => {
+      const field = find(mount(PAGE), selector);
+      const surface = required(field.parentElement);
+
+      await tabInto(field);
+
+      const ring = paintedRing(field);
+      sameColor(ring, css(surface, '--jus-focus-ring'));
+      expect(contrastRatio(ring, backgroundBehind(surface))).toBeGreaterThanOrEqual(FOCUS);
+      expect(contrastRatio(ring, css(field, 'background-color'))).toBeGreaterThanOrEqual(FOCUS);
+    });
+  });
+
   it('has no accessibility violations for the markup the pages are made of, with the real palette', async () => {
     const page = mount(`${PAGE}${TIMELINE}${DATA_TABLE}`);
 
@@ -1638,6 +1783,17 @@ describe('a light scope inside a dark page', () => {
     sameColor(css(scope, '--jus-focus-ring'), '#1f4e79');
     sameColor(css(scope, '--jus-color-text'), '#111827');
     sameColor(css(scope, '--bs-body-color'), '#111827');
+  });
+
+  it('leaves the close button unfiltered there, with the light ring, at 3:1 or more against the alert', async () => {
+    useTheme('dark');
+    const button = find(mount(`<div data-bs-theme="light">${dismissibleAlert('success')}</div>`), '.btn-close');
+
+    await tabInto(button);
+
+    expect(css(button, 'filter')).toBe('none');
+    sameColor(paintedRing(button), '#1f4e79');
+    expect(contrastRatio(paintedRing(button), backgroundBehind(button))).toBeGreaterThanOrEqual(FOCUS);
   });
 });
 
