@@ -260,7 +260,7 @@ final class ThemeTest extends WebTestCase
         self::assertSame('escuro', $this->themeCookie()?->getValue());
     }
 
-    public function testAScriptIsToldWhenTheThemeIsNotOneWeKnow(): void
+    public function testAScriptIsToldWhenTheThemeIsUnknown(): void
     {
         $this->post(['tema' => 'roxo'], ['HTTP_ACCEPT' => 'application/json']);
 
@@ -418,13 +418,15 @@ final class ThemeTest extends WebTestCase
             $button->filter('i.bi')->attr('class'),
             $button->filter('i.bi')->attr('aria-hidden'),
             $button->attr('data-jus-theme-announcement'),
+            $button->attr('title'),
         ]);
         self::assertSame([
-            ['submit', 'tema', 'sistema', 'Tema: Sistema', 'bi bi-circle-half', 'true', 'Tema do sistema aplicado.'],
-            ['submit', 'tema', 'claro', 'Tema: Claro', 'bi bi-sun', 'true', 'Tema claro aplicado.'],
-            ['submit', 'tema', 'escuro', 'Tema: Escuro', 'bi bi-moon-stars', 'true', 'Tema escuro aplicado.'],
+            ['submit', 'tema', 'sistema', 'Tema: Sistema', 'bi bi-circle-half', 'true', 'Tema do sistema aplicado.', 'Tema: Sistema'],
+            ['submit', 'tema', 'claro', 'Tema: Claro', 'bi bi-sun', 'true', 'Tema claro aplicado.', 'Tema: Claro'],
+            ['submit', 'tema', 'escuro', 'Tema: Escuro', 'bi bi-moon-stars', 'true', 'Tema escuro aplicado.', 'Tema: Escuro'],
         ], $offered);
-        // The word is on show on wide screens only; on narrow ones the icon stands for it and the text stays for screen readers.
+        // The word is on show on wide screens only; on narrow ones the icon stands for it, the text stays for screen readers and
+        // the title tells the same to a pointer (a tooltip).
         self::assertCount(3, $buttons->filter('.jus-theme-switcher-label'));
     }
 

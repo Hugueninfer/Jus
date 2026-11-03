@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cdp } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
 import { contrastRatio, parseColor } from '../test-support/contrast';
 import { required } from '../test-support/required';
@@ -229,11 +230,38 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
       expect(contrastOfText(button), button.textContent).toBeGreaterThanOrEqual(TEXT);
       expect(contrastRatio(css(button, 'border-top-color'), navbarBackground), button.textContent).toBeGreaterThanOrEqual(FOCUS);
     }
-    // The current theme is not told by colour alone: it is a filled button among outlined ones, and it stands out from the navbar.
+    // In the page's own colours the current theme is a filled button among outlined ones, and the fill stands out from the
+    // navbar (the fill is the only visible mark here; forced colours, which drop it, are the next test).
     for (const button of buttons.filter((other) => !current.includes(other))) {
       expect(parseColor(css(button, 'background-color')).alpha).toBe(0);
     }
     expect(contrastRatio(css(required(current[0]), 'background-color'), navbarBackground)).toBeGreaterThanOrEqual(FOCUS);
+  });
+
+  it('marks the current theme of the switcher by its border too, when the system forces its colours (the fill is lost)', async () => {
+    const buttons = Array.from(find(mount(PAGE), '.jus-theme-switcher').querySelectorAll<HTMLElement>('.btn'));
+    const current = required(buttons.find((button) => button.getAttribute('aria-pressed') === 'true'));
+    const others = buttons.filter((button) => button !== current);
+    const border = (button: HTMLElement): number => Number.parseFloat(css(button, 'border-top-width'));
+    const before = current.getBoundingClientRect();
+
+    await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }] });
+    try {
+      // Thicker than the others, so the current one reads in the system's own colours without the fill...
+      for (const other of others) {
+        expect(border(current)).toBeGreaterThan(border(other));
+      }
+      // ...and without the group changing size or the buttons moving.
+      const after = current.getBoundingClientRect();
+      expect([after.width, after.height]).toEqual([before.width, before.height]);
+    } finally {
+      await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: '' }] });
+    }
+
+    // Outside forced colours the border is the same on every button.
+    for (const other of others) {
+      expect(border(current)).toBe(border(other));
+    }
   });
 
   it('keeps the focus ring at 3:1 or more against the surfaces around it', () => {

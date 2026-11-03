@@ -20,7 +20,7 @@ function markup(current: string): string {
   const buttons = themes
     .map(
       (theme) => `
-        <button type="submit" class="btn btn-outline-light" name="tema" value="${theme.value}" aria-pressed="${String(theme.value === current)}"
+        <button type="submit" class="btn btn-outline-light" name="tema" value="${theme.value}" aria-pressed="${String(theme.value === current)}" title="Tema: ${theme.label}"
                 data-jus-theme-announcement="${theme.announcement}">
           <i class="bi ${theme.icon}" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">${theme.label}</span>
         </button>`,
@@ -199,10 +199,35 @@ describe('installThemeSwitcher', () => {
     const { page, status } = mount();
 
     await userEvent.click(button(page, 'escuro'));
-    expect(status.textContent).toBe('Tema escuro aplicado.');
+    await vi.waitFor(() => {
+      expect(status.textContent).toBe('Tema escuro aplicado.');
+    });
 
     await userEvent.click(button(page, 'sistema'));
-    expect(status.textContent).toBe('Tema do sistema aplicado.');
+    await vi.waitFor(() => {
+      expect(status.textContent).toBe('Tema do sistema aplicado.');
+    });
+  });
+
+  it('says it again when the person picks the theme they already have, by emptying the region first', async () => {
+    answerWith();
+    const { page, status } = mount();
+    const heard: string[] = [];
+    // One entry per change the assistive technology could notice: the region emptied, and the text put back in a later task.
+    new MutationObserver(() => {
+      heard.push(status.textContent);
+    }).observe(status, { childList: true, characterData: true, subtree: true });
+
+    await userEvent.click(button(page, 'escuro'));
+    await vi.waitFor(() => {
+      expect(heard).toEqual(['Tema escuro aplicado.']);
+    });
+    await userEvent.click(button(page, 'escuro'));
+
+    await vi.waitFor(() => {
+      expect(heard).toEqual(['Tema escuro aplicado.', '', 'Tema escuro aplicado.']);
+    });
+    expect(status.textContent).toBe('Tema escuro aplicado.');
   });
 
   it('follows the colour scheme of the system for "Sistema", and the choice of the person for the others', async () => {
@@ -325,6 +350,54 @@ describe('installThemeSwitcher', () => {
 
       expect(watched.prevented).toEqual([true, false, true]);
       expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('sends the latest choice the browser way, when an earlier one failed, and does not save the ones queued behind it', async () => {
+      let fail: (reason: Error) => void = () => undefined;
+      const fetchSpy = answerWith(
+        () =>
+          new Promise<Response>((_resolve, reject) => {
+            fail = reject;
+          }),
+      );
+      const watched = watchSubmits();
+      const { page } = mount();
+
+      await userEvent.click(button(page, 'claro'));
+      await userEvent.click(button(page, 'escuro'));
+      fail(new TypeError('Failed to fetch'));
+
+      // What the page shows is "escuro", so that is what the browser sends; "claro" is not sent late, over it.
+      await vi.waitFor(() => {
+        expect(watched.prevented).toEqual([true, true, false]);
+      });
+      expect(watched.by).toEqual(['claro', 'escuro', 'escuro']);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(theme().tema).toBe('escuro');
+    });
+
+    it('keeps saving the next choices after a resend that went wrong, and does not leave the form marked as being sent', async () => {
+      const fetchSpy = answerWith(() => Promise.reject(new TypeError('Failed to fetch')));
+      const resend = vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(() => {
+        throw new Error('The browser refused the submit.');
+      });
+      const watched = watchSubmits();
+      const { page } = mount();
+      await userEvent.click(button(page, 'escuro'));
+      await vi.waitFor(() => {
+        expect(resend).toHaveBeenCalledTimes(1);
+      });
+      resend.mockRestore();
+      fetchSpy.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+
+      await userEvent.click(button(page, 'claro'));
+
+      // The queue did not stall (the second request goes out), and this submit was taken over like any other.
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+      });
+      expect(watched.prevented).toEqual([true, true]);
+      expect(theme().tema).toBe('claro');
     });
   });
 

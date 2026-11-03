@@ -11,7 +11,7 @@
     <input type="hidden" name="voltar" value="{{ back }}">
     <div class="btn-group btn-group-sm" role="group" aria-label="Tema">
         {% for theme in jus_themes() %}
-            <button type="submit" class="btn btn-outline-light" name="tema" value="{{ theme.value }}" aria-pressed="{{ theme == current ? 'true' : 'false' }}" data-jus-theme-announcement="{{ theme.value == 'sistema' ? 'Tema do sistema aplicado.' : 'Tema ' ~ theme.label|lower ~ ' aplicado.' }}">
+            <button type="submit" class="btn btn-outline-light" name="tema" value="{{ theme.value }}" aria-pressed="{{ theme == current ? 'true' : 'false' }}" title="Tema: {{ theme.label }}" data-jus-theme-announcement="{{ theme.value == 'sistema' ? 'Tema do sistema aplicado.' : 'Tema ' ~ theme.label|lower ~ ' aplicado.' }}">
                 <i class="bi {{ icons[theme.value] }}" aria-hidden="true"></i>
                 <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">{{ theme.label }}</span>
             </button>

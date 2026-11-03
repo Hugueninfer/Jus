@@ -9,6 +9,16 @@
     border-color: var(--bs-btn-active-border-color);
   }
 
+  // Forced colours (Windows contrast themes) replace every fill with the system's colours, so the filled look of the current
+  // theme is gone and it would look like the others. A thicker border says it without colour; the padding gives back what
+  // the border takes, so the buttons keep their size and nothing moves.
+  @media (forced-colors: active) {
+    .btn[aria-pressed='true'] {
+      border-width: calc(var(--bs-btn-border-width) * 3);
+      padding: calc(var(--bs-btn-padding-y) - var(--bs-btn-border-width) * 2) calc(var(--bs-btn-padding-x) - var(--bs-btn-border-width) * 2);
+    }
+  }
+
   // The word is on show from lg up. Below that the navbar is short of room, and the icon stands for it; the text stays for
   // screen readers.
   @include media-breakpoint-down(lg) {

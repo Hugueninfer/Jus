@@ -29,12 +29,19 @@ function isTheme(value: string): value is Theme {
  * things); it costs a page load only when something is wrong already, and needs no message of its own.
  *
  * The requests go one at a time, in the order of the choices: two choices made in quick succession may be answered out of
- * order by the network, and the saved theme must be the last one, the one the page shows.
+ * order by the network, and the saved theme must be the last one, the one the page shows. What the browser sends when a
+ * request failed is also that one, whatever was queued behind the request that failed: the page shows the latest choice, so
+ * that is the one to keep, and the choices that were still waiting are covered by it (they are not sent afterwards, over it).
+ * A failure of any kind in that last resort does not stop the next choices from being saved.
  */
 export function installThemeSwitcher(document: Document): void {
   /** The forms the browser is sending after the background request failed: their next submit is not ours to take over. */
   const resending = new WeakSet<HTMLFormElement>();
   let sending: Promise<void> = Promise.resolve();
+  /** The number of choices made so far, to tell the ones a resend has already covered from the ones that came after it. */
+  let made = 0;
+  let covered = 0;
+  let latest: Choice | null = null;
 
   document.addEventListener('submit', (submitted) => {
     const form = submitted.target;
@@ -45,24 +52,44 @@ export function installThemeSwitcher(document: Document): void {
       return;
     }
 
-    const choice = submitted.submitter;
-    if (!(choice instanceof HTMLButtonElement) || !isTheme(choice.value)) {
+    const button = submitted.submitter;
+    if (!(button instanceof HTMLButtonElement) || !isTheme(button.value)) {
       return;
     }
 
     submitted.preventDefault();
-    show(document, choice.value);
-    announce(form, choice);
-    sending = sending.then(async () => {
-      if (!(await save(form, choice))) {
+    show(document, button.value);
+    announce(form, button);
+
+    const choice = { form, button };
+    const number = ++made;
+    latest = choice;
+    sending = sending
+      .then(async () => {
+        if (number <= covered || (await save(choice))) {
+          return;
+        }
+
         await nextTask();
-        // The submit event is dispatched before requestSubmit returns, so the mark only has to last that long.
-        resending.add(form);
-        form.requestSubmit(choice);
-        resending.delete(form);
-      }
-    });
+        // The latest choice, read now: the person may have chosen again while the request was failing or the task waited.
+        covered = made;
+        const last = latest ?? choice;
+        resending.add(last.form);
+        try {
+          // The submit event is dispatched before requestSubmit returns, so the mark only has to last that long.
+          last.form.requestSubmit(last.button);
+        } finally {
+          resending.delete(last.form);
+        }
+      })
+      .catch(() => undefined);
   });
+}
+
+/** What was chosen: the button that was pressed, and the form it belongs to. */
+interface Choice {
+  form: HTMLFormElement;
+  button: HTMLButtonElement;
 }
 
 /** What the stylesheet reads for a choice: "sistema" is whatever the browser says the system prefers now. */
@@ -83,11 +110,19 @@ function show(document: Document, theme: Theme): void {
   }
 }
 
-function announce(form: HTMLFormElement, choice: HTMLButtonElement): void {
+function announce(form: HTMLFormElement, button: HTMLButtonElement): void {
   const status = form.querySelector('[data-jus-theme-status]');
-  if (status !== null) {
-    status.textContent = choice.dataset.jusThemeAnnouncement ?? '';
+  if (status === null) {
+    return;
   }
+
+  // Emptied first, and filled in a task of its own: a live region whose text does not change says nothing, and a person
+  // who picks the theme they already have is waiting to hear that it was applied.
+  const message = button.dataset.jusThemeAnnouncement ?? '';
+  status.textContent = '';
+  setTimeout(() => {
+    status.textContent = message;
+  }, 0);
 }
 
 /**
@@ -102,9 +137,9 @@ function nextTask(): Promise<void> {
 }
 
 /** Sends the form, with the button that was pressed, the way the browser would, but without leaving the page. */
-async function save(form: HTMLFormElement, choice: HTMLButtonElement): Promise<boolean> {
+async function save({ form, button }: Choice): Promise<boolean> {
   try {
-    const response = await fetch(form.action, { method: 'POST', body: new FormData(form, choice), headers: { Accept: 'application/json' } });
+    const response = await fetch(form.action, { method: 'POST', body: new FormData(form, button), headers: { Accept: 'application/json' } });
 
     return response.ok;
   } catch {
