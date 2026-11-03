@@ -1,26 +1,71 @@
-<p>Os tokens são a fonte única dos valores visuais. O mapa em <code>assets/styles/tokens/_tokens.scss</code> alimenta as variáveis do Bootstrap e as propriedades CSS <code>--jus-*</code>, que também atravessam o Shadow DOM dos Web Components.</p>
+<p>Os tokens são a fonte única dos valores visuais. Os mapas em <code>assets/styles/tokens/_tokens.scss</code> alimentam as variáveis do Bootstrap e as propriedades CSS <code>--jus-*</code>, que também atravessam o Shadow DOM dos Web Components. As cores dos papéis têm um valor para cada tema: os do claro valem em <code>:root</code> e os do escuro em <code>[data-bs-theme="dark"]</code>, o atributo que o servidor escreve no <code>&lt;html&gt;</code> conforme o tema escolhido.</p>
 
-<h3 class="h6">Tokens</h3>
+<h3 class="h6">Famílias</h3>
 {{ include('design_system/_reference.html.twig', {
     caption: 'Famílias de tokens e suas propriedades CSS',
     headers: ['Família', 'Propriedade CSS', 'Nomes'],
     rows: [
-        ['Cores', '--jus-color-<nome>', 'primary, secondary, success, warning, danger, info, light, dark, body, muted, border, surface, surface-alt'],
+        ['Cores dos papéis', '--jus-color-<papel>', 'Os da tabela "Cores nos dois temas", abaixo: um valor no claro e outro no escuro.'],
+        ['Cores de marca', '--jus-color-<nome>', 'As do exemplo no fim da seção: não mudam com o tema; são as que o Bootstrap usa nos botões e selos sólidos.'],
+        ['Apelidos', '--jus-color-<apelido>', 'body (= text), muted (= text-muted), light (= neutral-bg), surface-alt (= neutral-bg): os nomes de antes dos temas, que seguem o papel em cada tema.'],
         ['Fontes', '--jus-font-<nome>', 'base, mono'],
+        ['Tamanhos de fonte', '--jus-font-size-<nome>', 'display, page-title, section-title, small'],
+        ['Pesos de fonte', '--jus-font-weight-<nome>', 'regular, medium, semibold'],
         ['Espaços', '--jus-space-<passo>', '1, 2, 3, 4, 5'],
         ['Raios de borda', '--jus-radius-<nome>', 'sm, base, lg'],
-        ['Sombras', '--jus-shadow-<nome>', 'sm, base'],
-        ['Foco', '--jus-focus-<nome>', 'width, offset, color (superfícies claras), color-inverse (superfícies escuras)'],
+        ['Sombras', '--jus-shadow-<nome>', 'sm, base, card (sombra suave no claro; no escuro, uma borda de 1 px no lugar da sombra)'],
+        ['Foco', '--jus-focus-<nome>', 'width, offset, color, color-inverse: color nas superfícies claras, color-inverse nas escuras'],
     ],
     monospace: [1],
 }) }}
 
+<h3 class="h6">Cores nos dois temas</h3>
+<p>Cada amostra é a própria propriedade, pintada dentro do seu tema (<code>data-bs-theme</code>): esta tabela não escreve nenhum valor, e o valor ao lado de cada amostra é lido do CSS pelo navegador. Os nomes dos papéis são conferidos contra o mapa por um teste.</p>
+{% embed 'design_system/_reference.html.twig' with {caption: 'Cores nos dois temas', headers: ['Papel', 'Claro', 'Escuro', 'Uso']} %}
+    {% block rows %}
+        {% for role, use in {
+            'page': 'O fundo da página, atrás de tudo.',
+            'surface': 'Cartões, painéis, campos e a barra de navegação.',
+            'border': 'Linhas finas entre e em volta das superfícies (decoração).',
+            'border-strong': 'Uma linha que precisa ser vista sem ser o contorno de um controle, como o trilho da linha do tempo (1,5:1 ou mais).',
+            'text': 'O texto.',
+            'text-muted': 'O texto secundário e o contorno de botões e campos (3:1 ou mais na página e na superfície).',
+            'primary': 'Links, ações e o estado pressionado.',
+            'primary-hover': 'O preenchimento do botão primário sob o ponteiro.',
+            'on-primary': 'O texto sobre um preenchimento primary.',
+            'success-bg': 'O fundo tingido de selos e alertas de sucesso.',
+            'success-text': 'O texto de selos e alertas de sucesso.',
+            'warning-bg': 'O fundo tingido de selos e alertas de atenção.',
+            'warning-text': 'O texto de selos e alertas de atenção.',
+            'danger-bg': 'O fundo tingido de selos e alertas de erro.',
+            'danger-text': 'O texto de selos e alertas de erro.',
+            'info-bg': 'O fundo tingido de selos e alertas de informação.',
+            'info-text': 'O texto de selos e alertas de informação.',
+            'neutral-bg': 'O fundo neutro: selos de arquivado e de cumprido, e o fundo de um botão discreto sob o ponteiro.',
+            'neutral-text': 'O texto dos selos neutros.',
+        } %}
+            <tr>
+                <th scope="row" class="text-nowrap"><code>--jus-color-{{ role }}</code></th>
+                {% for theme in ['light', 'dark'] %}
+                    <td>
+                        <span class="jus-token-sample">
+                            <span class="jus-token-swatch jus-token-swatch-{{ role }}" data-bs-theme="{{ theme }}" aria-hidden="true"></span>
+                            <code data-jus-token-value="--jus-color-{{ role }}" data-jus-token-theme="{{ theme }}"></code>
+                        </span>
+                    </td>
+                {% endfor %}
+                <td>{{ use }}</td>
+            </tr>
+        {% endfor %}
+    {% endblock %}
+{% endembed %}
+
 <h3 class="h6">Acessibilidade</h3>
 <ul>
-    <li>As cores semânticas (<code>primary</code> a <code>info</code>) têm contraste de pelo menos 4,5:1 (WCAG AA) com a superfície branca; o Bootstrap usa o mesmo mínimo para escolher a cor do texto sobre elas. O texto secundário (<code>muted</code>) também passa de 4,5:1 sobre <code>surface</code>, <code>light</code> e <code>surface-alt</code>.</li>
+    <li>Em cada tema, todo par de texto e fundo dos papéis tem contraste de pelo menos 4,5:1 (WCAG AA) e todo contorno de controle, de pelo menos 3:1; o teste <code>assets/styles/tokens/palette.test.ts</code> mede cada par nos dois temas.</li>
     <li>A cor nunca é o único sinal: status e prazos também aparecem como texto e ícone.</li>
-    <li>O foco do teclado é um anel sólido (<code>--jus-focus-*</code>) com contraste de pelo menos 3:1 com as cores ao redor: na cor primária sobre superfícies claras e em branco sobre a navbar e o menu lateral.</li>
-    <li>Use sempre o token (<code>var(--jus-color-primary)</code>), nunca o valor literal, para que uma mudança no mapa chegue a todos os componentes.</li>
+    <li>O foco do teclado é um anel sólido (<code>--jus-focus-*</code>) com contraste de pelo menos 3:1 com as cores ao redor: na cor primária sobre as superfícies claras e em branco sobre o tema escuro e as áreas azuis.</li>
+    <li>Use sempre o token (<code>var(--jus-color-primary)</code>), nunca o valor literal, para que uma mudança no mapa chegue a todos os componentes, nos dois temas.</li>
 </ul>
 
-{{ include('design_system/_example.html.twig', {example: 'design_system/examples/tokens/colors.html.twig', label: 'cores'}) }}
+{{ include('design_system/_example.html.twig', {example: 'design_system/examples/tokens/colors.html.twig', label: 'cores de marca'}) }}

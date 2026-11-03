@@ -16,20 +16,27 @@
 } %}
 
 {% block body %}
-    <h1 class="h2">Design System</h1>
-    <p class="lead">Componentes da interface, renderizados a partir do próprio código. Cada exemplo mostra o resultado e o template que o produz; os dados são fictícios.</p>
+    <header class="jus-page-header">
+        <h1 class="h2">Design System</h1>
+        <p class="lead mb-2">Componentes da interface, renderizados a partir do próprio código. Cada exemplo mostra o resultado e o template que o produz; os dados são fictícios.</p>
+        <p class="jus-catalog-themes"><i class="bi bi-circle-half" aria-hidden="true"></i> O seletor de tema da barra de navegação (Sistema, Claro, Escuro) vale para o catálogo também: troque de tema para ver cada componente no claro e no escuro.</p>
+    </header>
 
-    <div class="row g-4">
-        <nav class="col-12 col-lg-3" aria-label="Componentes">
-            <ul class="nav flex-lg-column sticky-lg-top">
-                {% for id, title in sections %}
-                    <li class="nav-item"><a class="nav-link px-2 px-lg-0" href="#{{ id }}">{{ title }}</a></li>
-                {% endfor %}
-            </ul>
-        </nav>
-        <div class="col-12 col-lg-9">
+    {# The navigation of the sections on a card, a list that stays in view beside them from lg up, then the sections, a
+       card each (components/_catalog.scss). #}
+    <div class="row g-4 jus-catalog">
+        <div class="col-12 col-lg-3">
+            <nav class="jus-surface jus-catalog-nav" aria-label="Componentes">
+                <ul class="nav flex-lg-column">
+                    {% for id, title in sections %}
+                        <li class="nav-item"><a class="nav-link" href="#{{ id }}">{{ title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </nav>
+        </div>
+        <div class="col-12 col-lg-9 jus-catalog-sections">
             {% for id, title in sections %}
-                <section id="{{ id }}" class="mb-5" aria-labelledby="{{ id }}-titulo">
+                <section id="{{ id }}" class="jus-surface jus-catalog-section" aria-labelledby="{{ id }}-titulo">
                     <h2 class="h4" id="{{ id }}-titulo">{{ title }}</h2>
                     {{ include('design_system/sections/' ~ id|replace({'-': '_'}) ~ '.html.twig') }}
                 </section>

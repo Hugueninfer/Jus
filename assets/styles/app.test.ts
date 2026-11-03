@@ -423,6 +423,73 @@ const FILING_PAGE = `
     </div>
   </main>`;
 
+/** A row of the catalogue's table of colours, as templates/design_system/sections/tokens.html.twig renders it. */
+function swatchRow(role: string): string {
+  const cell = (theme: Theme): string => `
+    <td><span class="jus-token-sample">
+      <span class="jus-token-swatch jus-token-swatch-${role}" data-bs-theme="${theme}" aria-hidden="true"></span>
+      <code data-jus-token-value="--jus-color-${role}" data-jus-token-theme="${theme}">valor</code>
+    </span></td>`;
+
+  return `<tr><th scope="row" class="text-nowrap"><code>--jus-color-${role}</code></th>${cell('light')}${cell('dark')}<td>Uso.</td></tr>`;
+}
+
+const SWATCH_ROLES = ['page', 'surface', 'border-strong', 'primary'];
+
+/** The catalogue as templates/design_system/index.html.twig renders it (in short), with a tall section to scroll past. */
+const CATALOG = `
+  <main id="conteudo" class="container py-4">
+    <header class="jus-page-header">
+      <h1 class="h2">Design System</h1>
+      <p class="lead mb-2">Componentes da interface, renderizados a partir do próprio código.</p>
+      <p class="jus-catalog-themes"><i class="bi bi-circle-half" aria-hidden="true"></i> Troque de tema para ver cada componente no claro e no escuro.</p>
+    </header>
+    <div class="row g-4 jus-catalog">
+      <div class="col-12 col-lg-3">
+        <nav class="jus-surface jus-catalog-nav" aria-label="Componentes"><ul class="nav flex-lg-column">
+          <li class="nav-item"><a class="nav-link" href="#tokens">Tokens de design</a></li>
+          <li class="nav-item"><a class="nav-link" href="#alert">Alert</a></li>
+          <li class="nav-item"><a class="nav-link" href="#status-badge">StatusBadge</a></li>
+          <li class="nav-item"><a class="nav-link" href="#cnj-field">Campo de número CNJ</a></li>
+        </ul></nav>
+      </div>
+      <div class="col-12 col-lg-9 jus-catalog-sections">
+        <section id="tokens" class="jus-surface jus-catalog-section" aria-labelledby="tokens-titulo">
+          <h2 class="h4" id="tokens-titulo">Tokens de design</h2>
+          <p>Os tokens são a fonte única dos valores visuais.</p>
+          <div class="table-responsive overflow-y-hidden mb-3 jus-catalog-reference" role="region" tabindex="0" aria-label="Cores nos dois temas">
+            <table class="table table-sm align-middle mb-0">
+              <caption class="visually-hidden">Cores nos dois temas</caption>
+              <thead><tr><th scope="col">Papel</th><th scope="col">Claro</th><th scope="col">Escuro</th><th scope="col">Uso</th></tr></thead>
+              <tbody>${SWATCH_ROLES.map(swatchRow).join('')}</tbody>
+            </table>
+          </div>
+          <figure class="jus-catalog-example">
+            <figcaption class="visually-hidden">Exemplo: sucesso</figcaption>
+            <div class="alert alert-success" role="status">Petição protocolada.</div>
+          </figure>
+          <details class="jus-catalog-details" open>
+            <summary>Código do exemplo: sucesso</summary>
+            <pre class="jus-catalog-code"><code>&lt;twig:Alert type="success"&gt;Petição protocolada.&lt;/twig:Alert&gt;</code></pre>
+          </details>
+        </section>
+        <section id="alert" class="jus-surface jus-catalog-section" aria-labelledby="alert-titulo">
+          <h2 class="h4" id="alert-titulo">Alert</h2>
+          <p class="jus-catalog-filler">Mensagem de feedback ao usuário.</p>
+        </section>
+      </div>
+    </div>
+  </main>`;
+
+/** The value a custom property gives the colour of an element inside a scope of the theme. */
+function colourIn(theme: Theme, token: string): string {
+  const scope = mount(`<span data-bs-theme="${theme}" style="color: var(${token})"></span>`);
+  const value = css(required(scope.firstElementChild), 'color');
+  scope.remove();
+
+  return value;
+}
+
 /** How many cards of the results share the first row. */
 function cardsInTheFirstRow(page: ParentNode): number {
   const cards = Array.from(page.querySelectorAll('.jus-case-list > li'), (card) => card.getBoundingClientRect().top);
@@ -1140,6 +1207,99 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
     });
   });
 
+  describe('the catalogue', () => {
+    it('puts the navigation and each section on a surface card', () => {
+      const page = mount(CATALOG);
+
+      for (const card of page.querySelectorAll('.jus-catalog-nav, .jus-catalog-section')) {
+        sameColor(css(card, 'background-color'), rootToken('--jus-color-surface'));
+        expect(css(card, 'border-top-left-radius')).toBe('12px');
+        expect(css(card, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
+      }
+    });
+
+    it('writes the links of the navigation in the text colour, legible on their card and under the pointer', async () => {
+      const link = find(mount(CATALOG), '.jus-catalog-nav .nav-link');
+
+      sameColor(css(link, 'color'), rootToken('--jus-color-text'));
+      expect(contrastOfText(link)).toBeGreaterThanOrEqual(TEXT);
+      await userEvent.hover(link);
+      settle(link);
+      sameColor(css(link, 'background-color'), rootToken('--jus-color-neutral-bg'));
+      expect(contrastOfText(link)).toBeGreaterThanOrEqual(TEXT);
+      await userEvent.unhover(link);
+    });
+
+    it('shows each example on the page colour and its code in a block of the same palette, framed in the border colour', () => {
+      const page = mount(CATALOG);
+
+      for (const block of [find(page, '.jus-catalog-example'), find(page, '.jus-catalog-code')]) {
+        sameColor(css(block, 'background-color'), rootToken('--jus-color-page'));
+        sameColor(css(block, 'border-top-color'), rootToken('--jus-color-border'));
+        expect(`${css(block, 'border-top-style')} ${css(block, 'border-top-width')}`).toBe('solid 1px');
+        expect(css(block, 'border-top-left-radius')).toBe('8px');
+      }
+      // The frame closes the example: the alert inside keeps no space of its own below it.
+      expect(css(find(page, '.jus-catalog-example > .alert'), 'margin-bottom')).toBe('0px');
+      const code = find(page, '.jus-catalog-code code');
+      sameColor(css(code, 'color'), rootToken('--jus-color-text'));
+      expect(contrastOfText(code)).toBeGreaterThanOrEqual(TEXT);
+    });
+
+    it('writes the summary of each code block in the primary colour and the word on the themes in the muted one, legible', () => {
+      const page = mount(CATALOG);
+      const summary = find(page, '.jus-catalog-details > summary');
+      const themes = find(page, '.jus-catalog-themes');
+
+      sameColor(css(summary, 'color'), rootToken('--jus-color-primary'));
+      expect(contrastOfText(summary)).toBeGreaterThanOrEqual(TEXT);
+      sameColor(css(themes, 'color'), rootToken('--jus-color-text-muted'));
+      expect(contrastRatio(css(themes, 'color'), rootToken('--jus-color-surface'))).toBeGreaterThanOrEqual(TEXT);
+    });
+
+    it('frames each reference table in the border colour, without a second line below its last row', () => {
+      const region = find(mount(CATALOG), '.jus-catalog-reference');
+      const lastCell = find(region, 'tbody tr:last-child td');
+
+      sameColor(css(region, 'border-top-color'), rootToken('--jus-color-border'));
+      expect(css(region, 'border-top-width')).toBe('1px');
+      expect(css(region, 'border-top-left-radius')).toBe('8px');
+      expect(css(lastCell, 'border-bottom-width')).toBe('0px');
+      // Its text as far from the frame as an example's.
+      const space = `${String(Number.parseFloat(rootToken('--jus-space-3')) * 16)}px`;
+      expect(css(find(region, 'thead th:first-child'), 'padding-left')).toBe(space);
+      expect(css(find(region, 'tbody tr:last-child > td:last-child'), 'padding-right')).toBe(space);
+    });
+
+    it.each(SWATCH_ROLES)('paints the swatches of %s with the value of each theme, whatever the theme of the page', (role) => {
+      const page = mount(CATALOG);
+
+      for (const theme of THEMES) {
+        const swatch = find(page, `.jus-token-swatch-${role}[data-bs-theme="${theme}"]`);
+        sameColor(css(swatch, 'background-color'), colourIn(theme, `--jus-color-${role}`));
+        // The edge of the swatch, in the strong border colour of its theme, shows on the cell around it.
+        sameColor(css(swatch, 'border-top-color'), colourIn(theme, '--jus-color-border-strong'));
+        expect(contrastRatio(css(swatch, 'border-top-color'), backgroundBehind(required(swatch.parentElement)))).toBeGreaterThanOrEqual(SEPARATOR);
+      }
+      expect(parseColor(colourIn('light', `--jus-color-${role}`))).not.toEqual(parseColor(colourIn('dark', `--jus-color-${role}`)));
+    });
+
+    it('keeps the colours of the swatches when the system forces its own', async () => {
+      const swatch = find(mount(CATALOG), '.jus-token-swatch-primary[data-bs-theme="dark"]');
+      // Read first: in forced colours the probe's own colour is the system's.
+      const primary = colourIn('dark', '--jus-color-primary');
+
+      await inForcedColours(() => {
+        expect(css(swatch, 'forced-color-adjust')).toBe('none');
+        sameColor(css(swatch, 'background-color'), primary);
+      });
+    });
+
+    it('has no accessibility violations, with the real palette', async () => {
+      await expectNoAxeViolations(mount(CATALOG));
+    });
+  });
+
   it('keeps the focus ring at 3:1 or more against the surfaces around it', () => {
     const ring = rootToken('--jus-focus-ring');
 
@@ -1379,6 +1539,66 @@ describe('the layout of the filing page', () => {
       const title = find(page, '.jus-page-header h1').getBoundingClientRect();
 
       expect([card.left, card.width]).toEqual([title.left, title.width]);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+});
+
+describe('the layout of the catalogue', () => {
+  /**
+   * The catalogue with a section tall enough to scroll past the top of the navigation, in a box that scrolls (the test
+   * page itself does not): a sticky element sticks to the nearest one, as it does to the window on the real page.
+   */
+  function tallCatalog(): HTMLElement {
+    const scroller = mount(`<div style="overflow-y: auto; block-size: 600px">${CATALOG}</div>`);
+    find(scroller, '.jus-catalog-filler').style.blockSize = '3000px';
+
+    return find(scroller, ':scope > div');
+  }
+
+  it('keeps the navigation in view beside the sections from lg up, a little below the top of the window', async () => {
+    await atWidth(1280, () => {
+      const scroller = tallCatalog();
+      const nav = find(scroller, '.jus-catalog-nav');
+      const sections = find(scroller, '.jus-catalog-sections');
+      const space = Number.parseFloat(rootToken('--jus-space-4')) * 16;
+      const top = (element: Element): number => element.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+
+      expect(nav.getBoundingClientRect().right).toBeLessThanOrEqual(sections.getBoundingClientRect().left);
+      expect(css(nav, 'position')).toBe('sticky');
+      scroller.scrollTop = 1000;
+
+      expect(top(nav)).toBe(space);
+      expect(top(sections)).toBeLessThan(0);
+      // A jump to a section leaves the same room above its card.
+      expect(css(find(scroller, '#alert'), 'scroll-margin-top')).toBe(`${String(space)}px`);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('puts the navigation above the sections below lg, as wide as they are, its links in rows, without a sideways scroll', async () => {
+    await atWidth(375, () => {
+      const page = tallCatalog();
+      const nav = find(page, '.jus-catalog-nav');
+      const sections = find(page, '.jus-catalog-sections').getBoundingClientRect();
+      const links = Array.from(nav.querySelectorAll('.nav-link'), (link) => link.getBoundingClientRect());
+
+      expect(css(nav, 'position')).toBe('static');
+      expect(nav.getBoundingClientRect().bottom).toBeLessThan(sections.top);
+      expect(nav.getBoundingClientRect().width).toBe(find(page, '.jus-catalog-section').getBoundingClientRect().width);
+      expect(required(links[1]).top).toBe(required(links[0]).top);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('wraps the long lines of a code block on a phone instead of scrolling it sideways, which the keyboard could not do', async () => {
+    await atWidth(375, () => {
+      const page = mount(CATALOG);
+      const block = find(page, '.jus-catalog-code');
+      find(block, 'code').textContent = '<twig:DataTable :columns="samples.columns" :rows="samples.rows" :sort="sort" :direction="direction" caption="Documentos do processo" />';
+
+      expect(css(block, 'white-space')).toBe('pre-wrap');
+      expect(block.scrollWidth).toBeLessThanOrEqual(block.clientWidth);
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
     });
   });

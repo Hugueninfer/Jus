@@ -9,5 +9,6 @@ import 'bootstrap/js/dist/offcanvas';
 import './components';
 
 // Layout behaviours: focus after a dismissed alert, scroll regions as tab stops only while they overflow, forms sent once,
-// the theme switcher, and the filters of the search folded below lg when none is in use.
+// the theme switcher, the filters of the search folded below lg when none is in use, and the values of the tokens in the
+// catalogue.
 import './behaviours';
