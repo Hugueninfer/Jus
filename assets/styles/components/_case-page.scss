@@ -120,10 +120,11 @@
   }
 }
 
-// The filing form, on a card of medium width under the band, lined up with its title.
+// The filing form, on a card of medium width under the band, lined up with its title. On a phone the sides get less
+// room, which the native file input needs to show its text.
 .jus-filing-card {
   max-inline-size: map.get($container-max-widths, 'md');
-  padding: var(--jus-space-3);
+  padding: var(--jus-space-3) var(--jus-space-2);
 
   @include media-breakpoint-up(md) {
     padding: var(--jus-space-4);

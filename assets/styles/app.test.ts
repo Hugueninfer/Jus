@@ -357,7 +357,7 @@ const CASE_PAGE = `
       </div>
     </header>
     <div class="row g-4 jus-case">
-      <aside class="col-12 col-lg-4 jus-case-aside" aria-labelledby="dados-da-causa partes">
+      <aside class="col-12 col-lg-4 jus-case-aside" aria-label="Dados da causa e partes">
         <section aria-labelledby="dados-da-causa">
           <h2 class="h4" id="dados-da-causa">Dados da causa</h2>
           <dl class="jus-surface jus-case-data">
@@ -1176,11 +1176,28 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
 
     it('starts the timeline at the top of its card and ends it at the bottom, the days apart from each other', () => {
       const page = mount(CASE_PAGE);
+      const panel = find(page, '.jus-case-panel:has(.jus-timeline)');
+      const card = panel.getBoundingClientRect();
       const [first, second] = Array.from(page.querySelectorAll('.jus-timeline-day > h3'));
+      const events = page.querySelectorAll('.jus-timeline-event');
+      const lastEvent = required(events[events.length - 1]).getBoundingClientRect();
 
       expect(css(required(first), 'margin-top')).toBe('0px');
+      expect(required(first).getBoundingClientRect().top - card.top).toBe(Number.parseFloat(css(panel, 'padding-top')));
       expect(css(required(second), 'margin-top')).toBe(`${String(Number.parseFloat(rootToken('--jus-space-3')) * 16)}px`);
-      expect(css(find(page, '.jus-timeline'), 'margin-bottom')).toBe('0px');
+      expect(card.bottom - lastEvent.bottom).toBe(Number.parseFloat(css(panel, 'padding-bottom')));
+    });
+
+    it('starts the timeline at the top of its card when the filter hides the first days, the visible ones still apart', () => {
+      const page = mount(CASE_PAGE);
+      const timeline = find(page, '.jus-timeline');
+      // A third day, so that two stay visible once the filter hides the first one.
+      timeline.append(required(timeline.lastElementChild).cloneNode(true));
+      const [hidden, first, second] = Array.from(timeline.querySelectorAll<HTMLElement>(':scope > .jus-timeline-day'));
+      required(hidden).hidden = true;
+
+      expect(css(find(required(first), 'h3'), 'margin-top')).toBe('0px');
+      expect(css(find(required(second), 'h3'), 'margin-top')).toBe(`${String(Number.parseFloat(rootToken('--jus-space-3')) * 16)}px`);
     });
 
     it('has no accessibility violations, with the real palette', async () => {
@@ -1545,6 +1562,9 @@ describe('the layout of the filing page', () => {
       const title = find(page, '.jus-page-header h1').getBoundingClientRect();
 
       expect([card.left, card.width]).toEqual([title.left, title.width]);
+      // Less room at the sides on a phone, where the native file input would cut its text short.
+      expect(css(find(page, '.jus-filing-card'), 'padding-left')).toBe(`${String(Number.parseFloat(rootToken('--jus-space-2')) * 16)}px`);
+      expect(css(find(page, '.jus-filing-card'), 'padding-top')).toBe(`${String(Number.parseFloat(rootToken('--jus-space-3')) * 16)}px`);
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
     });
   });

@@ -100,7 +100,9 @@ final class DesignSystemTest extends WebTestCase
                 $value = $cell->filter('code[data-jus-token-value]');
                 self::assertSame('--jus-color-'.$role, $value->attr('data-jus-token-value'), $role);
                 self::assertSame($theme, $value->attr('data-jus-token-theme'), $role);
-                self::assertSame('', $value->text(), $role);
+                // Until it is, screen readers hear what the cell holds (the swatch itself is hidden from them).
+                self::assertSame('Amostra da cor; o valor é lido com JavaScript.', trim($value->text()), $role);
+                self::assertCount(1, $value->filter('.visually-hidden'), $role);
             }
             self::assertNotSame('', trim($row->children()->eq(3)->text()), $role);
         });

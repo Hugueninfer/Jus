@@ -4,6 +4,9 @@ import { required } from '../test-support/required';
 import { installTokens, type Theme } from '../test-support/tokens';
 import { installTokenValues } from './token-values';
 
+/** What the server puts in a value cell for screen readers, until the value is read. */
+const PLACEHOLDER = '<span class="visually-hidden">Amostra da cor; o valor é lido com JavaScript.</span>';
+
 const pages: HTMLElement[] = [];
 const cleanups: (() => void)[] = [];
 
@@ -13,7 +16,7 @@ function row(role: string): string {
     <td>
       <span class="jus-token-sample">
         <span class="jus-token-swatch jus-token-swatch-${role}" data-bs-theme="${theme}" aria-hidden="true"></span>
-        <code data-jus-token-value="--jus-color-${role}" data-jus-token-theme="${theme}"></code>
+        <code data-jus-token-value="--jus-color-${role}" data-jus-token-theme="${theme}">${PLACEHOLDER}</code>
       </span>
     </td>`;
 
@@ -70,6 +73,8 @@ describe('installTokenValues', () => {
       for (const theme of ['light', 'dark'] as const) {
         expect(valueOf(page, role, theme), `${role} ${theme}`).toBe(resolved(`--jus-color-${role}`, theme));
         expect(valueOf(page, role, theme), `${role} ${theme}`).toMatch(/^#[0-9a-f]{3,8}$/i);
+        // The value takes the place of the words for screen readers.
+        expect(required(page.querySelector(`[data-jus-token-value="--jus-color-${role}"][data-jus-token-theme="${theme}"]`)).children).toHaveLength(0);
       }
       expect(valueOf(page, role, 'light')).not.toBe(valueOf(page, role, 'dark'));
     }
@@ -103,6 +108,15 @@ describe('installTokenValues', () => {
     for (const code of page.querySelectorAll('code')) {
       expect(code.textContent).toBe('');
     }
+  });
+
+  it('keeps the words for screen readers in a cell whose value it cannot read', () => {
+    useTokens('light');
+    const page = mount(`<code data-jus-token-value="--jus-color-nada" data-jus-token-theme="light">${PLACEHOLDER}</code>`);
+
+    installTokenValues(document);
+
+    expect(page.innerHTML).toBe(`<code data-jus-token-value="--jus-color-nada" data-jus-token-theme="light">${PLACEHOLDER}</code>`);
   });
 
   it('leaves nothing of its own in the page', () => {

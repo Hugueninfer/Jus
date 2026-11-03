@@ -106,12 +106,14 @@ final class CasePageTest extends WebTestCase
         );
         self::assertSame('col-12 col-lg-4 jus-case-aside', $row->children()->eq(0)->attr('class'));
         self::assertSame('col-12 col-lg-8 jus-case-main', $row->children()->eq(1)->attr('class'));
-        self::assertCount(0, $crawler->filter('main [class*="order-"]'));
+        // No order utility (order-lg-1, ...) anywhere in the page; [class*="order-"] alone would match border-* too.
+        self::assertCount(0, $crawler->filter('main [class^="order-"], main [class*=" order-"]'));
 
-        // The aside is named by its two headings.
+        // The aside is named for what it holds, the two sections named by their headings.
         $aside = $row->filter('aside');
-        $labels = explode(' ', (string) $aside->attr('aria-labelledby'));
-        self::assertSame(['Dados da causa', 'Partes'], array_map(static fn (string $id): string => trim($aside->filter('h2#'.$id)->text()), $labels));
+        self::assertSame('Dados da causa e partes', $aside->attr('aria-label'));
+        self::assertNull($aside->attr('aria-labelledby'));
+        self::assertSame(['Dados da causa', 'Partes'], $aside->filter('section > h2')->each(static fn (Crawler $h): string => trim($h->text())));
         self::assertSame(['dados-da-causa', 'partes'], $aside->children()->each(static fn (Crawler $section): ?string => $section->attr('aria-labelledby')));
         self::assertSame(['prazos', 'andamento-titulo'], $row->filter('.jus-case-main')->children()->each(static fn (Crawler $section): ?string => $section->attr('aria-labelledby')));
 
