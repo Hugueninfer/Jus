@@ -217,11 +217,20 @@ const PAGE = `
 const TIMELINE = `
   <ol class="list-unstyled jus-timeline" role="list">
     <li class="jus-timeline-day">
-      <h3 class="h6 text-body-secondary mt-3 mb-2"><time datetime="2024-04-02">02/04/2024</time></h3>
+      <h3 class="h6 text-body-secondary mb-2"><time datetime="2024-04-02">02/04/2024</time></h3>
       <ol class="list-unstyled" role="list">
         <li class="jus-timeline-event" data-event-type="decision" data-event-label="Decisão">
           <i class="bi bi-hammer" aria-hidden="true"></i>
           <div class="jus-timeline-event-body"><p class="mb-0"><strong>Decisão</strong></p><p class="mb-0 jus-timeline-description">Defiro.</p></div>
+        </li>
+      </ol>
+    </li>
+    <li class="jus-timeline-day">
+      <h3 class="h6 text-body-secondary mb-2"><time datetime="2024-03-04">04/03/2024</time></h3>
+      <ol class="list-unstyled" role="list">
+        <li class="jus-timeline-event" data-event-type="filing" data-event-label="Juntada de petição">
+          <i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>
+          <div class="jus-timeline-event-body"><p class="mb-0"><strong>Juntada de petição — Petição inicial</strong></p><p class="mb-0 jus-timeline-description">Petição inicial distribuída.</p></div>
         </li>
       </ol>
     </li>
@@ -317,6 +326,100 @@ const SEARCH = `
           ${caseCard('0000001-39.2024.8.26.0100')}${caseCard('0000002-14.2024.8.26.0100')}${caseCard('0000003-86.2024.8.26.0100')}
         </ul>
       </div>
+    </div>
+  </main>`;
+
+/** A party of the case page, as templates/case/show.html.twig renders it. */
+function party(name: string, lawyers: string): string {
+  return `
+    <li class="jus-party">
+      <h4 class="h6 mb-1">${name}</h4>
+      <p class="small text-body-secondary mb-1">381.818.397-60</p>
+      ${lawyers === '' ? '<p class="small mb-0 text-body-secondary">Sem advogado constituído.</p>' : `<p class="small mb-0">Advogados: ${lawyers}</p>`}
+    </li>`;
+}
+
+/** The case page as templates/case/show.html.twig renders it (in short), for a lawyer who may file, in the layout's main. */
+const CASE_PAGE = `
+  <main id="conteudo" class="container py-4">
+    <header class="jus-page-header">
+      <p class="jus-back-link"><a href="#processos"><i class="bi bi-arrow-left" aria-hidden="true"></i> <span class="visually-hidden">Voltar para</span> Processos</a></p>
+      <div class="jus-case-header">
+        <div class="jus-case-header-title">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <h1 class="h3 mb-0 font-monospace jus-case-number">0001001-03.2026.8.26.0101</h1>
+            <span class="badge rounded-pill jus-badge jus-badge-success"><i class="bi bi-play-circle" aria-hidden="true"></i> Em andamento</span>
+            <span class="badge rounded-pill jus-badge jus-badge-inverse"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
+          </div>
+          <p class="jus-case-class">Execução de Título Extrajudicial</p>
+        </div>
+        <a class="btn btn-primary" href="#peticionar"><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i> Peticionar</a>
+      </div>
+    </header>
+    <div class="row g-4 jus-case">
+      <aside class="col-12 col-lg-4 jus-case-aside" aria-labelledby="dados-da-causa partes">
+        <section aria-labelledby="dados-da-causa">
+          <h2 class="h4" id="dados-da-causa">Dados da causa</h2>
+          <dl class="jus-surface jus-case-data">
+            <div><dt>Assunto</dt><dd>Cobrança de aluguéis</dd></div>
+            <div><dt>Órgão julgador</dt><dd>2ª Vara Cível</dd></div>
+            <div><dt>Valor da causa</dt><dd>R$ 439.822,87</dd></div>
+            <div><dt>Distribuição</dt><dd><time datetime="2026-08-21">21/08/2026</time></dd></div>
+            <div><dt>Sigilo</dt><dd>Sigiloso</dd></div>
+          </dl>
+        </section>
+        <section aria-labelledby="partes">
+          <h2 class="h4" id="partes">Partes</h2>
+          <div class="jus-surface jus-party-side">
+            <h3 class="jus-party-side-title">Polo ativo</h3>
+            <ul class="list-unstyled mb-0" role="list">${party('Cauan Aguiar Neto', 'Ana Ribeiro (SP 123.456)')}${party('Maria Oliveira', '')}</ul>
+          </div>
+          <div class="jus-surface jus-party-side">
+            <h3 class="jus-party-side-title">Polo passivo</h3>
+            <p class="text-body-secondary mb-0"><span aria-hidden="true">—</span><span class="visually-hidden">Nenhuma parte.</span></p>
+          </div>
+        </section>
+      </aside>
+      <div class="col-12 col-lg-8 jus-case-main">
+        <section aria-labelledby="prazos">
+          <h2 class="h4" id="prazos">Prazos</h2>
+          <div class="jus-surface jus-case-panel">
+            <ul class="list-unstyled mb-0 jus-deadlines" role="list">
+              <li><span class="badge rounded-pill jus-badge jus-badge-warning" data-urgency="warning"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Vence em 2 dias úteis (05/11)</span> <span>Cauan Aguiar Neto — intimação em <time datetime="2026-10-30">30/10/2026</time></span></li>
+              <li><span class="badge rounded-pill jus-badge jus-badge-neutral" data-urgency="fulfilled"><i class="bi bi-check2-circle" aria-hidden="true"></i> Cumprido em 02/11/2026</span> <span>Maria Oliveira — intimação em <time datetime="2026-10-20">20/10/2026</time></span></li>
+            </ul>
+          </div>
+        </section>
+        <section aria-labelledby="andamento-titulo">
+          <h2 class="h4" id="andamento-titulo">Andamento</h2>
+          <nav id="andamento" aria-label="Andamento do processo" tabindex="-1"><ul class="nav nav-tabs mb-3">
+            <li class="nav-item"><a class="nav-link active" href="#movimentacoes" aria-current="page">Movimentações</a></li>
+            <li class="nav-item"><a class="nav-link" href="#documentos">Documentos</a></li>
+          </ul></nav>
+          <div class="jus-surface jus-case-panel">${TIMELINE}</div>
+        </section>
+      </div>
+    </div>
+  </main>`;
+
+/** The filing page as templates/case/file.html.twig renders it after a refused submit (in short), in the layout's main. */
+const FILING_PAGE = `
+  <main id="conteudo" class="container py-4">
+    <header class="jus-page-header">
+      <p class="jus-back-link"><a href="#processo"><i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar para o processo</a></p>
+      <h1 class="h3 mb-1">Peticionar</h1>
+      <p class="jus-case-class"><span class="font-monospace">0001001-03.2026.8.26.0101</span> · Execução de Título Extrajudicial</p>
+    </header>
+    <div class="jus-surface jus-filing-card">
+      <div class="alert alert-danger" id="resumo-erros">
+        <p class="fw-semibold mb-1"><i class="bi bi-x-octagon-fill" aria-hidden="true"></i> <span class="visually-hidden">Erro:</span> Corrija os campos indicados e envie a petição de novo:</p>
+        <ul class="mb-0"><li><a class="alert-link" href="#filing_description">Descrição</a></li></ul>
+      </div>
+      <form method="post" action="#peticionar">
+        <div class="mb-3"><label class="form-label" for="filing_type">Tipo de petição</label><select class="form-select" id="filing_type"><option>Manifestação</option></select></div>
+        <div class="mb-3"><label class="form-label" for="filing_description">Descrição</label><textarea class="form-control is-invalid" id="filing_description" aria-invalid="true" aria-describedby="filing_description_error1"></textarea><div class="invalid-feedback d-block" id="filing_description_error1">Descreva a petição.</div></div>
+        <button type="submit" class="btn btn-primary">Juntar petição</button>
+      </form>
     </div>
   </main>`;
 
@@ -946,6 +1049,97 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
     });
   });
 
+  describe('the case page', () => {
+    it('puts the content of each section on a surface card: the data, each side of the parties, the deadlines, the timeline', () => {
+      const page = mount(CASE_PAGE);
+      const panels = Array.from(page.querySelectorAll('.jus-case-data, .jus-party-side, .jus-case-panel'));
+
+      expect(panels).toHaveLength(5);
+      for (const panel of panels) {
+        sameColor(css(panel, 'background-color'), rootToken('--jus-color-surface'));
+        expect(css(panel, 'border-top-left-radius'), panel.className).toBe('12px');
+        expect(css(panel, 'box-shadow'), panel.className).toBe(computed('box-shadow', '--jus-shadow-card'));
+        expect(css(panel, 'padding-top'), panel.className).toBe(`${String(Number.parseFloat(rootToken('--jus-space-3')) * 16)}px`);
+      }
+    });
+
+    it('writes the way back in the primary colour and the class in the muted one, legible on the band', () => {
+      const header = find(mount(CASE_PAGE), '.jus-page-header');
+      const back = find(header, '.jus-back-link a');
+      const band = rootToken('--jus-color-surface');
+
+      sameColor(css(back, 'color'), rootToken('--jus-color-primary'));
+      expect(css(back, 'text-decoration-line')).toBe('none');
+      expect(contrastRatio(css(back, 'color'), band)).toBeGreaterThanOrEqual(TEXT);
+      sameColor(css(find(header, '.jus-case-class'), 'color'), rootToken('--jus-color-text-muted'));
+      expect(contrastRatio(css(find(header, '.jus-case-class'), 'color'), band)).toBeGreaterThanOrEqual(TEXT);
+    });
+
+    it('underlines the way back under the pointer', async () => {
+      const back = find(mount(CASE_PAGE), '.jus-back-link a');
+
+      await userEvent.hover(back);
+      expect(css(back, 'text-decoration-line')).toBe('underline');
+      await userEvent.unhover(back);
+    });
+
+    it('writes the names of the data and the titles of the sides in the muted colour, at 4.5:1 or more on their cards', () => {
+      const page = mount(CASE_PAGE);
+
+      for (const label of page.querySelectorAll('.jus-case-data dt, .jus-party-side-title, .jus-party .text-body-secondary')) {
+        sameColor(css(label, 'color'), rootToken('--jus-color-text-muted'));
+        expect(contrastOfText(label), label.textContent).toBeGreaterThanOrEqual(TEXT);
+      }
+      for (const value of page.querySelectorAll('.jus-case-data dd, .jus-party h4, .jus-deadlines span:not(.badge)')) {
+        expect(contrastOfText(value), value.textContent).toBeGreaterThanOrEqual(TEXT);
+      }
+    });
+
+    it('draws a line in the border colour between one party, or one deadline, and the next, and none above the first', () => {
+      const page = mount(CASE_PAGE);
+
+      for (const list of [find(page, '.jus-party-side ul'), find(page, '.jus-deadlines')]) {
+        const [first, second] = Array.from(list.children);
+        expect(css(required(first), 'border-top-width')).toBe('0px');
+        expect(css(required(second), 'border-top-style')).toBe('solid');
+        expect(css(required(second), 'border-top-width')).toBe('1px');
+        sameColor(css(required(second), 'border-top-color'), rootToken('--jus-color-border'));
+      }
+    });
+
+    it('starts the timeline at the top of its card and ends it at the bottom, the days apart from each other', () => {
+      const page = mount(CASE_PAGE);
+      const [first, second] = Array.from(page.querySelectorAll('.jus-timeline-day > h3'));
+
+      expect(css(required(first), 'margin-top')).toBe('0px');
+      expect(css(required(second), 'margin-top')).toBe(`${String(Number.parseFloat(rootToken('--jus-space-3')) * 16)}px`);
+      expect(css(find(page, '.jus-timeline'), 'margin-bottom')).toBe('0px');
+    });
+
+    it('has no accessibility violations, with the real palette', async () => {
+      await expectNoAxeViolations(mount(CASE_PAGE));
+    });
+  });
+
+  describe('the filing page', () => {
+    it('puts the form on a surface card, with the summary of the errors at its top, legible', () => {
+      const card = find(mount(FILING_PAGE), '.jus-filing-card');
+      const summary = find(card, '#resumo-erros');
+
+      sameColor(css(card, 'background-color'), rootToken('--jus-color-surface'));
+      expect(css(card, 'border-top-left-radius')).toBe('12px');
+      expect(css(card, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
+      expect(card.firstElementChild).toBe(summary);
+      expect(summary.getBoundingClientRect().top - card.getBoundingClientRect().top).toBe(Number.parseFloat(css(card, 'padding-top')));
+      expect(contrastOfText(find(summary, 'p'))).toBeGreaterThanOrEqual(TEXT);
+      expect(contrastOfText(find(summary, 'a'))).toBeGreaterThanOrEqual(TEXT);
+    });
+
+    it('has no accessibility violations, with the real palette', async () => {
+      await expectNoAxeViolations(mount(FILING_PAGE));
+    });
+  });
+
   it('keeps the focus ring at 3:1 or more against the surfaces around it', () => {
     const ring = rootToken('--jus-focus-ring');
 
@@ -1104,6 +1298,89 @@ describe('the layout of the search', () => {
     } finally {
       await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: '' }] });
     }
+  });
+});
+
+/** The columns the data of the cause is laid out in: the distinct left edges of its pairs of name and value. */
+function dataColumns(page: ParentNode): number {
+  return new Set(Array.from(page.querySelectorAll('.jus-case-data > div'), (pair) => pair.getBoundingClientRect().left)).size;
+}
+
+describe('the layout of the case page', () => {
+  it('sets the aside to the left of the main column from lg up, both from the same line, the button at the end of the band', async () => {
+    await atWidth(1280, () => {
+      const page = mount(CASE_PAGE);
+      const aside = find(page, '.jus-case-aside').getBoundingClientRect();
+      const main = find(page, '.jus-case-main').getBoundingClientRect();
+      const header = find(page, '.jus-page-header');
+      const button = find(header, '.btn-primary').getBoundingClientRect();
+      const title = find(header, 'h1').getBoundingClientRect();
+
+      expect(aside.right).toBeLessThanOrEqual(main.left);
+      expect(aside.top).toBe(main.top);
+      expect(aside.width).toBeLessThan(main.width);
+      expect(Math.abs(button.right - header.getBoundingClientRect().right)).toBeLessThan(1);
+      expect(button.top).toBeLessThan(title.bottom);
+      expect(dataColumns(page)).toBe(1);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('puts the aside right below the band below lg, then the main column, as wide as each other, without a sideways scroll', async () => {
+    await atWidth(375, () => {
+      const page = mount(CASE_PAGE);
+      const header = find(page, '.jus-page-header').getBoundingClientRect();
+      const aside = find(page, '.jus-case-aside').getBoundingClientRect();
+      const main = find(page, '.jus-case-main').getBoundingClientRect();
+      const number = find(page, '.jus-case-number');
+
+      expect(header.bottom).toBeLessThanOrEqual(aside.top);
+      expect(aside.bottom).toBeLessThanOrEqual(main.top);
+      expect([aside.left, aside.width]).toEqual([main.left, main.width]);
+      expect(number.scrollWidth).toBeLessThanOrEqual(number.clientWidth);
+      expect(dataColumns(page)).toBe(1);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('lays the data of the cause out in two columns between sm and lg, where the aside is as wide as the page', async () => {
+    await atWidth(800, () => {
+      expect(dataColumns(mount(CASE_PAGE))).toBe(2);
+    });
+  });
+
+  it('lets a very long case number break on a very narrow screen rather than widen the page', async () => {
+    await atWidth(320, () => {
+      mount(CASE_PAGE);
+
+      expect(css(find(document.body, '.jus-case-number'), 'overflow-wrap')).toBe('anywhere');
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+});
+
+describe('the layout of the filing page', () => {
+  it('gives the card a medium width from lg up, lined up with the title of the band', async () => {
+    await atWidth(1280, () => {
+      const page = mount(FILING_PAGE);
+      const card = find(page, '.jus-filing-card').getBoundingClientRect();
+      const title = find(page, '.jus-page-header h1').getBoundingClientRect();
+
+      expect(card.width).toBe(720);
+      expect(card.left).toBe(title.left);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('makes the card as wide as the content below md, without a sideways scroll', async () => {
+    await atWidth(375, () => {
+      const page = mount(FILING_PAGE);
+      const card = find(page, '.jus-filing-card').getBoundingClientRect();
+      const title = find(page, '.jus-page-header h1').getBoundingClientRect();
+
+      expect([card.left, card.width]).toEqual([title.left, title.width]);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
   });
 });
 

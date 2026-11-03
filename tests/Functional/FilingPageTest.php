@@ -60,15 +60,23 @@ final class FilingPageTest extends WebTestCase
         self::assertSelectorTextContains('title', 'Peticionar · Processo 0000001-39.2024.8.26.0100 · Jus');
         self::assertCount(1, $crawler->filter('h1'));
         self::assertSame('Peticionar', trim($crawler->filter('h1')->text()));
-        $header = $crawler->filter('main header')->text();
-        self::assertStringContainsString('0000001-39.2024.8.26.0100', $header);
-        self::assertStringContainsString('Procedimento Comum Cível', $header);
-        $back = $crawler->filter('main > p a');
+        // The same header band as the case page, first in the main content: the way back, the title, the case.
+        $header = $crawler->filter('main#conteudo > header.jus-page-header:first-child');
+        self::assertCount(1, $header);
+        self::assertCount(1, $header->filter('h1'));
+        self::assertSame('0000001-39.2024.8.26.0100', trim($header->filter('p .font-monospace')->text()));
+        self::assertStringContainsString('Procedimento Comum Cível', $header->filter('p.jus-case-class')->text());
+        $back = $header->filter('p.jus-back-link > a');
         self::assertSame('Voltar para o processo', trim($back->text()));
         self::assertSame(self::CASE_URL, $back->attr('href'));
+        self::assertSame('true', $back->filter('i.bi-arrow-left')->attr('aria-hidden'));
 
-        $form = $crawler->filter('main form');
+        // The form on a surface card of medium width, right below the band.
+        $card = $crawler->filter('main#conteudo > header.jus-page-header + .jus-surface.jus-filing-card');
+        self::assertCount(1, $card);
+        $form = $card->filter('form');
         self::assertCount(1, $form);
+        self::assertCount(1, $crawler->filter('main form'));
         self::assertSame('post', strtolower((string) $form->attr('method')));
         self::assertSame('multipart/form-data', $form->attr('enctype'));
         self::assertCount(1, $crawler->filter('input[type="hidden"][name="filing[_token]"]'));
@@ -373,6 +381,8 @@ final class FilingPageTest extends WebTestCase
         $crawler = $this->submit(['type' => '', 'description' => ''], files: []);
 
         self::assertResponseStatusCodeSame(422);
+        // At the top of the card, before the form it is about.
+        self::assertCount(1, $crawler->filter('main .jus-filing-card > #resumo-erros:first-child + form'));
         $summary = $crawler->filter('main #resumo-erros');
         self::assertCount(1, $summary);
         self::assertStringContainsString('Corrija os campos indicados', $summary->text());
@@ -464,7 +474,7 @@ final class FilingPageTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         $this->assertRootError($crawler, 'O token CSRF é inválido. Por favor, tente reenviar o formulário.');
         self::assertCount(0, $crawler->filter('main #resumo-erros'));
-        $note = $crawler->filter('main #arquivos-novamente');
+        $note = $crawler->filter('main .jus-filing-card > #arquivos-novamente:first-child');
         self::assertCount(1, $note);
         self::assertSame('Selecione os arquivos novamente.', trim($note->text()));
         $this->assertNothingWasFiled();

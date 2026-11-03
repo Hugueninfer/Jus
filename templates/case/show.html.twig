@@ -8,43 +8,55 @@
 {% block title %}Processo {{ case.number|cnj }} · Jus{% endblock %}
 
 {% block body %}
-    <p class="mb-2"><a href="{{ path('case_search') }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar para a busca</a></p>
-
-    <header class="mb-4">
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-            <h1 class="h3 mb-0 font-monospace">{{ case.number|cnj }}</h1>
-            {% if case.confidential %}
-                <span class="badge rounded-pill jus-badge jus-badge-inverse"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
-            {% endif %}
-            <twig:StatusBadge :status="case.status" />
+    {# The header band (components/_surfaces.scss), then the body (components/_case-page.scss): the aside with the data of
+       the cause and the parties, then the main column with the deadlines and the movements. The aside comes first in the
+       document as on the screen: right after the band below lg, the narrow column on the left from lg up. Nothing reorders
+       the columns, so reading, the focus and the screen go the same way. #}
+    <header class="jus-page-header">
+        <p class="jus-back-link"><a href="{{ path('case_search') }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> <span class="visually-hidden">Voltar para</span> Processos</a></p>
+        <div class="jus-case-header">
+            <div class="jus-case-header-title">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <h1 class="h3 mb-0 font-monospace jus-case-number">{{ case.number|cnj }}</h1>
+                    <twig:StatusBadge :status="case.status" />
+                    {% if case.confidential %}
+                        <span class="badge rounded-pill jus-badge jus-badge-inverse"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
+                    {% endif %}
+                </div>
+                <p class="jus-case-class">{{ case.caseClass }}</p>
+            </div>
             {% if is_granted('FILE', case) %}
-                <a class="btn btn-primary ms-sm-auto" href="{{ path('case_file', {numero: case.number|cnj}) }}"><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i> Peticionar</a>
+                <a class="btn btn-primary" href="{{ path('case_file', {numero: case.number|cnj}) }}"><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i> Peticionar</a>
             {% endif %}
         </div>
-        <dl class="row mb-0">
-            <dt class="col-sm-3">Classe</dt><dd class="col-sm-9">{{ case.caseClass }}</dd>
-            <dt class="col-sm-3">Assunto</dt><dd class="col-sm-9">{{ case.subject }}</dd>
-            <dt class="col-sm-3">Órgão julgador</dt><dd class="col-sm-9">{{ case.court }}</dd>
-            <dt class="col-sm-3">Valor da causa</dt><dd class="col-sm-9">{{ case.claimValueInCents|brl }}</dd>
-            <dt class="col-sm-3">Distribuição</dt><dd class="col-sm-9"><time datetime="{{ case.filedAt|date('Y-m-d') }}">{{ case.filedAt|date('d/m/Y') }}</time></dd>
-        </dl>
     </header>
 
-    <section class="mb-4" aria-labelledby="partes">
-        <h2 class="h4" id="partes">Partes</h2>
-        {% for group in case.partiesBySide %}
-            <div class="mt-3">
-                <h3 class="h5">{{ group.side|label }}</h3>
-                {% if group.parties is empty %}
-                    <p class="text-body-secondary mb-0"><span aria-hidden="true">—</span><span class="visually-hidden">Nenhuma parte.</span></p>
-                {% else %}
-                    <div class="row g-3">
-                        {% for party in group.parties %}
-                            <div class="col-12 col-md-6">
-                                <div class="card jus-surface h-100">
-                                    <div class="card-body">
-                                        <h4 class="h6 fw-semibold mb-1">{{ party.name }}</h4>
-                                        <p class="small mb-2">{{ party.taxId }}</p>
+    <div class="row g-4 jus-case">
+        <aside class="col-12 col-lg-4 jus-case-aside" aria-labelledby="dados-da-causa partes">
+            <section aria-labelledby="dados-da-causa">
+                <h2 class="h4" id="dados-da-causa">Dados da causa</h2>
+                <dl class="jus-surface jus-case-data">
+                    <div><dt>Assunto</dt><dd>{{ case.subject }}</dd></div>
+                    <div><dt>Órgão julgador</dt><dd>{{ case.court }}</dd></div>
+                    <div><dt>Valor da causa</dt><dd>{{ case.claimValueInCents|brl }}</dd></div>
+                    <div><dt>Distribuição</dt><dd><time datetime="{{ case.filedAt|date('Y-m-d') }}">{{ case.filedAt|date('d/m/Y') }}</time></dd></div>
+                    <div><dt>Sigilo</dt><dd>{{ case.confidential ? 'Sigiloso' : 'Público' }}</dd></div>
+                </dl>
+            </section>
+
+            <section aria-labelledby="partes">
+                <h2 class="h4" id="partes">Partes</h2>
+                {% for group in case.partiesBySide %}
+                    <div class="jus-surface jus-party-side">
+                        <h3 class="jus-party-side-title">{{ group.side|label }}</h3>
+                        {% if group.parties is empty %}
+                            <p class="text-body-secondary mb-0"><span aria-hidden="true">—</span><span class="visually-hidden">Nenhuma parte.</span></p>
+                        {% else %}
+                            <ul class="list-unstyled mb-0" role="list">
+                                {% for party in group.parties %}
+                                    <li class="jus-party">
+                                        <h4 class="h6 mb-1">{{ party.name }}</h4>
+                                        <p class="small text-body-secondary mb-1">{{ party.taxId }}</p>
                                         {% if party.lawyers is not empty %}
                                             <p class="small mb-0">
                                                 Advogados:
@@ -53,57 +65,64 @@
                                         {% else %}
                                             <p class="small mb-0 text-body-secondary">Sem advogado constituído.</p>
                                         {% endif %}
-                                    </div>
-                                </div>
-                            </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </section>
+        </aside>
+
+        <div class="col-12 col-lg-8 jus-case-main">
+            <section aria-labelledby="prazos">
+                <h2 class="h4" id="prazos">Prazos</h2>
+                <div class="jus-surface jus-case-panel">
+                    {% if deadlines is empty %}
+                        <p class="text-body-secondary mb-0">Nenhum prazo.</p>
+                    {% else %}
+                        <ul class="list-unstyled mb-0 jus-deadlines" role="list">
+                            {% for deadline in deadlines %}
+                                <li>
+                                    <twig:DeadlineIndicator :deadline="deadline" />
+                                    <span>{{ deadline.party.name }} — intimação em <time datetime="{{ deadline.startDate|date('Y-m-d') }}">{{ deadline.startDate|date('d/m/Y') }}</time></span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section aria-labelledby="andamento-titulo">
+                <h2 class="h4" id="andamento-titulo">Andamento</h2>
+                {# Plain links, so the tabs work without JavaScript: the server renders only the active panel. The tabs are also where the focus
+                   goes when the confirmation below them is dismissed (data-jus-focus-target, see assets/behaviours/alert-focus.ts). #}
+                <nav id="andamento" aria-label="Andamento do processo" tabindex="-1" data-jus-focus-target>
+                    <ul class="nav nav-tabs mb-3">
+                        {% for key, title in {movimentacoes: 'Movimentações', documentos: 'Documentos'} %}
+                            <li class="nav-item">
+                                <a class="nav-link{{ tab == key ? ' active' }}" href="?aba={{ key }}#andamento"{% if tab == key %} aria-current="page"{% endif %}>{{ title }}</a>
+                            </li>
                         {% endfor %}
+                    </ul>
+                </nav>
+
+                {% for message in filingConfirmations %}
+                    <twig:Alert type="success" dismissible>{{ message }}</twig:Alert>
+                {% endfor %}
+
+                {% if tab == 'documentos' %}
+                    {# The table is a panel of its own from md up, and a card per document below md (components/_data-table.scss). #}
+                    <twig:DataTable :columns="documentColumns" :rows="documentRows" :sort="sort" :direction="direction" caption="Documentos do processo" anchor="andamento" emptyMessage="Nenhum documento." />
+                {% else %}
+                    {# The element adds the filter by event type; without JavaScript it is inert and the whole list shows. #}
+                    <div class="jus-surface jus-case-panel">
+                        <jus-filtro-timeline>
+                            <twig:Timeline :events="case.events" />
+                        </jus-filtro-timeline>
                     </div>
                 {% endif %}
-            </div>
-        {% endfor %}
-    </section>
-
-    <section class="mb-4" aria-labelledby="prazos">
-        <h2 class="h4" id="prazos">Prazos</h2>
-        {% if deadlines is empty %}
-            <p class="text-body-secondary">Nenhum prazo.</p>
-        {% else %}
-            <ul class="list-unstyled" role="list">
-                {% for deadline in deadlines %}
-                    <li class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <twig:DeadlineIndicator :deadline="deadline" />
-                        <span>{{ deadline.party.name }} — intimação em <time datetime="{{ deadline.startDate|date('Y-m-d') }}">{{ deadline.startDate|date('d/m/Y') }}</time></span>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-    </section>
-
-    <section aria-labelledby="andamento-titulo">
-        <h2 class="h4" id="andamento-titulo">Andamento</h2>
-        {# Plain links, so the tabs work without JavaScript: the server renders only the active panel. The tabs are also where the focus
-           goes when the confirmation below them is dismissed (data-jus-focus-target, see assets/behaviours/alert-focus.ts). #}
-        <nav id="andamento" aria-label="Andamento do processo" tabindex="-1" data-jus-focus-target>
-            <ul class="nav nav-tabs mb-3">
-                {% for key, title in {movimentacoes: 'Movimentações', documentos: 'Documentos'} %}
-                    <li class="nav-item">
-                        <a class="nav-link{{ tab == key ? ' active' }}" href="?aba={{ key }}#andamento"{% if tab == key %} aria-current="page"{% endif %}>{{ title }}</a>
-                    </li>
-                {% endfor %}
-            </ul>
-        </nav>
-
-        {% for message in filingConfirmations %}
-            <twig:Alert type="success" dismissible>{{ message }}</twig:Alert>
-        {% endfor %}
-
-        {% if tab == 'documentos' %}
-            <twig:DataTable :columns="documentColumns" :rows="documentRows" :sort="sort" :direction="direction" caption="Documentos do processo" anchor="andamento" emptyMessage="Nenhum documento." />
-        {% else %}
-            {# The element adds the filter by event type; without JavaScript it is inert and the whole list shows. #}
-            <jus-filtro-timeline>
-                <twig:Timeline :events="case.events" />
-            </jus-filtro-timeline>
-        {% endif %}
-    </section>
+            </section>
+        </div>
+    </div>
 {% endblock %}
