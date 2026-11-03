@@ -12,6 +12,16 @@ export default defineConfig({
   optimizeDeps: {
     include: ['axe-core', 'bootstrap/js/dist/alert'],
   },
+  css: {
+    preprocessorOptions: {
+      // The page stylesheet is compiled in the tests too (assets/styles/app.test.ts); as in webpack.config.js, keep
+      // Bootstrap 5.3's own deprecation noise out of the output.
+      scss: {
+        quietDeps: true,
+        silenceDeprecations: ['import'],
+      },
+    },
+  },
   test: {
     include: ['assets/**/*.test.ts'],
     browser: {

@@ -2,39 +2,101 @@
 @use 'tokens' as t;
 
 // Bootstrap variables derived from the tokens. Imported before Bootstrap itself.
-$primary: map.get(t.$colors, 'primary');
+// The file is @imported, so everything defined here is global: the helpers carry a prefix, the rest are Bootstrap's names.
+$jus-light: map.get(t.$themes, 'light');
+$jus-dark: map.get(t.$themes, 'dark');
+
+// Bootstrap 5.3 colour modes: the light values below are the default ones, the $*-dark ones are emitted under
+// [data-bs-theme='dark'], the attribute the page carries in the dark theme.
+$enable-dark-mode: true;
+$color-mode-type: data;
+
+// Brand colours.
+$primary: map.get($jus-light, 'primary');
 $secondary: map.get(t.$colors, 'secondary');
 $success: map.get(t.$colors, 'success');
 $warning: map.get(t.$colors, 'warning');
 $danger: map.get(t.$colors, 'danger');
 $info: map.get(t.$colors, 'info');
-$light: map.get(t.$colors, 'light');
+$light: map.get($jus-light, 'neutral-bg');
 $dark: map.get(t.$colors, 'dark');
-$body-color: map.get(t.$colors, 'body');
-$body-bg: map.get(t.$colors, 'surface');
-$body-secondary-color: map.get(t.$colors, 'muted');
-$body-tertiary-bg: map.get(t.$colors, 'surface-alt');
-$border-color: map.get(t.$colors, 'border');
+
+// Page, text and border. The page is no longer white: surfaces (cards, fields, menus) take the 'surface' role below.
+$body-color: map.get($jus-light, 'text');
+$body-bg: map.get($jus-light, 'page');
+$body-secondary-color: map.get($jus-light, 'text-muted');
+$body-secondary-bg: map.get($jus-light, 'neutral-bg');
+$body-tertiary-bg: map.get($jus-light, 'neutral-bg');
+$border-color: map.get($jus-light, 'border');
+$body-color-dark: map.get($jus-dark, 'text');
+$body-bg-dark: map.get($jus-dark, 'page');
+$body-secondary-color-dark: map.get($jus-dark, 'text-muted');
+$body-secondary-bg-dark: map.get($jus-dark, 'neutral-bg');
+$body-tertiary-bg-dark: map.get($jus-dark, 'neutral-bg');
+$border-color-dark: map.get($jus-dark, 'border');
+
+// Links, and the primary colour where it is used as text: the dark theme takes the pale blue.
+$link-color-dark: map.get($jus-dark, 'primary');
+$primary-text-emphasis-dark: map.get($jus-dark, 'primary');
+
+// Bootstrap's pink inline code is 4.5:1 on white but less on the page and the neutral fill, and its dark tint less than
+// that: code takes the text colour, which the code blocks (on the neutral fill) already inherit.
+$code-color: map.get($jus-light, 'text');
+$code-color-dark: map.get($jus-dark, 'text');
+
+// Alerts (and anything else that uses the subtle status colours) take the tinted fill and its label from the tokens.
+$success-bg-subtle: map.get($jus-light, 'success-bg');
+$success-text-emphasis: map.get($jus-light, 'success-text');
+$warning-bg-subtle: map.get($jus-light, 'warning-bg');
+$warning-text-emphasis: map.get($jus-light, 'warning-text');
+$danger-bg-subtle: map.get($jus-light, 'danger-bg');
+$danger-text-emphasis: map.get($jus-light, 'danger-text');
+$info-bg-subtle: map.get($jus-light, 'info-bg');
+$info-text-emphasis: map.get($jus-light, 'info-text');
+$success-bg-subtle-dark: map.get($jus-dark, 'success-bg');
+$success-text-emphasis-dark: map.get($jus-dark, 'success-text');
+$warning-bg-subtle-dark: map.get($jus-dark, 'warning-bg');
+$warning-text-emphasis-dark: map.get($jus-dark, 'warning-text');
+$danger-bg-subtle-dark: map.get($jus-dark, 'danger-bg');
+$danger-text-emphasis-dark: map.get($jus-dark, 'danger-text');
+$info-bg-subtle-dark: map.get($jus-dark, 'info-bg');
+$info-text-emphasis-dark: map.get($jus-dark, 'info-text');
+
+// Components that sit on a surface rather than on the page. They name the custom property, not a colour, so the one
+// compiled rule follows the colour mode.
+$card-bg: var(--jus-color-surface);
+$input-bg: var(--jus-color-surface);
+$dropdown-bg: var(--jus-color-surface);
+$list-group-bg: var(--jus-color-surface);
+$modal-content-bg: var(--jus-color-surface);
+$offcanvas-bg-color: var(--jus-color-surface);
+$pagination-bg: var(--jus-color-surface);
+$popover-bg: var(--jus-color-surface);
+
+// Space, type, radii and shadows.
 $spacers: map.merge((0: 0), t.$spaces);
 $font-family-sans-serif: map.get(t.$font-families, 'base');
 $font-family-monospace: map.get(t.$font-families, 'mono');
 $border-radius-sm: map.get(t.$radii, 'sm');
 $border-radius: map.get(t.$radii, 'base');
 $border-radius-lg: map.get(t.$radii, 'lg');
+$card-border-radius: map.get(t.$radii, 'lg');
 $box-shadow-sm: map.get(t.$shadows, 'sm');
 $box-shadow: map.get(t.$shadows, 'base');
 $min-contrast-ratio: 4.5;
 
-// Keyboard focus: Bootstrap's default ring is the primary colour at 25 % (about 1.5:1 on white). Use the solid token ring.
-// Inputs, selects, checks and the close button take it from here; .btn and plain links are handled in base/_focus.scss.
+// Keyboard focus: Bootstrap's default ring is the primary colour at 25 % (about 1.5:1 on white). Use the solid token ring,
+// by way of --jus-focus-ring: the page sets it to the colour that suits the surface (base/_focus.scss), so inputs, selects,
+// checks and the close button follow the dark theme and the blue areas too. .btn and plain links are handled in
+// base/_focus.scss.
 $focus-ring-width: map.get(t.$focus, 'width');
 $focus-ring-opacity: 1;
-$focus-ring-color: map.get(t.$focus, 'color');
+$focus-ring-color: var(--jus-focus-ring);
 
 // Nav links draw the ring in their own text colour, so it shows on the light page and on the primary navbar alike.
 $nav-link-focus-box-shadow: 0 0 0 $focus-ring-width currentcolor;
 
-// The navbar sits on the primary colour: Bootstrap's translucent defaults (55 %) fall below WCAG AA there.
+// The navbar sits on the primary colour, in both themes: Bootstrap's translucent defaults (55 %) fall below WCAG AA there.
 // Literal values on purpose, because Bootstrap's own variables ($white) are not loaded yet at this point.
 $navbar-dark-color: rgb(255 255 255 / 85%);
 $navbar-dark-hover-color: #fff;

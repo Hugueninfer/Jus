@@ -250,6 +250,61 @@ describe('JusElement', () => {
   });
 });
 
+describe('JusElement in the dark theme', () => {
+  let removeTokens: () => void;
+
+  beforeEach(() => {
+    removeTokens = installTokens('dark');
+  });
+
+  afterEach(() => {
+    removeTokens();
+    document.body.replaceChildren();
+  });
+
+  it.each(SHADOW_COMPONENTS)('resolves every token the sheets of %s use to a dark-theme value', (tag) => {
+    const names = new Set(Array.from(stylesOf(tag).matchAll(/--jus-[a-z0-9-]+/g), (match) => match[0]));
+    names.delete('--jus-focus-ring');
+
+    expect(names.size).toBeGreaterThan(5);
+    for (const name of names) {
+      expect(rootToken(name), name).not.toBe('');
+    }
+    expect(rootToken('--jus-color-surface')).toBe('#141e2b');
+  });
+
+  it('draws the button on the dark surface, with the dark text colour and a muted border', () => {
+    const style = getComputedStyle(shadowButton());
+
+    expect(style.backgroundColor).toBe(colorOf('--jus-color-surface'));
+    expect(style.color).toBe(colorOf('--jus-color-body'));
+    expect(style.color).toBe(colorOf('--jus-color-text'));
+    expect(style.borderTopColor).toBe(colorOf('--jus-color-muted'));
+    expect(style.backgroundColor).toBe('rgb(20, 30, 43)');
+  });
+
+  it('draws a pressed button with the dark primary and the surface for its label', () => {
+    const button = shadowButton();
+    button.setAttribute('aria-pressed', 'true');
+
+    const style = getComputedStyle(button);
+    expect(style.backgroundColor).toBe('rgb(127, 178, 229)');
+    expect(style.color).toBe(colorOf('--jus-color-surface'));
+  });
+
+  it('has no accessibility violations for its base markup, with the dark palette, pressed or not', async () => {
+    const main = document.createElement('main');
+    main.append(document.createElement('jus-test-element'));
+    document.body.append(main);
+
+    await expectNoAxeViolations(main);
+
+    required(main.querySelector('jus-test-element')?.shadowRoot?.querySelector('button')).setAttribute('aria-pressed', 'true');
+
+    await expectNoAxeViolations(main);
+  });
+});
+
 describe('sheet', () => {
   it('creates a constructable stylesheet with the given rules', () => {
     const created = sheet('.a { color: red; } .b { color: blue; }');

@@ -238,7 +238,7 @@ async function signIn(page, baseUrl) {
   await open(page, baseUrl, '/login');
   await page.fill('#username', DEMO_USER.email);
   await page.fill('#password', DEMO_USER.password);
-  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('button[type="submit"]')]);
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('form[action$="/login"] button[type="submit"]')]);
   if (!new URL(page.url()).pathname.startsWith('/processos')) {
     throw new AuditError(
       `Signing in as ${DEMO_USER.email} did not work (the browser ended on ${page.url()}). Is the demo data missing? Run "composer setup".`,
@@ -544,7 +544,7 @@ async function auditWithoutScripts(browser, baseUrl, state) {
   }
 
   let status = await open(plain, baseUrl, '/login');
-  check('no JS: the sign-in page responds with its form', status === 200 && (await plain.locator('form button[type="submit"]').count()) === 1, String(status));
+  check('no JS: the sign-in page responds with its form', status === 200 && (await plain.locator('form[action$="/login"] button[type="submit"]').count()) === 1, String(status));
   await auditAsServed(plain, views, 'login (signed out)', { expectedStatus: 200, status });
   await signIn(plain, baseUrl);
   check('no JS: signing in with the plain form works', plain.url().includes('/processos'), plain.url());

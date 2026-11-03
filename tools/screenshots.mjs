@@ -94,7 +94,7 @@ async function signIn(page, baseUrl) {
   await open(page, baseUrl, '/login');
   await page.fill('#username', DEMO_USER.email);
   await page.fill('#password', DEMO_USER.password);
-  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('button[type="submit"]')]);
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('form[action$="/login"] button[type="submit"]')]);
   if (!new URL(page.url()).pathname.startsWith('/processos')) {
     throw new CaptureError(
       `Signing in as ${DEMO_USER.email} did not work (the browser ended on ${page.url()}). Is the demo data missing? Run "composer setup".`,

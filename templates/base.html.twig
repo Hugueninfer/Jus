@@ -1,8 +1,10 @@
+{% set current_theme = jus_theme() -%}
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="{{ current_theme.bootstrapTheme }}" data-jus-tema="{{ current_theme.value }}">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {{ include('_theme_script.html.twig') }}
         <meta name="description" content="Design System e painel de processo eletrônico fictício.">
         <title>{% block title %}Jus{% endblock %}</title>
         <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4e79'/%3E%3Ctext x='16' y='23' font-size='20' font-family='sans-serif' text-anchor='middle' fill='%23fff'%3EJ%3C/text%3E%3C/svg%3E">
@@ -62,6 +64,9 @@
                                         <a class="nav-link{{ app.current_route == 'app_login' ? ' active' }}" href="{{ path('app_login') }}"{% if app.current_route == 'app_login' %} aria-current="page"{% endif %}>Entrar</a>
                                     </li>
                                 {% endif %}
+                                <li class="nav-item py-2 py-md-0">
+                                    {{ include('_theme_switcher.html.twig') }}
+                                </li>
                             </ul>
                         </div>
                     </div>

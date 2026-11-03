@@ -1,0 +1,6 @@
+{# With the theme "sistema" the server cannot know the colour scheme of the device, so it renders the light theme and this
+   script, before anything is painted, switches to dark when the device asks for it, and follows it afterwards. It acts
+   only while the page says "sistema" (the attribute, never the cookie, which the script cannot read), so it is always
+   there. A script policy (CSP) would need a hash or a nonce for it, and for the <noscript> style of the layout. The tests
+   run this very file (assets/behaviours/theme-inline-script.test.ts): keep the one <script> and no Twig inside it. #}
+<script>(() => { const root = document.documentElement; const query = matchMedia('(prefers-color-scheme: dark)'); const apply = () => { if (root.dataset.jusTema === 'sistema') root.dataset.bsTheme = query.matches ? 'dark' : 'light'; }; apply(); query.addEventListener('change', apply); })();</script>

@@ -1,3 +1,7 @@
+// Inter, self-hosted from the package (variable font, OFL). A plain-CSS import, so the bundler resolves the font files
+// relative to the package.
+@import '@fontsource-variable/inter/index.css';
+
 // Bootstrap 5.3 still relies on @import, and its variables must be set before it is imported.
 @import 'tokens/bootstrap-config';
 @import 'bootstrap/scss/bootstrap';
@@ -6,3 +10,4 @@
 @import 'components/timeline';
 @import 'components/data-table';
 @import 'components/case-card';
+@import 'components/theme-switcher';
