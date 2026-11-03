@@ -109,10 +109,6 @@ describe.each(THEMES)('the %s theme tokens', (theme) => {
     expect(parseColor(color(legacy))).toEqual(parseColor(color(role)));
   });
 
-  it.each(FIXED_COLORS)('keeps the %s hue the same in both themes', (name) => {
-    expect(color(name)).toMatch(/^#[0-9a-f]{3,8}$/i);
-  });
-
   it.each(PAIRS)('keeps $foreground on $background at $minimum:1 or more ($use)', ({ foreground, background, minimum }) => {
     expect(contrastRatio(color(foreground), color(background))).toBeGreaterThanOrEqual(minimum);
   });
@@ -122,15 +118,17 @@ describe.each(THEMES)('the %s theme tokens', (theme) => {
     scope.setAttribute('data-bs-theme', 'light');
     document.body.append(scope);
 
-    const read = (name: string): string => getComputedStyle(scope).getPropertyValue(`--jus-${name}`).trim();
+    try {
+      const read = (name: string): string => getComputedStyle(scope).getPropertyValue(`--jus-${name}`).trim();
 
-    expect(parseColor(read('color-page'))).toEqual(parseColor('#f4f6f9'));
-    expect(parseColor(read('color-text'))).toEqual(parseColor('#111827'));
-    // The old names are written out for each scope too, rather than pointing at the page's (possibly dark) role.
-    expect(parseColor(read('color-body'))).toEqual(parseColor('#111827'));
-    expect(parseColor(read('color-muted'))).toEqual(parseColor(read('color-text-muted')));
-
-    scope.remove();
+      expect(parseColor(read('color-page'))).toEqual(parseColor('#f4f6f9'));
+      expect(parseColor(read('color-text'))).toEqual(parseColor('#111827'));
+      // The old names are written out for each scope too, rather than pointing at the page's (possibly dark) role.
+      expect(parseColor(read('color-body'))).toEqual(parseColor('#111827'));
+      expect(parseColor(read('color-muted'))).toEqual(parseColor(read('color-text-muted')));
+    } finally {
+      scope.remove();
+    }
   });
 
   it('defines the radii of the design: 6, 8 and 12 pixels', () => {
@@ -174,5 +172,25 @@ describe.each(THEMES)('the %s theme tokens', (theme) => {
     expect(token('focus-offset')).not.toBe('');
     expect(parseColor(token('focus-color'))).toEqual(parseColor('#1f4e79'));
     expect(parseColor(token('focus-color-inverse'))).toEqual(parseColor('#ffffff'));
+  });
+});
+
+/** The value of a colour role on the page in the given theme, with the tokens installed for that one read. */
+function colorOnThePage(theme: Theme, role: string): string {
+  const removeTokens = installTokens(theme);
+  try {
+    return color(role);
+  } finally {
+    removeTokens();
+  }
+}
+
+describe('the fixed hues', () => {
+  it.each(FIXED_COLORS)('keeps the %s hue the same in both themes', (name) => {
+    const light = colorOnThePage('light', name);
+    const dark = colorOnThePage('dark', name);
+
+    expect(light).toMatch(/^#[0-9a-f]{3,8}$/i);
+    expect(parseColor(dark)).toEqual(parseColor(light));
   });
 });

@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../test-support/axe';
 import { required } from '../test-support/required';
-import { installTokens } from '../test-support/tokens';
+import { installTokens, type Theme } from '../test-support/tokens';
 import timelineCss from '../styles/components/_timeline.scss?inline';
 import './index';
 import { sheet } from './jus-element';
 import { JusFiltroTimeline } from './jus-filtro-timeline';
+
+const THEMES: Theme[] = ['light', 'dark'];
 
 const GROUP_LABEL = 'Filtrar movimentações por tipo';
 
@@ -595,22 +597,30 @@ describe('<jus-filtro-timeline>', () => {
   });
 
   describe('accessibility', () => {
-    it('has no accessibility violations, unfiltered, filtered or back to all, with the real palette', async () => {
-      const { main, element } = mount();
-      await expectNoAxeViolations(main);
+    describe.each(THEMES)('with the real palette of the %s theme', (theme) => {
+      // The tokens of the theme in place of the light ones installed above; the afterEach above takes them off again.
+      beforeEach(() => {
+        removeTokens();
+        removeTokens = installTokens(theme);
+      });
 
-      await filterBy(element, 'Decisão');
-      await expectNoAxeViolations(main);
+      it('has no accessibility violations, unfiltered, filtered or back to all', async () => {
+        const { main, element } = mount();
+        await expectNoAxeViolations(main);
 
-      await filterBy(element, 'Todas');
-      await expectNoAxeViolations(main);
-    });
+        await filterBy(element, 'Decisão');
+        await expectNoAxeViolations(main);
 
-    it.each([
-      { name: 'a single type', timeline: ONE_TYPE_TIMELINE },
-      { name: 'no events', timeline: EMPTY_TIMELINE },
-    ])('has no accessibility violations with $name', async ({ timeline }) => {
-      await expectNoAxeViolations(mount(timeline).main);
+        await filterBy(element, 'Todas');
+        await expectNoAxeViolations(main);
+      });
+
+      it.each([
+        { name: 'a single type', timeline: ONE_TYPE_TIMELINE },
+        { name: 'no events', timeline: EMPTY_TIMELINE },
+      ])('has no accessibility violations with $name', async ({ timeline }) => {
+        await expectNoAxeViolations(mount(timeline).main);
+      });
     });
 
     it('gives every button an accessible name and the group a name of its own', () => {
