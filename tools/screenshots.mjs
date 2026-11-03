@@ -1,23 +1,26 @@
 #!/usr/bin/env node
 /**
- * Captures the screenshots the README shows (docs/screenshots/*.png): the search, a case page (and, on the desktop, its
- * timeline), the filing form and the design system catalogue, at a desktop and a phone viewport.
+ * Captures the screenshots the README shows (docs/screenshots/*.png), in the light theme: the sign-in page, the search, a
+ * case page (and, on the desktop, its timeline), the filing form and the design system catalogue, at a desktop and a phone
+ * viewport; and in the dark theme (`*-escuro.png`): the sign-in page, the search, the case page, the filing form and the
+ * catalogue, at the desktop viewport.
  *
  *   npm run screenshots -- --base-url=http://127.0.0.1:8123
  *
  * It needs the application running with the demo data loaded (`composer setup`, `npm run build`, then
  * `php -S 127.0.0.1:<port> -t public`) and signs in as the demo lawyer. It drives the installed Google Chrome (no browser is
- * downloaded) and captures the viewport only, which keeps each PNG small. Nothing is filed: the filing form is filled in
- * but never submitted, so the demo data stays as it was. The deadlines on the pages are relative to today, so they differ
- * from run to run.
+ * downloaded) and captures the viewport only, which keeps each PNG small (it fails above 300 KB). The theme is the
+ * `jus_tema` cookie, set on the browser before the first page, as if the person had chosen it; a page that does not come in
+ * that theme stops the capture. Nothing is filed: the filing form is filled in but never submitted, so the demo data stays
+ * as it was. The deadlines on the pages are relative to today, so they differ from run to run.
  *
  * It refuses a `--base-url` that is not on this machine (localhost, 127.x.x.x, [::1]) unless `--allow-remote` is passed,
  * since it signs in with the demo account.
  *
  * The exit code is 1 when the capture could not be done (the server is not reachable, the demo account cannot sign in, a
- * wrong argument).
+ * page in the wrong theme, a wrong argument) or a screenshot is above the size budget.
  */
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { fileURLToPath, URL } from 'node:url';
 import { chromium } from 'playwright';
 
@@ -28,6 +31,12 @@ const DEMO_USER = { email: 'advogado@jus.test', password: 'jus-demo' };
 const TIMEOUT_MS = 15_000;
 const DESKTOP = { suffix: 'desktop', width: 1280, height: 800 };
 const PHONE = { suffix: 'celular', width: 375, height: 812 };
+const MAX_BYTES = 300 * 1024;
+
+/** The value of the cookie, what the page must then carry on <html>, and the suffix of the file names. */
+const THEME_COOKIE = 'jus_tema';
+const LIGHT = { cookie: 'claro', bootstrapTheme: 'light', colorScheme: 'light', suffix: '' };
+const DARK = { cookie: 'escuro', bootstrapTheme: 'dark', colorScheme: 'dark', suffix: '-escuro' };
 
 const USAGE = 'Usage: npm run screenshots -- --base-url=http://127.0.0.1:8000 [--allow-remote]';
 
@@ -132,13 +141,8 @@ async function settle(page) {
   });
 }
 
-/** Fills the filing form the way a person would, without sending it: the screenshot shows the chosen file in the list. */
-async function fillFilingForm(page) {
-  const buffer = await readFile(SAMPLE_PDF);
-  await page.selectOption('#filing_type', { label: 'Manifestação' });
-  await page.fill('#filing_description', 'Manifestação sobre a decisão que indeferiu a tutela de urgência, com o documento em anexo.');
-  await page.setInputFiles('#filing_files', [{ name: 'manifestacao.pdf', mimeType: 'application/pdf', buffer }]);
-  // The focus ring of the last field touched is not what the screenshot is about.
+/** The focus ring of the last field touched (or of the field the page focuses itself) is not what the screenshot is about. */
+async function blurFocus(page) {
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -146,44 +150,71 @@ async function fillFilingForm(page) {
   });
 }
 
-async function capture(page, name, viewport) {
-  await settle(page);
-  const file = `${OUTPUT_DIR}${name}-${viewport.suffix}.png`;
-  await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' });
-  log(`ok   ${name}-${viewport.suffix}.png  (${String(viewport.width)}x${String(viewport.height)})`);
+/** Fills the filing form the way a person would, without sending it: the screenshot shows the chosen file in the list. */
+async function fillFilingForm(page) {
+  const buffer = await readFile(SAMPLE_PDF);
+  await page.selectOption('#filing_type', { label: 'Manifestação' });
+  await page.fill('#filing_description', 'Manifestação sobre a decisão que indeferiu a tutela de urgência, com o documento em anexo.');
+  await page.setInputFiles('#filing_files', [{ name: 'manifestacao.pdf', mimeType: 'application/pdf', buffer }]);
+  await blurFocus(page);
 }
 
-async function captureViewport(browser, baseUrl, viewport, state, shots) {
-  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, locale: 'pt-BR' });
+async function captureAs(page, name, viewport, theme, files) {
+  await settle(page);
+  const html = page.locator('html');
+  const shown = await html.getAttribute('data-bs-theme');
+  const choice = await html.getAttribute('data-jus-tema');
+  // The context prefers the same scheme as the theme, so "sistema" would still resolve to the right data-bs-theme:
+  // only data-jus-tema tells whether the cookie reached the server.
+  if (shown !== theme.bootstrapTheme || choice !== theme.cookie) {
+    throw new CaptureError(`${page.url()} came with data-bs-theme="${String(shown)}" and data-jus-tema="${String(choice)}", not "${theme.bootstrapTheme}" and "${theme.cookie}": the ${THEME_COOKIE} cookie did not take effect.`);
+  }
+  const fileName = `${name}-${viewport.suffix}${theme.suffix}.png`;
+  await page.screenshot({ path: `${OUTPUT_DIR}${fileName}`, animations: 'disabled', caret: 'hide' });
+  const { size } = await stat(`${OUTPUT_DIR}${fileName}`);
+  files.push({ fileName, size });
+  log(`${size > MAX_BYTES ? 'BIG ' : 'ok  '} ${fileName.padEnd(36)} ${String(viewport.width)}x${String(viewport.height)}, ${theme.bootstrapTheme}, ${String(Math.round(size / 1024))} KB`);
+}
+
+async function captureViewport(browser, baseUrl, viewport, theme, state, shots, files) {
+  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, locale: 'pt-BR', colorScheme: theme.colorScheme });
   context.setDefaultTimeout(TIMEOUT_MS);
+  await context.addCookies([{ name: THEME_COOKIE, value: theme.cookie, url: baseUrl }]);
+  const capture = (page, name) => captureAs(page, name, viewport, theme, files);
   try {
     const page = await context.newPage();
+    if (shots.has('login')) {
+      await open(page, baseUrl, '/login');
+      // The e-mail field takes the focus as the page loads.
+      await blurFocus(page);
+      await capture(page, 'login');
+    }
     await signIn(page, baseUrl);
     state.caseHref ??= await findShowcaseCase(page, baseUrl);
 
     if (shots.has('busca')) {
       await open(page, baseUrl, '/processos');
-      await capture(page, 'busca', viewport);
+      await capture(page, 'busca');
     }
     if (shots.has('processo')) {
       await open(page, baseUrl, `${state.caseHref}?aba=movimentacoes`);
-      await capture(page, 'processo', viewport);
+      await capture(page, 'processo');
       if (shots.has('andamento')) {
         // The timeline and its filter by type are further down the page than the first screen.
         await page.evaluate(() => {
           document.querySelector('#andamento')?.scrollIntoView({ behavior: 'instant', block: 'start' });
         });
-        await capture(page, 'processo-andamento', viewport);
+        await capture(page, 'processo-andamento');
       }
     }
     if (shots.has('peticionar')) {
       await open(page, baseUrl, `${state.caseHref}/peticionar`);
       await fillFilingForm(page);
-      await capture(page, 'peticionar', viewport);
+      await capture(page, 'peticionar');
     }
     if (shots.has('catalogo')) {
       await open(page, baseUrl, '/design-system');
-      await capture(page, 'catalogo', viewport);
+      await capture(page, 'catalogo');
     }
   } finally {
     await context.close();
@@ -197,11 +228,20 @@ async function main() {
 
   const browser = await launchChrome();
   const state = {};
+  const files = [];
   try {
-    await captureViewport(browser, baseUrl, DESKTOP, state, new Set(['busca', 'processo', 'andamento', 'peticionar', 'catalogo']));
-    await captureViewport(browser, baseUrl, PHONE, state, new Set(['busca', 'processo']));
+    await captureViewport(browser, baseUrl, DESKTOP, LIGHT, state, new Set(['login', 'busca', 'processo', 'andamento', 'peticionar', 'catalogo']), files);
+    await captureViewport(browser, baseUrl, PHONE, LIGHT, state, new Set(['busca', 'processo']), files);
+    await captureViewport(browser, baseUrl, DESKTOP, DARK, state, new Set(['login', 'busca', 'processo', 'peticionar', 'catalogo']), files);
   } finally {
     await browser.close();
+  }
+
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  log(`${String(files.length)} screenshots, ${String(Math.round(total / 1024))} KB in all`);
+  const big = files.filter((file) => file.size > MAX_BYTES);
+  if (big.length > 0) {
+    throw new CaptureError(`Above the budget of ${String(MAX_BYTES / 1024)} KB: ${big.map((file) => file.fileName).join(', ')}.`);
   }
 
   return 0;

@@ -11,6 +11,7 @@ Cada registro conta uma decisão do projeto: o contexto, o que foi decidido, as 
 | [0005](0005-vitest-em-modo-browser.md) | Vitest em modo browser para os Web Components | Aceita |
 | [0006](0006-sqlite-como-banco-padrao.md) | SQLite como banco padrão, com as regras de chaves estrangeiras e de migrations | Aceita |
 | [0007](0007-campo-cnj-aprimora-o-input-nativo.md) | Campo do número CNJ: aprimorar o input nativo, sem Shadow DOM nem `ElementInternals` | Aceita |
+| [0008](0008-modo-escuro-cookie-e-atributo-no-servidor.md) | Modo escuro: a escolha num cookie, o tema no atributo do `<html>` desenhado pelo servidor e um script inline para "sistema"; token CSRF sem sessão | Aceita |
 
 Veja também os [diagramas](../diagrams/README.md).
 

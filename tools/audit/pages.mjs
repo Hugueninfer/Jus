@@ -1,21 +1,28 @@
 #!/usr/bin/env node
 /**
- * Audits the pages the application really renders: axe-core (WCAG 2.0, 2.1 and 2.2, levels A and AA) and horizontal
- * scrolling at a desktop and a phone width, a keyboard pass with real key events on the filing page, and a pass with
- * JavaScript turned off (search, tabs and a whole filing through plain links and forms).
+ * Audits the pages the application really renders, in the light and in the dark theme: axe-core (WCAG 2.0, 2.1 and 2.2,
+ * levels A and AA) and horizontal scrolling at a desktop and a phone width, a keyboard pass with real key events on the
+ * filing page, a pass with JavaScript turned off (search, tabs and a whole filing through plain links and forms), and a
+ * check that the theme switcher of the navbar applies a theme and keeps it on reload, with and without JavaScript.
  *
  *   npm run audit:pages -- --base-url=http://127.0.0.1:8123
  *
  * It needs the application running with the demo data loaded (`composer setup`, `npm run build`, then
  * `php -S 127.0.0.1:<port> -t public` with `upload_max_filesize=10M` and `post_max_size=60M`) and signs in as the demo
  * lawyer. It drives the installed Google Chrome (no browser is downloaded). The audit files a few petitions in the demo
- * data, as a person would; `composer setup` puts the data back. It is not part of `composer ci` because it needs the
- * application running.
+ * data (seven a run), as a person would; `composer setup` puts the data back. It is not part of `composer ci` because it
+ * needs the application running.
+ *
+ * The theme comes from the `jus_tema` cookie, which every browser context of a theme carries from the start, and every
+ * audited page must have been served in that theme (`data-bs-theme` and `data-jus-tema` on <html>). The browser is told to
+ * prefer the other colour scheme: a cookie that did not reach the server leaves the page on "sistema", which follows the
+ * browser, and so fails that check instead of auditing one theme twice.
  *
  * It refuses a `--base-url` that is not on this machine (localhost, 127.x.x.x, [::1]) unless `--allow-remote` is passed,
  * since it signs in with the demo account and files petitions.
  *
- * The exit code is 1 when anything fails (a violation, a horizontal scroll, a failed check) and 2 when the audit itself
+ * The exit code is 1 when anything fails (a violation, a horizontal scroll, a page in the wrong theme, a failed check) and
+ * 2 when the audit itself
  * could not run (Google Chrome is not installed, the server is not reachable, the demo account cannot sign in, a wrong
  * argument).
  */
@@ -37,8 +44,34 @@ const VIEWPORTS = [
 ];
 const TIMEOUT_MS = 15_000;
 
+/**
+ * The themes the pages are audited in: the value of the cookie, what the server must then render on <html>, and the
+ * colour scheme the browser is told to prefer (the other one, see above).
+ */
+const THEME_COOKIE = 'jus_tema';
+const THEMES = [
+  { name: 'claro', bootstrapTheme: 'light', colorScheme: 'dark' },
+  { name: 'escuro', bootstrapTheme: 'dark', colorScheme: 'light' },
+];
+
+/** The page where the switcher is tried: public, so a visitor does it, and it opens no session. */
+const SWITCHER_PAGE = '/design-system';
+
 /** What went wrong, per page and width, for the report. */
 const findings = [];
+
+/** What was audited and what failed, per group (a theme, or the switcher), for the summary at the end. */
+const tally = new Map();
+let group = '';
+
+/** The theme each browser context was made with, so that every page audited in it is checked against it. */
+const contextThemes = new WeakMap();
+
+function count(field, amount = 1) {
+  const entry = tally.get(group) ?? { pages: 0, violations: 0, scrolls: 0, wrongTheme: 0, checks: 0, failedChecks: 0 };
+  entry[field] += amount;
+  tally.set(group, entry);
+}
 
 /** The audit could not run (as opposed to the pages failing it): the message says what to do, no stack needed. */
 class AuditError extends Error {}
@@ -125,13 +158,31 @@ function describeViolation(violation) {
   };
 }
 
-/** Audits the page in its current state; `label` is "page · state", `mode` the width and whether scripts run. */
+/** The theme <html> is in, as the server rendered it (and the inline script, for "sistema", resolved it). */
+async function themeOf(page) {
+  const root = page.locator('html');
+  // Read through locators, not page.evaluate(): they also work where the page runs no scripts.
+  const [bootstrapTheme, choice] = await Promise.all([root.getAttribute('data-bs-theme'), root.getAttribute('data-jus-tema')]);
+
+  return { bootstrapTheme: bootstrapTheme ?? '', choice: choice ?? '' };
+}
+
+function describeTheme(theme) {
+  return `data-bs-theme="${theme.bootstrapTheme}", data-jus-tema="${theme.choice}"`;
+}
+
+/**
+ * Audits the page in its current state; `label` is "page · state", `mode` the theme, the width and whether scripts run.
+ * The page must be in the theme its browser context was made with.
+ */
 async function auditPage(page, label, mode, { expectedStatus, status } = {}) {
-  const [axeResults, scroll] = await Promise.all([runAxe(page), measureScroll(page)]);
+  const expectedTheme = contextThemes.get(page.context());
+  const [axeResults, scroll, theme] = await Promise.all([runAxe(page), measureScroll(page), themeOf(page)]);
   const violations = axeResults.violations.map(describeViolation);
   const overflow = scroll.scrollWidth > scroll.innerWidth;
   const statusWrong = expectedStatus !== undefined && status !== expectedStatus;
-  const entry = { label, mode, violations, scroll, overflow, status, statusWrong, review: axeResults.incomplete.map(describeIncomplete) };
+  const themeWrong = expectedTheme === undefined || theme.bootstrapTheme !== expectedTheme.bootstrapTheme || theme.choice !== expectedTheme.name;
+  const entry = { label, mode, violations, scroll, overflow, status, statusWrong, theme, themeWrong, review: axeResults.incomplete.map(describeIncomplete) };
 
   const problems = [];
   if (violations.length > 0) {
@@ -143,9 +194,17 @@ async function auditPage(page, label, mode, { expectedStatus, status } = {}) {
   if (statusWrong) {
     problems.push(`status ${String(status)}, expected ${String(expectedStatus)}`);
   }
+  if (themeWrong) {
+    const wanted = expectedTheme === undefined ? 'a context made for a theme' : `data-bs-theme="${expectedTheme.bootstrapTheme}", data-jus-tema="${expectedTheme.name}"`;
+    problems.push(`served with ${describeTheme(theme)}, expected ${wanted}`);
+  }
+  count('pages');
+  count('violations', violations.length);
+  count('scrolls', overflow ? 1 : 0);
+  count('wrongTheme', themeWrong ? 1 : 0);
 
-  const scrollText = `${String(axeResults.passes.length)} rules passed, scrollWidth ${String(scroll.scrollWidth)} <= ${String(scroll.innerWidth)}`;
-  log(`${problems.length === 0 ? 'ok  ' : 'FAIL'} ${mode.padEnd(10)} ${label}${problems.length === 0 ? `  (0 violations, ${scrollText})` : `  <- ${problems.join('; ')}`}`);
+  const scrollText = `${String(axeResults.passes.length)} rules passed, scrollWidth ${String(scroll.scrollWidth)} <= ${String(scroll.innerWidth)}, ${theme.bootstrapTheme}`;
+  log(`${problems.length === 0 ? 'ok  ' : 'FAIL'} ${mode.padEnd(26)} ${label}${problems.length === 0 ? `  (0 violations, ${scrollText})` : `  <- ${problems.join('; ')}`}`);
   for (const violation of violations) {
     log(`       ${violation.rule} (${violation.impact ?? 'n/a'}): ${violation.help}`);
     log(`       ${violation.helpUrl}`);
@@ -172,7 +231,9 @@ async function auditPage(page, label, mode, { expectedStatus, status } = {}) {
 
 function check(name, passed, detail = '') {
   log(`${passed ? 'ok  ' : 'FAIL'} ${name}${detail === '' ? '' : `  (${detail})`}`);
+  count('checks');
   if (!passed) {
+    count('failedChecks');
     findings.push({ label: name, check: true, detail });
   }
 
@@ -221,6 +282,16 @@ async function tabTo(page, matches, limit = 60) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Navigation helpers
 // ---------------------------------------------------------------------------------------------------------------------
+
+/** A browser context in a theme: the cookie is there before the first request, as if the person had chosen it earlier. */
+async function newThemedContext(browser, baseUrl, theme, options) {
+  const context = await browser.newContext({ ...options, colorScheme: theme.colorScheme });
+  context.setDefaultTimeout(TIMEOUT_MS);
+  await context.addCookies([{ name: THEME_COOKIE, value: theme.name, url: baseUrl }]);
+  contextThemes.set(context, theme);
+
+  return context;
+}
 
 async function open(page, baseUrl, path) {
   let response;
@@ -291,13 +362,12 @@ async function fillFiling(page, files) {
 // The audit with JavaScript on
 // ---------------------------------------------------------------------------------------------------------------------
 
-async function auditViewport(browser, baseUrl, viewport, state) {
-  const mode = `${viewport.name} px`;
+async function auditViewport(browser, baseUrl, theme, viewport, state) {
+  const mode = `${theme.name} ${viewport.name} px`;
   log('');
-  log(`== ${mode}, JavaScript on ==`);
+  log(`== ${theme.name} · ${viewport.name} px, JavaScript on ==`);
 
-  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
-  context.setDefaultTimeout(TIMEOUT_MS);
+  const context = await newThemedContext(browser, baseUrl, theme, { viewport: { width: viewport.width, height: viewport.height } });
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -342,7 +412,8 @@ async function auditViewport(browser, baseUrl, viewport, state) {
   check(`${mode}: a filing lands on the case page with its confirmation`, confirmed);
   await auditPage(page, 'case · after a filing (confirmation)', mode);
 
-  if (viewport.name === '1280') {
+  // Where the focus goes does not depend on the colours, so the keyboard pass (which files a petition) runs in one theme.
+  if (viewport.name === '1280' && theme === THEMES[0]) {
     await keyboardPass(page, baseUrl, caseHref, mode);
   }
 
@@ -381,30 +452,31 @@ async function auditViewport(browser, baseUrl, viewport, state) {
 async function keyboardPass(page, baseUrl, caseHref, mode) {
   log('');
   log(`-- keyboard pass (${mode}) --`);
+  const keyCheck = (name, passed, detail) => check(`${mode}, keyboard: ${name}`, passed, detail);
 
   // The skip link is the first stop and takes the focus to the main content.
   await open(page, baseUrl, caseHref);
   await page.keyboard.press('Tab');
   const first = await activeElement(page);
-  check('skip link: the first Tab stop is "Pular para o conteúdo"', first.tag === 'a' && first.label === 'Pular para o conteúdo', nameOf(first));
+  keyCheck('skip link: the first Tab stop is "Pular para o conteúdo"', first.tag === 'a' && first.label === 'Pular para o conteúdo', nameOf(first));
   await page.keyboard.press('Enter');
   const afterSkip = await activeElement(page);
-  check('skip link: Enter moves the focus to main#conteudo', afterSkip.id === 'conteudo', nameOf(afterSkip));
+  keyCheck('skip link: Enter moves the focus to main#conteudo', afterSkip.id === 'conteudo', nameOf(afterSkip));
 
   // The error summary after an empty submit.
   await open(page, baseUrl, `${caseHref}/peticionar`);
   const status = await submitEmptyFiling(page);
-  check('filing: an empty submit answers 422', status === 422, String(status));
+  keyCheck('filing: an empty submit answers 422', status === 422, String(status));
 
   const targets = await page.locator('#resumo-erros a').evaluateAll((links) => links.map((link) => link.getAttribute('href')?.slice(1) ?? ''));
-  check('filing: the error summary links to the three fields', targets.join(',') === 'filing_type,filing_description,filing_files', targets.join(','));
+  keyCheck('filing: the error summary links to the three fields', targets.join(',') === 'filing_type,filing_description,filing_files', targets.join(','));
   for (const target of targets) {
     await open(page, baseUrl, `${caseHref}/peticionar`);
     await submitEmptyFiling(page);
     await page.locator(`#resumo-erros a[href="#${target}"]`).focus();
     await page.keyboard.press('Enter');
     const focused = await activeElement(page);
-    check(`filing: Enter on the summary link to #${target} moves the focus to the field`, focused.id === target, nameOf(focused));
+    keyCheck(`filing: Enter on the summary link to #${target} moves the focus to the field`, focused.id === target, nameOf(focused));
   }
 
   // Tab order from the summary on: type, description, file input, submit.
@@ -418,7 +490,7 @@ async function keyboardPass(page, baseUrl, caseHref, mode) {
     ['the submit button', (element) => element.tag === 'button' && element.type === 'submit'],
   ]) {
     const visited = await tabTo(page, matches, 6);
-    check(`filing: Tab reaches ${label}`, visited !== null, visited === null ? '' : visited.map(nameOf).join(' > '));
+    keyCheck(`filing: Tab reaches ${label}`, visited !== null, visited === null ? '' : visited.map(nameOf).join(' > '));
   }
 
   // The remove buttons, after choosing files.
@@ -426,14 +498,14 @@ async function keyboardPass(page, baseUrl, caseHref, mode) {
   await page.setInputFiles('#filing_files', await samplePdfs('primeiro.pdf', 'segundo.pdf'));
   await page.locator('#filing_files').focus();
   const toRemove = await tabTo(page, (element) => element.tag === 'button' && element.label.startsWith('Remover'), 4);
-  check('filing: Tab goes from the file input to a "Remover" button', toRemove !== null, toRemove === null ? '' : toRemove.map(nameOf).join(' > '));
+  keyCheck('filing: Tab goes from the file input to a "Remover" button', toRemove !== null, toRemove === null ? '' : toRemove.map(nameOf).join(' > '));
   if (toRemove !== null) {
     await page.keyboard.press('Enter');
     const afterRemoval = await activeElement(page);
     const remaining = await page.locator('jus-upload li').count();
-    check('filing: Enter on "Remover" removes the file and keeps the focus on a "Remover" button', remaining === 1 && afterRemoval.label.startsWith('Remover'), `${String(remaining)} left, focus on ${nameOf(afterRemoval)}`);
+    keyCheck('filing: Enter on "Remover" removes the file and keeps the focus on a "Remover" button', remaining === 1 && afterRemoval.label.startsWith('Remover'), `${String(remaining)} left, focus on ${nameOf(afterRemoval)}`);
     const next = await tabTo(page, (element) => element.tag === 'button' && element.type === 'submit', 3);
-    check('filing: Tab then reaches the submit button', next !== null);
+    keyCheck('filing: Tab then reaches the submit button', next !== null);
   }
 
   // Closing the confirmation of a filing from the keyboard keeps the focus near it.
@@ -443,13 +515,13 @@ async function keyboardPass(page, baseUrl, caseHref, mode) {
   await Promise.all([page.waitForURL(/aba=movimentacoes/), page.keyboard.press('Enter')]);
   await page.waitForLoadState('load');
   const closeButton = page.locator('#andamento ~ .alert-success button.btn-close');
-  check('filing: submitting with Enter lands on the case page with the confirmation', (await closeButton.count()) === 1);
+  keyCheck('filing: submitting with Enter lands on the case page with the confirmation', (await closeButton.count()) === 1);
   if ((await closeButton.count()) === 1) {
     await closeButton.focus();
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('#andamento ~ .alert-success') === null);
     const landed = await activeElement(page);
-    check('alert: closing the confirmation with Enter keeps the focus in the page (on #andamento, not at the top)', landed.id === 'andamento', nameOf(landed));
+    keyCheck('alert: closing the confirmation with Enter keeps the focus in the page (on #andamento, not at the top)', landed.id === 'andamento', nameOf(landed));
   }
 }
 
@@ -465,8 +537,10 @@ async function keyboardPass(page, baseUrl, caseHref, mode) {
 async function auditAsServed(plain, views, label, { status, expectedStatus } = {}) {
   const url = plain.url().split('#')[0];
   // A browser with scripting off treats what is inside <noscript> as markup, and serializes it so; a page that runs scripts
-  // would take it for text. Unwrapping it keeps the styles that exist for the no-JS case in effect.
-  const html = (await plain.content()).replace(/<\/?noscript[^>]*>/g, '');
+  // would take it for text. Unwrapping it keeps the styles that exist for the no-JS case in effect. The inline scripts of
+  // the page (the theme script of the head, the one that folds the search filters on a phone) go, for the same reason as
+  // the bundle: a browser with scripting off never runs them, and the filters, say, stay open there.
+  const html = (await plain.content()).replace(/<\/?noscript[^>]*>/g, '').replace(/<script(?![^>]*\ssrc=)[^>]*>[\s\S]*?<\/script>/g, '');
   // The same matcher and handler that added the route remove it: unrouting by the URL would not find a route made with a function.
   const matches = (candidate) => candidate.href === url;
   const serve = (route) => route.fulfill({ status: status ?? 200, contentType: 'text/html; charset=utf-8', body: html });
@@ -474,7 +548,7 @@ async function auditAsServed(plain, views, label, { status, expectedStatus } = {
     await view.page.route(matches, serve);
     try {
       await view.page.goto(url, { waitUntil: 'load' });
-      await auditPage(view.page, label, `${view.name} px, as served`, { expectedStatus, status });
+      await auditPage(view.page, label, `${view.mode}, as served`, { expectedStatus, status });
     } finally {
       await view.page.unroute(matches, serve);
     }
@@ -503,7 +577,7 @@ async function settledBox(locator) {
  * With scripts really off, at each width: every link of the main navigation lies inside the window, by the box it
  * occupies (a panel that is "visible" but slid out of the window does not pass). The window goes back to desktop size.
  */
-async function checkMenuInsideWindow(page) {
+async function checkMenuInsideWindow(page, mode) {
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const links = await page.locator('#menu-principal a.nav-link').all();
@@ -518,7 +592,7 @@ async function checkMenuInsideWindow(page) {
       }
     }
     check(
-      `no JS, ${viewport.name} px: the main navigation links (${String(links.length)}) are inside the window`,
+      `${mode}, ${viewport.name} px: the main navigation links (${String(links.length)}) are inside the window`,
       links.length >= 3 && outside.length === 0,
       outside.join('; '),
     );
@@ -526,37 +600,38 @@ async function checkMenuInsideWindow(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 
-async function auditWithoutScripts(browser, baseUrl, state) {
-  const mode = 'no JS';
+async function auditWithoutScripts(browser, baseUrl, theme, state) {
+  const mode = `${theme.name}, no JS`;
+  const noScriptCheck = (name, passed, detail) => check(`${mode}: ${name}`, passed, detail);
   log('');
-  log(`== ${mode} (javaScriptEnabled: false, 1280 px; the served pages also at 375 px) ==`);
+  log(`== ${theme.name} · no JS (javaScriptEnabled: false, 1280 px; the served pages also at 375 px) ==`);
 
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, javaScriptEnabled: false });
-  context.setDefaultTimeout(TIMEOUT_MS);
+  const context = await newThemedContext(browser, baseUrl, theme, { viewport: { width: 1280, height: 800 }, javaScriptEnabled: false });
   const plain = await context.newPage();
 
+  // The views get the page from the context without scripts, but they are made for the theme too: what they audit must
+  // be in it.
   const views = [];
   for (const viewport of VIEWPORTS) {
-    const viewContext = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
-    viewContext.setDefaultTimeout(TIMEOUT_MS);
+    const viewContext = await newThemedContext(browser, baseUrl, theme, { viewport: { width: viewport.width, height: viewport.height } });
     await viewContext.route('**/build/**/*.js', (route) => route.abort());
-    views.push({ name: viewport.name, context: viewContext, page: await viewContext.newPage() });
+    views.push({ mode: `${theme.name} ${viewport.name} px`, context: viewContext, page: await viewContext.newPage() });
   }
 
   let status = await open(plain, baseUrl, '/login');
-  check('no JS: the sign-in page responds with its form', status === 200 && (await plain.locator('form[action$="/login"] button[type="submit"]').count()) === 1, String(status));
+  noScriptCheck('the sign-in page responds with its form', status === 200 && (await plain.locator('form[action$="/login"] button[type="submit"]').count()) === 1, String(status));
   await auditAsServed(plain, views, 'login (signed out)', { expectedStatus: 200, status });
   await signIn(plain, baseUrl);
-  check('no JS: signing in with the plain form works', plain.url().includes('/processos'), plain.url());
+  noScriptCheck('signing in with the plain form works', plain.url().includes('/processos'), plain.url());
 
   // Search: a plain GET form.
   status = await open(plain, baseUrl, '/processos');
   await auditAsServed(plain, views, 'search · results', { expectedStatus: 200, status });
-  await checkMenuInsideWindow(plain);
+  await checkMenuInsideWindow(plain, mode);
   await plain.fill('#parte', 'zzzz-ninguem');
   await Promise.all([plain.waitForURL(/parte=zzzz/), plain.click('form[role="search"] button[type="submit"]')]);
   const empty = await plain.getByText('Nenhum processo encontrado.').count();
-  check('no JS: the search form filters by party and says when nothing was found', empty > 0, plain.url());
+  noScriptCheck('the search form filters by party and says when nothing was found', empty > 0, plain.url());
   await auditAsServed(plain, views, 'search · no results');
 
   // Tabs: plain links.
@@ -564,10 +639,10 @@ async function auditWithoutScripts(browser, baseUrl, state) {
   status = await open(plain, baseUrl, caseHref);
   await auditAsServed(plain, views, 'case · Movimentações', { expectedStatus: 200, status });
   await Promise.all([plain.waitForURL(/aba=documentos/), plain.getByRole('link', { name: 'Documentos' }).click()]);
-  check('no JS: the Documentos tab is a link and shows the documents table', (await plain.locator('table').count()) > 0, plain.url());
+  noScriptCheck('the Documentos tab is a link and shows the documents table', (await plain.locator('table').count()) > 0, plain.url());
   await auditAsServed(plain, views, 'case · Documentos');
   await Promise.all([plain.waitForURL(/aba=movimentacoes/), plain.getByRole('link', { name: 'Movimentações' }).click()]);
-  check('no JS: the Movimentações tab is a link and shows the timeline', (await plain.locator('.jus-timeline-event').count()) > 0, plain.url());
+  noScriptCheck('the Movimentações tab is a link and shows the timeline', (await plain.locator('.jus-timeline-event').count()) > 0, plain.url());
 
   // Filing: a plain multipart POST, the whole way.
   status = await open(plain, baseUrl, `${caseHref}/peticionar`);
@@ -576,7 +651,7 @@ async function auditWithoutScripts(browser, baseUrl, state) {
   await Promise.all([plain.waitForURL(/aba=movimentacoes/), plain.click('form[data-jus-submit-once] button[type="submit"]')]);
   await plain.waitForLoadState('load');
   const confirmation = await plain.getByText('Petição juntada ao processo.').count();
-  check('no JS: a whole filing succeeds and lands on the case page with the confirmation', confirmation > 0 && plain.url().includes('#andamento'), plain.url());
+  noScriptCheck('a whole filing succeeds and lands on the case page with the confirmation', confirmation > 0 && plain.url().includes('#andamento'), plain.url());
   await auditAsServed(plain, views, 'case · after a filing (confirmation)');
 
   status = await open(plain, baseUrl, '/design-system');
@@ -586,6 +661,152 @@ async function auditWithoutScripts(browser, baseUrl, state) {
     await view.context.close();
   }
   await context.close();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The theme switcher: choosing a theme applies it and keeps it on reload, with and without JavaScript
+// ---------------------------------------------------------------------------------------------------------------------
+
+/**
+ * The button of a theme in the switcher of the navbar. On a phone the switcher is in the off-canvas menu, which a script
+ * opens first; without scripts the menu is already shown as a block under the brand (the <noscript> style of the layout).
+ */
+async function themeButton(page, value) {
+  const button = page.locator(`form[data-jus-theme-switcher] button[name="tema"][value="${value}"]`);
+  if (!(await button.isVisible())) {
+    await page.click('button.navbar-toggler');
+    await page.waitForSelector('#menu-principal.show');
+    await page.waitForFunction(() => !document.querySelector('#menu-principal').classList.contains('showing'));
+  }
+
+  return button;
+}
+
+function isThemePost(response) {
+  return response.request().method() === 'POST' && new URL(response.url()).pathname === '/tema';
+}
+
+/** The page is in the theme, and the switcher says so: the one pressed button is the choice. */
+async function checkShownTheme(page, name, expected) {
+  const theme = await themeOf(page);
+  const pressed = page.locator('form[data-jus-theme-switcher] button[name="tema"][aria-pressed="true"]');
+  const pressedValues = await Promise.all((await pressed.all()).map((button) => button.getAttribute('value')));
+  check(
+    name,
+    theme.bootstrapTheme === expected.bootstrapTheme && theme.choice === expected.choice && pressedValues.join(',') === expected.choice,
+    `${describeTheme(theme)}, pressed: ${pressedValues.join(',') || 'none'}`,
+  );
+}
+
+/** The cookie the switch left: the choice, HttpOnly, SameSite=Lax, for a year; and no other cookie (a visitor gets no session). */
+async function checkThemeCookie(context, name, value) {
+  const cookies = await context.cookies();
+  const cookie = cookies.find((candidate) => candidate.name === THEME_COOKIE);
+  const others = cookies.filter((candidate) => candidate.name !== THEME_COOKIE).map((candidate) => candidate.name);
+  const days = cookie === undefined ? 0 : (cookie.expires * 1000 - Date.now()) / 86_400_000;
+  check(
+    name,
+    cookie?.value === value && cookie.httpOnly && cookie.sameSite === 'Lax' && cookie.path === '/' && days > 364 && days < 367 && others.length === 0,
+    cookie === undefined ? 'no cookie' : `${cookie.value}, httpOnly ${String(cookie.httpOnly)}, ${cookie.sameSite}, ${String(Math.round(days))} days${others.length > 0 ? `; also ${others.join(', ')}` : ''}`,
+  );
+}
+
+const SYSTEM_LIGHT = { bootstrapTheme: 'light', choice: 'sistema' };
+const DARK = { bootstrapTheme: 'dark', choice: 'escuro' };
+
+/**
+ * With scripts: the click changes the page at once (no page load) and the choice is saved in the background (204); the
+ * reloaded page comes from the server in that theme. Then "Sistema" again, which the browser (told to prefer light)
+ * resolves to the light theme, and the context is thrown away: nothing is left behind.
+ */
+async function switchWithScripts(browser, baseUrl, viewport) {
+  const mode = `switcher, JS, ${viewport.name} px`;
+  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light' });
+  context.setDefaultTimeout(TIMEOUT_MS);
+  try {
+    const page = await context.newPage();
+    await open(page, baseUrl, SWITCHER_PAGE);
+    await checkShownTheme(page, `${mode}: without the cookie the page follows the system (light here)`, SYSTEM_LIGHT);
+
+    for (const [value, expected, announcement] of [
+      ['escuro', DARK, 'Tema escuro aplicado.'],
+      ['sistema', SYSTEM_LIGHT, 'Tema do sistema aplicado.'],
+    ]) {
+      const button = await themeButton(page, value);
+      await page.evaluate(() => {
+        window.jusAuditMark = true;
+      });
+      const saved = page.waitForResponse(isThemePost);
+      await button.click();
+      await checkShownTheme(page, `${mode}: "${value}" is applied at once`, expected);
+      const response = await saved;
+      const stayed = await page.evaluate(() => window.jusAuditMark === true);
+      check(`${mode}: "${value}" is saved in the background (204), without leaving the page`, response.status() === 204 && stayed, `${String(response.status())}, ${stayed ? 'same page' : 'the page was loaded again'}`);
+      let said = true;
+      try {
+        await page.waitForFunction((text) => document.querySelector('[data-jus-theme-status]')?.textContent === text, announcement, { timeout: 2_000 });
+      } catch {
+        said = false;
+      }
+      check(`${mode}: "${value}" is announced ("${announcement}")`, said);
+      await checkThemeCookie(context, `${mode}: "${value}" is kept in the cookie`, value);
+
+      await page.reload({ waitUntil: 'load' });
+      await checkShownTheme(page, `${mode}: "${value}" is still there after a reload`, expected);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * Without scripts: the button posts the form, the server answers 303 back to the same page, which comes in the theme;
+ * a reload keeps it. Then "Sistema" again, which without scripts is the light theme.
+ */
+async function switchWithoutScripts(browser, baseUrl, viewport) {
+  const mode = `switcher, no JS, ${viewport.name} px`;
+  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light', javaScriptEnabled: false });
+  context.setDefaultTimeout(TIMEOUT_MS);
+  try {
+    const page = await context.newPage();
+    await open(page, baseUrl, SWITCHER_PAGE);
+    await checkShownTheme(page, `${mode}: without the cookie the page is light`, SYSTEM_LIGHT);
+
+    for (const [value, expected] of [
+      ['escuro', DARK],
+      ['sistema', SYSTEM_LIGHT],
+    ]) {
+      const button = await themeButton(page, value);
+      const posted = page.waitForResponse(isThemePost);
+      await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), button.click()]);
+      const response = await posted;
+      const location = response.headers().location ?? '';
+      const back = new URL(page.url());
+      check(
+        `${mode}: "${value}" posts the form and comes back to the same page (303)`,
+        response.status() === 303 && location === SWITCHER_PAGE && `${back.origin}${back.pathname}${back.search}` === `${baseUrl}${SWITCHER_PAGE}`,
+        `${String(response.status())} to ${location}, ended on ${page.url()}`,
+      );
+      await checkShownTheme(page, `${mode}: the page comes back in "${value}"`, expected);
+      await checkThemeCookie(context, `${mode}: "${value}" is kept in the cookie`, value);
+
+      await page.reload({ waitUntil: 'load' });
+      await checkShownTheme(page, `${mode}: "${value}" is still there after a reload`, expected);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkThemeSwitcher(browser, baseUrl) {
+  log('');
+  log(`== theme switcher (a visitor on ${SWITCHER_PAGE}, in a browser that prefers light; a fresh browser context each) ==`);
+  for (const viewport of VIEWPORTS) {
+    await switchWithScripts(browser, baseUrl, viewport);
+  }
+  for (const viewport of VIEWPORTS) {
+    await switchWithoutScripts(browser, baseUrl, viewport);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -610,17 +831,29 @@ async function main() {
   const browser = await launchChrome();
   const state = {};
   try {
-    for (const viewport of VIEWPORTS) {
-      await auditViewport(browser, baseUrl, viewport, state);
+    for (const theme of THEMES) {
+      group = theme.name;
+      for (const viewport of VIEWPORTS) {
+        await auditViewport(browser, baseUrl, theme, viewport, state);
+      }
+      await auditWithoutScripts(browser, baseUrl, theme, state);
     }
-    await auditWithoutScripts(browser, baseUrl, state);
+    group = 'theme switcher';
+    await checkThemeSwitcher(browser, baseUrl);
   } finally {
     await browser.close();
   }
 
   log('');
+  log('Summary');
+  for (const [name, entry] of tally) {
+    const pages = entry.pages === 0 ? '' : `${String(entry.pages)} pages audited (${String(entry.violations)} violations, ${String(entry.scrolls)} horizontal scrolls, ${String(entry.wrongTheme)} in the wrong theme); `;
+    log(`  ${`${name}:`.padEnd(16)} ${pages}${String(entry.checks)} checks, ${String(entry.failedChecks)} failed`);
+  }
+
+  log('');
   if (findings.length === 0) {
-    log('Audit clean: no violation, no horizontal scroll, every check passed.');
+    log('Audit clean: no violation, no horizontal scroll, every page in its theme, every check passed.');
 
     return 0;
   }
