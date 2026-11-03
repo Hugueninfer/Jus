@@ -282,6 +282,51 @@ function errorPage(tone: string): string {
 
 const ERROR_TONES = ['info', 'warning', 'danger'];
 
+/** A card of the results, as <twig:CaseCard> renders it (in short). */
+function caseCard(number: string): string {
+  return `
+    <li class="col-12 col-xl-6">
+      <article class="card jus-surface jus-case-card h-100"><div class="card-body">
+        <h3 class="h6 mb-0 font-monospace"><a href="#${number}" class="stretched-link">${number}</a></h3>
+        <p class="mb-1 fw-semibold">Procedimento Comum Cível</p>
+      </div></article>
+    </li>`;
+}
+
+/** The search as templates/case/search.html.twig renders it, with two filters in use and three cards. */
+const SEARCH = `
+  <main id="conteudo" class="container py-4">
+    <h1 class="h2 mb-3">Processos</h1>
+    <div class="row g-4 jus-search">
+      <div class="col-12 col-lg-4 col-xxl-3 jus-search-filters">
+        <details class="jus-filters" open data-jus-filters-active="true">
+          <summary><i class="bi bi-funnel" aria-hidden="true"></i> Filtrar · 2 filtros<i class="bi bi-chevron-down jus-filters-chevron" aria-hidden="true"></i></summary>
+          <form method="get" class="jus-surface jus-filters-form" role="search" aria-label="Buscar processos">
+            <div class="mb-3"><label class="form-label" for="parte">Nome da parte</label><input class="form-control" id="parte" name="parte" value="maria"></div>
+            <div class="mb-3"><label class="form-label" for="status">Status</label><select class="form-select" id="status" name="status"><option value="active" selected>Em andamento</option></select></div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <button type="submit" class="btn btn-primary">Buscar</button>
+              <a class="btn btn-link" href="#limpar">Limpar</a>
+            </div>
+          </form>
+        </details>
+      </div>
+      <div class="col-12 col-lg-8 col-xxl-9 jus-search-results">
+        <h2 class="h4" id="resultados" tabindex="-1">3 processos encontrados</h2>
+        <ul class="list-unstyled row g-3 jus-case-list" role="list">
+          ${caseCard('0000001-39.2024.8.26.0100')}${caseCard('0000002-14.2024.8.26.0100')}${caseCard('0000003-86.2024.8.26.0100')}
+        </ul>
+      </div>
+    </div>
+  </main>`;
+
+/** How many cards of the results share the first row. */
+function cardsInTheFirstRow(page: ParentNode): number {
+  const cards = Array.from(page.querySelectorAll('.jus-case-list > li'), (card) => card.getBoundingClientRect().top);
+
+  return cards.filter((top) => top === cards[0]).length;
+}
+
 beforeEach(() => {
   style = document.createElement('style');
   style.textContent = appCss;
@@ -874,6 +919,33 @@ describe.each(THEMES)('the %s theme, with the whole stylesheet', (theme) => {
     });
   });
 
+  describe('the search', () => {
+    it('draws the summary of the filters as a button below lg: a boundary at 3:1 or more on the page, a legible label', async () => {
+      await atWidth(375, () => {
+        const summary = find(mount(SEARCH), '.jus-filters > summary');
+
+        expect(css(summary, 'display')).toBe('flex');
+        expect(css(summary, 'cursor')).toBe('pointer');
+        sameColor(css(summary, 'background-color'), rootToken('--jus-color-surface'));
+        sameColor(css(summary, 'border-top-color'), rootToken('--jus-color-text-muted'));
+        expect(contrastRatio(css(summary, 'border-top-color'), rootToken('--jus-color-page'))).toBeGreaterThanOrEqual(CONTROL);
+        expect(contrastOfText(summary)).toBeGreaterThanOrEqual(TEXT);
+      });
+    });
+
+    it('puts the form of the filters on a surface card', () => {
+      const form = find(mount(SEARCH), '.jus-filters form');
+
+      sameColor(css(form, 'background-color'), rootToken('--jus-color-surface'));
+      expect(css(form, 'border-top-left-radius')).toBe('12px');
+      expect(css(form, 'box-shadow')).toBe(computed('box-shadow', '--jus-shadow-card'));
+    });
+
+    it('has no accessibility violations, with the real palette', async () => {
+      await expectNoAxeViolations(mount(SEARCH));
+    });
+  });
+
   it('keeps the focus ring at 3:1 or more against the surfaces around it', () => {
     const ring = rootToken('--jus-focus-ring');
 
@@ -967,6 +1039,71 @@ describe('the layout of the error pages', () => {
       }
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
     });
+  });
+});
+
+describe('the layout of the search', () => {
+  it('sets the filters beside the results from lg up, the summary of the open panel hidden, one card a row in lg', async () => {
+    await atWidth(1024, () => {
+      const page = mount(SEARCH);
+      const filters = find(page, '.jus-search-filters form').getBoundingClientRect();
+      const results = find(page, '.jus-search-results').getBoundingClientRect();
+
+      expect(css(find(page, '.jus-filters > summary'), 'display')).toBe('none');
+      expect(filters.right).toBeLessThanOrEqual(results.left);
+      expect(filters.top).toBeLessThanOrEqual(results.top);
+      expect(filters.width).toBeLessThan(results.width);
+      expect(cardsInTheFirstRow(page)).toBe(1);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('lays the cards out two a row from xl up', async () => {
+    await atWidth(1280, () => {
+      expect(cardsInTheFirstRow(mount(SEARCH))).toBe(2);
+    });
+  });
+
+  it('keeps the summary of a folded panel from lg up, so that it can be opened (the behaviour opens it there anyway)', async () => {
+    await atWidth(1280, () => {
+      const panel = required(mount(SEARCH).querySelector<HTMLDetailsElement>('.jus-filters'));
+      panel.open = false;
+
+      expect(css(find(panel, 'summary'), 'display')).toBe('flex');
+    });
+  });
+
+  it('puts the summary and the filters above the results below lg, as wide as they are, without a sideways scroll', async () => {
+    await atWidth(375, () => {
+      const page = mount(SEARCH);
+      const summary = find(page, '.jus-filters > summary').getBoundingClientRect();
+      const form = find(page, '.jus-filters form').getBoundingClientRect();
+      const results = find(page, '.jus-search-results h2').getBoundingClientRect();
+
+      expect(summary.bottom).toBeLessThan(form.top);
+      expect(form.bottom).toBeLessThan(results.top);
+      expect([summary.left, summary.width]).toEqual([form.left, form.width]);
+      expect(cardsInTheFirstRow(page)).toBe(1);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  it('turns the chevron of the summary with the panel, without the animation when motion is reduced', async () => {
+    const panel = required(mount(SEARCH).querySelector<HTMLDetailsElement>('.jus-filters'));
+    const chevron = find(panel, '.jus-filters-chevron');
+
+    expect(css(chevron, 'transform')).not.toBe('none');
+    expect(Number.parseFloat(css(chevron, 'transition-duration'))).toBeGreaterThan(0);
+    panel.open = false;
+    settle(chevron);
+    expect(css(chevron, 'transform')).toBe('none');
+
+    await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    try {
+      expect(css(chevron, 'transition-duration')).toBe('0s');
+    } finally {
+      await cdp().send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: '' }] });
+    }
   });
 });
 
