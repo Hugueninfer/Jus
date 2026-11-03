@@ -2,24 +2,88 @@
 
 // Single source of the design values. Bootstrap variables and the --jus-* custom properties derive from it.
 
+// Hues that do not change with the theme: the brand colours Bootstrap names (buttons, solid badges, the navbar).
 $colors: (
-  'primary': #1f4e79,
   'secondary': #4b5563,
   'success': #1e7a46,
   'warning': #b45309,
   'danger': #b42318,
   'info': #0e7490,
-  'light': #f3f4f6,
   'dark': #111827,
-  'body': #1f2937,
-  'muted': #646b78,
-  'border': #d1d5db,
-  'surface': #fff,
-  'surface-alt': #f9fafb,
 );
+
+// The colour roles, in a light and a dark theme. Every foreground/background pair below is measured by
+// assets/styles/tokens/palette.test.ts (text 4.5:1, control boundaries 3:1) in both themes.
+//   page          the page behind everything
+//   surface       cards, panels, form fields and the navbar
+//   border        hairlines between and around surfaces (decoration; a control's boundary uses text-muted)
+//   text          body text;  text-muted: secondary text, and the border of a button (3:1 on page and surface)
+//   primary       links, actions and the pressed state;  on-primary: the label on a primary fill
+//   <status>-bg   the tinted fill of a badge or alert;  <status>-text: its label, the same hue, dark (light) or pale (dark)
+$themes: (
+  'light': (
+    'page': #f4f6f9,
+    'surface': #fff,
+    'border': #e5e7eb,
+    'text': #111827,
+    'text-muted': #586170,
+    'primary': #1f4e79,
+    'on-primary': #fff,
+    'success-bg': #dcf3e4,
+    'success-text': #14612f,
+    'warning-bg': #fcefd0,
+    'warning-text': #7a4108,
+    'danger-bg': #fde3e0,
+    'danger-text': #9b1c12,
+    'info-bg': #dcf0f7,
+    'info-text': #0b5a70,
+    'neutral-bg': #e8ecf1,
+    'neutral-text': #374151,
+  ),
+  'dark': (
+    'page': #0f1722,
+    'surface': #141e2b,
+    'border': #243244,
+    'text': #e8edf3,
+    'text-muted': #9aa7b7,
+    'primary': #7fb2e5,
+    'on-primary': #0f1722,
+    'success-bg': #12301f,
+    'success-text': #7fdba5,
+    'warning-bg': #3a2a0c,
+    'warning-text': #f2c46b,
+    'danger-bg': #3d1814,
+    'danger-text': #f5a198,
+    'info-bg': #0f2f3a,
+    'info-text': #7fcce0,
+    'neutral-bg': #233042,
+    'neutral-text': #c5cfdb,
+  ),
+);
+
+// The names the components used before the themes existed (--jus-color-body, ...). Each one stays defined, now as an
+// alias of a themed role, so no component has to change with the palette.
+$aliases: (
+  'body': 'text',
+  'muted': 'text-muted',
+  'light': 'neutral-bg',
+  'surface-alt': 'neutral-bg',
+);
+
+// Type: Inter first, the system fonts behind it while it loads and for the characters it lacks; the monospace stack is the system's.
 $font-families: (
-  'base': (system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif),
+  'base': ('Inter Variable', system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif),
   'mono': (ui-monospace, sfmono-regular, menlo, consolas, monospace),
+);
+$font-sizes: (
+  'page-title': 1.75rem,
+  'section-title': 1.25rem,
+  'small': 0.875rem,
+);
+$font-weights: (
+  'regular': 400,
+  'medium': 500,
+  'semibold': 600,
 );
 $spaces: (
   1: 0.25rem,
@@ -29,20 +93,29 @@ $spaces: (
   5: 3rem,
 );
 $radii: (
-  'sm': 0.25rem,
-  'base': 0.375rem,
-  'lg': 0.5rem,
+  'sm': 0.375rem,
+  'base': 0.5rem,
+  'lg': 0.75rem,
 );
+
+// Soft on the light theme. On the dark one shadows are all but invisible, so the card takes a 1px border instead.
 $shadows: (
-  'sm': 0 1px 2px rgb(17 24 39 / 8%),
+  'sm': 0 1px 2px rgb(17 24 39 / 6%),
   'base': 0 2px 6px rgb(17 24 39 / 12%),
+  'card': (0 1px 3px rgb(17 24 39 / 8%), 0 4px 12px rgb(17 24 39 / 6%)),
+);
+$shadows-dark: (
+  'sm': 0 1px 2px rgb(0 0 0 / 30%),
+  'base': 0 4px 12px rgb(0 0 0 / 40%),
+  'card': 0 0 0 1px map.get($themes, 'dark', 'border'),
 );
 
 // Keyboard focus ring: solid, so it keeps at least 3:1 against the surface around it (WCAG 1.4.11).
-// 'color' is for light surfaces, 'color-inverse' for dark ones (the primary navbar and its off-canvas menu).
+// 'color' is for light surfaces; 'color-inverse' for dark ones (the dark theme, the primary navbar and its off-canvas
+// menu, the skip link).
 $focus: (
   'width': 0.2rem,
   'offset': 0.125rem,
-  'color': map.get($colors, 'primary'),
-  'color-inverse': map.get($colors, 'surface'),
+  'color': map.get($themes, 'light', 'primary'),
+  'color-inverse': #fff,
 );

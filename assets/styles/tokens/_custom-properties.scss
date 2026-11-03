@@ -1,7 +1,32 @@
+@use 'sass:map';
 @use 'sass:meta';
 @use 'tokens' as t;
 
 // The tokens as CSS custom properties: the only styling hook that crosses the Shadow DOM of the Web Components.
+// The values that change with the theme are written for each colour mode, light on :root and dark on
+// [data-bs-theme='dark'], the attribute Bootstrap 5.3 uses for its colour modes. The old names (--jus-color-body, ...)
+// are written out for each mode too, not defined as var() aliases once on :root: a custom property that refers to
+// another is resolved where it is declared, so a nested [data-bs-theme] scope would otherwise keep the page's colours.
+@mixin theme($name, $shadows) {
+  @each $role, $value in map.get(t.$themes, $name) {
+    --jus-color-#{$role}: #{$value};
+  }
+
+  @each $alias, $role in t.$aliases {
+    --jus-color-#{$alias}: #{map.get(t.$themes, $name, $role)};
+  }
+
+  @each $shadow, $value in $shadows {
+    --jus-shadow-#{$shadow}: #{$value};
+  }
+}
+
+:root,
+[data-bs-theme='light'] {
+  @include theme('light', t.$shadows);
+}
+
+// Everything that does not depend on the colour mode.
 :root {
   @each $name, $value in t.$colors {
     --jus-color-#{$name}: #{$value};
@@ -9,6 +34,14 @@
 
   @each $name, $value in t.$font-families {
     --jus-font-#{$name}: #{meta.inspect($value)};
+  }
+
+  @each $name, $value in t.$font-sizes {
+    --jus-font-size-#{$name}: #{$value};
+  }
+
+  @each $name, $value in t.$font-weights {
+    --jus-font-weight-#{$name}: #{$value};
   }
 
   @each $step, $value in t.$spaces {
@@ -19,11 +52,12 @@
     --jus-radius-#{$name}: #{$value};
   }
 
-  @each $name, $value in t.$shadows {
-    --jus-shadow-#{$name}: #{$value};
-  }
-
   @each $name, $value in t.$focus {
     --jus-focus-#{$name}: #{$value};
   }
+}
+
+// After the light block, which it ties with in specificity.
+[data-bs-theme='dark'] {
+  @include theme('dark', t.$shadows-dark);
 }
