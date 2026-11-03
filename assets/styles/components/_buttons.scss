@@ -1,0 +1,33 @@
+// Buttons follow the theme through the tokens. Bootstrap compiles each variant with fixed colours: .btn-primary would
+// stay the brand blue on the dark theme (about 2:1 against the dark page), so its custom properties are set here instead.
+// Radius (base) and padding come from _bootstrap-config.scss.
+.btn-primary {
+  --bs-btn-color: var(--jus-color-on-primary);
+  --bs-btn-bg: var(--jus-color-primary);
+  --bs-btn-border-color: var(--jus-color-primary);
+  --bs-btn-hover-color: var(--jus-color-on-primary);
+  --bs-btn-hover-bg: var(--jus-color-primary-hover);
+  --bs-btn-hover-border-color: var(--jus-color-primary-hover);
+  --bs-btn-active-color: var(--jus-color-on-primary);
+  --bs-btn-active-bg: var(--jus-color-primary-hover);
+  --bs-btn-active-border-color: var(--jus-color-primary-hover);
+  --bs-btn-disabled-color: var(--jus-color-on-primary);
+  --bs-btn-disabled-bg: var(--jus-color-primary);
+  --bs-btn-disabled-border-color: var(--jus-color-primary);
+}
+
+// The quiet button: the label in the text colour and the boundary in the muted one (3:1 or more), a neutral fill under
+// the pointer and while pressed.
+.btn-outline-secondary {
+  --bs-btn-color: var(--jus-color-text);
+  --bs-btn-border-color: var(--jus-color-text-muted);
+  --bs-btn-hover-color: var(--jus-color-text);
+  --bs-btn-hover-bg: var(--jus-color-neutral-bg);
+  --bs-btn-hover-border-color: var(--jus-color-text-muted);
+  --bs-btn-active-color: var(--jus-color-text);
+  --bs-btn-active-bg: var(--jus-color-neutral-bg);
+  --bs-btn-active-border-color: var(--jus-color-text);
+  --bs-btn-disabled-color: var(--jus-color-text-muted);
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: var(--jus-color-border);
+}

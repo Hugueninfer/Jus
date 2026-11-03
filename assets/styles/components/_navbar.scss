@@ -1,0 +1,63 @@
+// The navbar: the surface colour with a line below it, in both themes. The links are in the text colour, and the current
+// section in the primary colour and underlined, so that the colour is not the only sign of it. Bootstrap's navbar reads
+// its colours from these custom properties, the off-canvas menu of a phone included.
+.jus-navbar {
+  --bs-navbar-color: var(--jus-color-text);
+  --bs-navbar-hover-color: var(--jus-color-primary);
+  --bs-navbar-active-color: var(--jus-color-primary);
+  --bs-navbar-brand-color: var(--jus-color-text);
+  --bs-navbar-brand-hover-color: var(--jus-color-text);
+
+  // The menu button is a control: its boundary is the muted colour (3:1 or more), like the other buttons.
+  --bs-navbar-toggler-border-color: var(--jus-color-text-muted);
+
+  background-color: var(--jus-color-surface);
+  border-block-end: 1px solid var(--jus-color-border);
+
+  .nav-link.active {
+    text-decoration-line: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: var(--jus-space-1);
+  }
+}
+
+// The brand: a square mark with the initial, in the primary colour, and the name.
+.jus-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jus-space-2);
+  font-weight: var(--jus-font-weight-semibold);
+}
+
+.jus-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--jus-radius-sm);
+  background-color: var(--jus-color-primary);
+  color: var(--jus-color-on-primary);
+  font-weight: var(--jus-font-weight-semibold);
+  line-height: 1;
+}
+
+// The person signed in: an avatar with the initials (for the eye; the name beside it is what is read) and the name.
+.jus-user {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jus-space-2);
+}
+
+.jus-avatar {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  background-color: var(--jus-color-info-bg);
+  color: var(--jus-color-info-text);
+  font-size: var(--jus-font-size-small);
+  font-weight: var(--jus-font-weight-semibold);
+  line-height: 1;
+}

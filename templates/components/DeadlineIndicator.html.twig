@@ -1,8 +1,9 @@
 {% set assessment = this.assessment %}
 {% set urgency = assessment.urgency.value %}
-{% set variant = {on_track: 'success', warning: 'warning', due_today: 'danger', overdue: 'danger', fulfilled: 'secondary'}[urgency] %}
+{# A pill in the tinted tone of the urgency (assets/styles/components/_badges.scss), with an icon and the text. #}
+{% set tone = {on_track: 'success', warning: 'warning', due_today: 'danger', overdue: 'danger', fulfilled: 'neutral'}[urgency] %}
 {% set icon = {on_track: 'bi-calendar-check', warning: 'bi-hourglass-split', due_today: 'bi-exclamation-octagon', overdue: 'bi-exclamation-triangle', fulfilled: 'bi-check2-circle'}[urgency] %}
-<span {{ attributes.defaults({class: 'badge text-bg-' ~ variant, 'data-urgency': urgency}) }}>
+<span {{ attributes.defaults({class: 'badge rounded-pill jus-badge jus-badge-' ~ tone, 'data-urgency': urgency}) }}>
     <i class="bi {{ icon }}" aria-hidden="true"></i>
     {% if urgency == 'fulfilled' %}
         Cumprido em {{ deadline.fulfilledAt|date('d/m/Y') }}

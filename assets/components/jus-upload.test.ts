@@ -1586,6 +1586,8 @@ describe('<jus-upload>', () => {
       const style = getComputedStyle(zoneOf(element));
       expect(style.borderTopStyle).toBe('dashed');
       expect(style.borderTopColor).toBe(colorOf('--jus-color-muted'));
+      // On the surface, like the fields of the form, rather than on the page colour behind it.
+      expect(style.backgroundColor).toBe(colorOf('--jus-color-surface'));
     });
 
     it('changes the zone while files are dragged over it: solid primary border, lighter fill, body-coloured hint', () => {

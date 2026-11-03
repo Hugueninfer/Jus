@@ -21,24 +21,24 @@ final class DeadlineIndicatorTest extends KernelTestCase
      */
     public static function states(): iterable
     {
-        // summons date, fulfilled at, urgency, badge class, text
-        yield 'on track' => ['2026-03-04', null, 'on_track', 'text-bg-success', 'Vence em 5 dias úteis (11/03)'];
-        yield 'warning' => ['2026-03-02', null, 'warning', 'text-bg-warning', 'Vence em 3 dias úteis (09/03)'];
-        yield 'one business day left' => ['2026-02-26', null, 'warning', 'text-bg-warning', 'Vence em 1 dia útil (05/03)'];
-        yield 'due today' => ['2026-02-25', null, 'due_today', 'text-bg-danger', 'Vence hoje (04/03)'];
-        yield 'overdue' => ['2026-02-24', null, 'overdue', 'text-bg-danger', 'Venceu em 03/03/2026'];
-        yield 'fulfilled' => ['2026-02-24', '2026-02-26 16:00', 'fulfilled', 'text-bg-secondary', 'Cumprido em 26/02/2026'];
+        // summons date, fulfilled at, urgency, badge tone, text
+        yield 'on track' => ['2026-03-04', null, 'on_track', 'jus-badge-success', 'Vence em 5 dias úteis (11/03)'];
+        yield 'warning' => ['2026-03-02', null, 'warning', 'jus-badge-warning', 'Vence em 3 dias úteis (09/03)'];
+        yield 'one business day left' => ['2026-02-26', null, 'warning', 'jus-badge-warning', 'Vence em 1 dia útil (05/03)'];
+        yield 'due today' => ['2026-02-25', null, 'due_today', 'jus-badge-danger', 'Vence hoje (04/03)'];
+        yield 'overdue' => ['2026-02-24', null, 'overdue', 'jus-badge-danger', 'Venceu em 03/03/2026'];
+        yield 'fulfilled' => ['2026-02-24', '2026-02-26 16:00', 'fulfilled', 'jus-badge-neutral', 'Cumprido em 26/02/2026'];
     }
 
     #[DataProvider('states')]
-    public function testShowsTheDeadlineState(string $summonedOn, ?string $fulfilledAt, string $urgency, string $class, string $text): void
+    public function testShowsTheDeadlineState(string $summonedOn, ?string $fulfilledAt, string $urgency, string $tone, string $text): void
     {
         self::mockTime('2026-03-04 09:00:00');
 
         $badge = $this->renderTwigComponent('DeadlineIndicator', ['deadline' => self::deadline($summonedOn, $fulfilledAt)])->crawler()->filter('span.badge');
 
         self::assertSame($urgency, $badge->attr('data-urgency'));
-        self::assertStringContainsString($class, (string) $badge->attr('class'));
+        self::assertSame(['badge', 'rounded-pill', 'jus-badge', $tone], explode(' ', (string) $badge->attr('class')));
         self::assertSame($text, trim(preg_replace('/\s+/', ' ', $badge->text()) ?? ''));
         self::assertSame('true', $badge->filter('i')->attr('aria-hidden'));
     }

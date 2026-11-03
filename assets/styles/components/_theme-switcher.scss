@@ -1,12 +1,20 @@
 // The theme switcher of the navbar: three buttons that work as one choice, the pressed one being the current theme (the
 // markup says it with aria-pressed, and the behaviour keeps that up to date, so it is the one hook the style needs).
+// The buttons are the quiet outline ones (components/_buttons.scss): the label in the text colour and the boundary in the
+// muted one, on the surface of the navbar, in both themes.
 .jus-theme-switcher {
-  // Bootstrap fills an outline button this way while it is pressed with the mouse; here it is the resting look of the
-  // chosen theme, in the colours of the variant (light on the blue navbar, in both themes).
+  // The current theme is filled with the primary role, labelled in the on-primary colour; it is drawn over the borders
+  // of its neighbours in the group.
   .btn[aria-pressed='true'] {
-    color: var(--bs-btn-active-color);
-    background-color: var(--bs-btn-active-bg);
-    border-color: var(--bs-btn-active-border-color);
+    z-index: 1;
+    color: var(--jus-color-on-primary);
+    background-color: var(--jus-color-primary);
+    border-color: var(--jus-color-primary);
+  }
+
+  // The focus ring goes over everything in the group, the current theme beside it included.
+  .btn:focus-visible {
+    z-index: 2;
   }
 
   // Forced colours (Windows contrast themes) replace every fill with the system's colours, so the filled look of the current

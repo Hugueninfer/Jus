@@ -14,7 +14,7 @@
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
             <h1 class="h3 mb-0 font-monospace">{{ case.number|cnj }}</h1>
             {% if case.confidential %}
-                <span class="badge text-bg-dark"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
+                <span class="badge rounded-pill jus-badge jus-badge-inverse"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
             {% endif %}
             <twig:StatusBadge :status="case.status" />
             {% if is_granted('FILE', case) %}

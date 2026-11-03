@@ -68,4 +68,25 @@ final readonly class FormattingExtension
     {
         return $this->labels->label($value);
     }
+
+    /**
+     * The initials of a person's name for an avatar: the first letter of the first and of the last word, in capitals
+     * ("Maria da Silva" reads "MS"; a single name gives one letter).
+     */
+    #[AsTwigFilter('initials')]
+    public function initials(string $name): string
+    {
+        $words = preg_split('/\s+/u', trim($name), -1, \PREG_SPLIT_NO_EMPTY);
+        if (false === $words || [] === $words) {
+            return '';
+        }
+
+        $initials = mb_substr($words[0], 0, 1);
+        $last = array_key_last($words);
+        if ($last > 0) {
+            $initials .= mb_substr($words[$last], 0, 1);
+        }
+
+        return mb_strtoupper($initials);
+    }
 }

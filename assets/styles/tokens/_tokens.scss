@@ -17,17 +17,21 @@ $colors: (
 //   page          the page behind everything
 //   surface       cards, panels, form fields and the navbar
 //   border        hairlines between and around surfaces (decoration; a control's boundary uses text-muted)
-//   text          body text;  text-muted: secondary text, and the border of a button (3:1 on page and surface)
+//   border-strong a line that has to be seen though it is no control's boundary (the timeline rail): 1.5:1 or more
+//   text          body text;  text-muted: secondary text, and the border of a button or field (3:1 on page and surface)
 //   primary       links, actions and the pressed state;  on-primary: the label on a primary fill
+//   primary-hover the fill of a primary button under the pointer (darker on the light theme, paler on the dark one)
 //   <status>-bg   the tinted fill of a badge or alert;  <status>-text: its label, the same hue, dark (light) or pale (dark)
 $themes: (
   'light': (
     'page': #f4f6f9,
     'surface': #fff,
     'border': #e5e7eb,
+    'border-strong': #b8bfc9,
     'text': #111827,
     'text-muted': #586170,
     'primary': #1f4e79,
+    'primary-hover': #183e61,
     'on-primary': #fff,
     'success-bg': #dcf3e4,
     'success-text': #14612f,
@@ -44,9 +48,11 @@ $themes: (
     'page': #0f1722,
     'surface': #141e2b,
     'border': #243244,
+    'border-strong': #3d4d63,
     'text': #e8edf3,
     'text-muted': #9aa7b7,
     'primary': #7fb2e5,
+    'primary-hover': #a3c8ee,
     'on-primary': #0f1722,
     'success-bg': #12301f,
     'success-text': #7fdba5,
@@ -111,8 +117,7 @@ $shadows-dark: (
 );
 
 // Keyboard focus ring: solid, so it keeps at least 3:1 against the surface around it (WCAG 1.4.11).
-// 'color' is for light surfaces; 'color-inverse' for dark ones (the dark theme, the primary navbar and its off-canvas
-// menu, the skip link).
+// 'color' is for light surfaces; 'color-inverse' for dark ones (the dark theme and the areas filled with the brand blue).
 $focus: (
   'width': 0.2rem,
   'offset': 0.125rem,

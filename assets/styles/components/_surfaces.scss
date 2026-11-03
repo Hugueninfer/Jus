@@ -1,0 +1,26 @@
+// A card or a panel: the surface colour, the large radius and the card shadow. The shadow token changes with the theme:
+// soft shadows on the light one, a one pixel border on the dark one, where a shadow would not show. Bootstrap's cards
+// take the same edge (their own border is off, see $card-border-width).
+.jus-surface {
+  background-color: var(--jus-color-surface);
+  border-radius: var(--jus-radius-lg);
+  box-shadow: var(--jus-shadow-card);
+}
+
+.card {
+  box-shadow: var(--jus-shadow-card);
+}
+
+// The header band of a page: the surface from one side of the window to the other, with the border line below it, even
+// from inside the page's container. The border image draws it past the sides of the box (an outset is painted, but it
+// never makes the page scroll); the last pixel of the image is the line.
+.jus-page-header {
+  padding-block: var(--jus-space-4);
+  margin-block-end: var(--jus-space-4);
+  border-image: linear-gradient(to top, var(--jus-color-border) 1px, var(--jus-color-surface) 1px) fill 0 / 0 / 0 100vmax;
+}
+
+// First thing in the main content, it meets the navbar: main keeps the same space on top of everything else.
+main > .jus-page-header:first-child {
+  margin-block-start: calc(-1 * var(--jus-space-4));
+}

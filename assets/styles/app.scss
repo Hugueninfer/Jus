@@ -7,6 +7,16 @@
 @import 'bootstrap/scss/bootstrap';
 @import 'tokens/custom-properties';
 @import 'base/focus';
+
+// The look of the shared pieces, from the tokens, in both themes.
+@import 'components/surfaces';
+@import 'components/navbar';
+@import 'components/buttons';
+@import 'components/forms';
+@import 'components/badges';
+@import 'components/alerts';
+@import 'components/tabs';
+@import 'components/pagination';
 @import 'components/timeline';
 @import 'components/data-table';
 @import 'components/case-card';

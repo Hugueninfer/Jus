@@ -47,6 +47,30 @@ final class LayoutTest extends WebTestCase
         self::assertMatchesRegularExpression('#\.navbar \.navbar-toggler[^{]*\{[^}]*display: none#', $rules);
     }
 
+    public function testTheNavbarIsTheLightOneWithTheBrandMark(): void
+    {
+        $client = self::createClient();
+
+        $crawler = $client->request('GET', '/login');
+
+        $navbar = $crawler->filter('header nav.navbar');
+        self::assertCount(1, $navbar);
+        $classes = explode(' ', (string) $navbar->attr('class'));
+        self::assertContains('navbar-expand-md', $classes);
+        self::assertContains('jus-navbar', $classes);
+        // The navbar is the surface colour now, in both themes: not the dark variant on the primary colour.
+        self::assertNotContains('navbar-dark', $classes);
+        self::assertNotContains('bg-primary', $classes);
+        self::assertCount(0, $crawler->filter('header .text-bg-primary, header .btn-close-white, header .text-white'));
+
+        // The brand: a square mark with the initial, for the eye only, and the name, which is the name of the link.
+        $brand = $navbar->filter('a.navbar-brand.jus-brand');
+        self::assertSame('/', $brand->attr('href'));
+        self::assertSame('J', trim($brand->filter('.jus-brand-mark')->text()));
+        self::assertSame('true', $brand->filter('.jus-brand-mark')->attr('aria-hidden'));
+        self::assertSame('Jus', trim($brand->filter('.jus-brand-name')->text()));
+    }
+
     public function testTheNavbarOffersTheCatalogAndSignInToVisitors(): void
     {
         $client = self::createClient();
@@ -58,6 +82,7 @@ final class LayoutTest extends WebTestCase
         self::assertSame('page', $crawler->filter('header a[href="/design-system"]')->attr('aria-current'));
         self::assertSame('Entrar', trim($crawler->filter('header a[href="/login"]')->text()));
         self::assertCount(0, $crawler->selectLink('Sair'));
+        self::assertCount(0, $crawler->filter('header .jus-avatar'));
         self::assertCount(0, $crawler->filter('header a[href="/processos"]'));
         self::assertCount(1, $crawler->filter('header button[data-bs-target="#menu-principal"]'));
     }
@@ -75,6 +100,13 @@ final class LayoutTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('nav', 'João Almeida');
+        // The person as an avatar with the initials (for the eye only: the name follows as text) and the name.
+        $user = $crawler->filter('header .jus-user');
+        self::assertCount(1, $user);
+        self::assertSame('JA', trim($user->filter('.jus-avatar')->text()));
+        self::assertSame('true', $user->filter('.jus-avatar')->attr('aria-hidden'));
+        self::assertSame('João Almeida', trim($user->filter('.jus-user-name')->text()));
+        self::assertCount(0, $crawler->filter('header .bi-person-circle'));
         self::assertSame('Processos', trim($crawler->filter('header a[href="/processos"]')->text()));
         self::assertSame('page', $crawler->filter('header a[href="/processos"]')->attr('aria-current'));
         self::assertStringContainsString('active', (string) $crawler->filter('header a[href="/processos"]')->attr('class'));
