@@ -60,4 +60,23 @@ final class FormattingExtensionTest extends TestCase
     {
         self::assertSame('Arquivado', $this->extension->label(CaseStatus::Archived));
     }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function names(): iterable
+    {
+        yield 'first and last name' => ['Ana Ribeiro', 'AR'];
+        yield 'the first and the last of several' => ['Maria da Silva Souza', 'MS'];
+        yield 'a single name' => ['Ana', 'A'];
+        yield 'accented initials, upper case' => ['élida ávila', 'ÉÁ'];
+        yield 'extra spaces' => ["  João \t Almeida  ", 'JA'];
+        yield 'no name' => ['   ', ''];
+    }
+
+    #[DataProvider('names')]
+    public function testTakesTheInitialsOfAName(string $name, string $expected): void
+    {
+        self::assertSame($expected, $this->extension->initials($name));
+    }
 }

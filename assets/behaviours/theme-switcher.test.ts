@@ -20,7 +20,7 @@ function markup(current: string): string {
   const buttons = themes
     .map(
       (theme) => `
-        <button type="submit" class="btn btn-outline-light" name="tema" value="${theme.value}" aria-pressed="${String(theme.value === current)}" title="Tema: ${theme.label}"
+        <button type="submit" class="btn btn-outline-secondary" name="tema" value="${theme.value}" aria-pressed="${String(theme.value === current)}" title="Tema: ${theme.label}"
                 data-jus-theme-announcement="${theme.announcement}">
           <i class="bi ${theme.icon}" aria-hidden="true"></i> <span class="visually-hidden">Tema: </span><span class="jus-theme-switcher-label">${theme.label}</span>
         </button>`,

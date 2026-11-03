@@ -1,0 +1,21 @@
+@use 'sass:map';
+@use '../tokens/tokens' as t;
+
+// The boundaries, radius and focus of the fields come from _bootstrap-config.scss. What is left is the mark inside a ticked
+// box or a chosen radio: Bootstrap paints it into an image in one colour (white), which on the dark theme's pale primary
+// fill would be about 2:1. There it takes the dark theme's on-primary colour, as the label of a primary button does.
+$jus-dark-on-primary: map.get(t.$themes, 'dark', 'on-primary');
+
+@include color-mode(dark) {
+  .form-check-input:checked[type='checkbox'] {
+    --bs-form-check-bg-image: #{escape-svg(url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='none' stroke='#{$jus-dark-on-primary}' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/></svg>"))};
+  }
+
+  .form-check-input:checked[type='radio'] {
+    --bs-form-check-bg-image: #{escape-svg(url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'><circle r='2' fill='#{$jus-dark-on-primary}'/></svg>"))};
+  }
+
+  .form-check-input[type='checkbox']:indeterminate {
+    --bs-form-check-bg-image: #{escape-svg(url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='none' stroke='#{$jus-dark-on-primary}' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/></svg>"))};
+  }
+}

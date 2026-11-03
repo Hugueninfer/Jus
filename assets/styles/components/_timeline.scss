@@ -1,10 +1,11 @@
-// Each event carries its own left border, which stacks into a vertical line down the day.
+// Each event carries its own left border, which stacks into a vertical line down the day: the strong border colour, a
+// line that stays visible on the page and on a card alike (the plain border colour is about 1.1:1 on the page).
 .jus-timeline-event {
   display: flex;
   gap: var(--jus-space-3);
   padding-block: var(--jus-space-2);
-  padding-inline-start: var(--jus-space-2);
-  border-inline-start: 2px solid var(--jus-color-border);
+  padding-inline-start: var(--jus-space-3);
+  border-inline-start: calc(var(--bs-border-width) * 2) solid var(--jus-color-border-strong);
 
   > .bi {
     color: var(--jus-color-primary);

@@ -1,4 +1,4 @@
-<article {{ attributes.defaults({class: 'card jus-case-card h-100'}) }}>
+<article {{ attributes.defaults({class: 'card jus-surface jus-case-card h-100'}) }}>
     <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
             <h3 class="h6 mb-0 font-monospace">
@@ -10,7 +10,7 @@
             </h3>
             <div class="d-flex flex-wrap gap-1">
                 {% if case.confidential %}
-                    <span class="badge text-bg-dark"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
+                    <span class="badge rounded-pill jus-badge jus-badge-inverse"><i class="bi bi-lock" aria-hidden="true"></i> Sigiloso</span>
                 {% endif %}
                 <twig:StatusBadge :status="case.status" />
             </div>

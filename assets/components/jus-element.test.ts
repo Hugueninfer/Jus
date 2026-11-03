@@ -224,8 +224,9 @@ describe('JusElement', () => {
     expect(getComputedStyle(required(shadow.getElementById('hidden-by-attribute'))).display).toBe('none');
   });
 
-  it('styles a pressed button with the primary and surface tokens', () => {
+  it('styles a pressed button with the primary token, labelled in the on-primary one', () => {
     document.documentElement.style.setProperty('--jus-color-primary', 'rgb(1, 2, 3)');
+    document.documentElement.style.setProperty('--jus-color-on-primary', 'rgb(240, 241, 242)');
     document.documentElement.style.setProperty('--jus-color-surface', 'rgb(250, 251, 252)');
     const button = required(required(mount('jus-test-element').shadowRoot).querySelector('button'));
 
@@ -234,7 +235,21 @@ describe('JusElement', () => {
     button.setAttribute('aria-pressed', 'true');
 
     expect(getComputedStyle(button).backgroundColor).toBe('rgb(1, 2, 3)');
-    expect(getComputedStyle(button).color).toBe('rgb(250, 251, 252)');
+    expect(getComputedStyle(button).color).toBe('rgb(240, 241, 242)');
+  });
+
+  it('shows the pointer over a button that is not pressed with the neutral fill, and keeps a pressed one as it is', async () => {
+    const button = shadowButton();
+
+    await userEvent.hover(button);
+
+    expect(getComputedStyle(button).backgroundColor).toBe(colorOf('--jus-color-neutral-bg'));
+    expect(getComputedStyle(button).color).toBe(colorOf('--jus-color-text'));
+
+    button.setAttribute('aria-pressed', 'true');
+
+    expect(getComputedStyle(button).backgroundColor).toBe(colorOf('--jus-color-primary'));
+    await userEvent.unhover(button);
   });
 
   it('has no accessibility violations for its base markup, with the real palette, pressed or not', async () => {
@@ -283,13 +298,14 @@ describe('JusElement in the dark theme', () => {
     expect(style.backgroundColor).toBe('rgb(20, 30, 43)');
   });
 
-  it('draws a pressed button with the dark primary and the surface for its label', () => {
+  it('draws a pressed button with the dark primary and the on-primary role for its label', () => {
     const button = shadowButton();
     button.setAttribute('aria-pressed', 'true');
 
     const style = getComputedStyle(button);
     expect(style.backgroundColor).toBe('rgb(127, 178, 229)');
-    expect(style.color).toBe(colorOf('--jus-color-surface'));
+    expect(style.color).toBe(colorOf('--jus-color-on-primary'));
+    expect(style.color).toBe('rgb(15, 23, 34)');
   });
 
   it('has no accessibility violations for its base markup, with the dark palette, pressed or not', async () => {

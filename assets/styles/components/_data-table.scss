@@ -11,19 +11,35 @@
   }
 }
 
-// Each row is a card on small screens, labelled cell by cell; from md up it is a regular table.
+// Each row is a card on small screens (a surface with the card shadow, labelled cell by cell); from md up the whole table
+// is one panel on the surface.
 .jus-data-table {
   caption-side: top;
+
+  // The card is the row: the cells let its surface show through, so its rounded corners are not covered.
+  --bs-table-bg: transparent;
 
   thead {
     display: none;
   }
 
+  thead th {
+    color: var(--jus-color-text-muted);
+    font-size: var(--jus-font-size-small);
+    font-weight: var(--jus-font-weight-semibold);
+  }
+
   tr {
     display: block;
     margin-block-end: var(--jus-space-3);
-    border: 1px solid var(--jus-color-border);
-    border-radius: var(--jus-radius-base);
+    background-color: var(--jus-color-surface);
+    border-radius: var(--jus-radius-lg);
+    box-shadow: var(--jus-shadow-card);
+
+    // Forced colours drop the shadow: a real border keeps the edge of the card.
+    @media (forced-colors: active) {
+      border: var(--bs-border-width) solid;
+    }
   }
 
   // In card mode let long unbreakable strings (file names, protocol numbers) wrap instead of widening the page.
@@ -46,14 +62,26 @@
   }
 
   @include media-breakpoint-up(md) {
+    --bs-table-bg: var(--jus-color-surface);
+
+    margin-block-end: 0;
+
+    // In the panel, the caption lines up with the text of the cells.
+    caption {
+      padding-inline: var(--jus-space-3);
+    }
+
     thead {
       display: table-header-group;
     }
 
+    // A row of the table, no longer a card (in forced colours too: the panel has the border).
     tr {
       display: table-row;
       margin-block-end: 0;
       border-width: 0;
+      border-radius: 0;
+      box-shadow: none;
     }
 
     // Table layout keeps short values (dates) whole: anywhere-wrapping would let the auto layout squeeze their column.
@@ -65,8 +93,32 @@
       overflow-wrap: normal;
     }
 
+    // The panel's own edge closes the table: no line above it.
+    tbody tr:last-child td {
+      border-block-end-width: 0;
+    }
+
     td[data-label]::before {
       content: none;
+    }
+  }
+}
+
+// Below md the cards wrap their text and need no scrolling box, which would clip their side edges (the card shadow). From
+// md up the box scrolls a very long value sideways again, and it is the panel: the surface, the large radius and the card
+// shadow, or a real border in forced colours, which drop the shadow.
+.jus-data-table-wrapper > .table-responsive {
+  overflow: visible;
+
+  @include media-breakpoint-up(md) {
+    overflow-x: auto;
+    margin-block-end: var(--jus-space-3);
+    background-color: var(--jus-color-surface);
+    border-radius: var(--jus-radius-lg);
+    box-shadow: var(--jus-shadow-card);
+
+    @media (forced-colors: active) {
+      border: var(--bs-border-width) solid;
     }
   }
 }

@@ -1,0 +1,98 @@
+// The navbar: the surface colour with a line below it, in both themes. The links are in the text colour, and the current
+// section in the primary colour and underlined, so that the colour is not the only sign of it. Bootstrap's navbar reads
+// its colours from these custom properties, the off-canvas menu of a phone included.
+.jus-navbar {
+  --bs-navbar-color: var(--jus-color-text);
+  --bs-navbar-hover-color: var(--jus-color-primary);
+  --bs-navbar-active-color: var(--jus-color-primary);
+  --bs-navbar-brand-color: var(--jus-color-text);
+  --bs-navbar-brand-hover-color: var(--jus-color-text);
+
+  // The menu button is a control: its boundary is the muted colour (3:1 or more), like the other buttons.
+  --bs-navbar-toggler-border-color: var(--jus-color-text-muted);
+
+  background-color: var(--jus-color-surface);
+  border-block-end: var(--bs-border-width) solid var(--jus-color-border);
+
+  .nav-link.active {
+    text-decoration-line: underline;
+    text-decoration-thickness: calc(var(--bs-border-width) * 2);
+    text-underline-offset: var(--jus-space-1);
+  }
+
+  // From md up the menu is one row beside the brand. Nothing in it wraps; when the row runs short of room, the name of the
+  // person gives way: the chain of boxes around it may shrink (min-width), and the name ends in an ellipsis. Its full text
+  // stays in the page for screen readers.
+  @include media-breakpoint-up(md) {
+    .offcanvas,
+    .offcanvas-body,
+    .navbar-nav,
+    .jus-navbar-user,
+    .jus-user,
+    .jus-user-name {
+      min-width: 0;
+    }
+
+    .nav-link,
+    .jus-theme-switcher .btn {
+      white-space: nowrap;
+    }
+
+    .jus-user {
+      max-width: 100%;
+    }
+
+    .jus-user-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  // Between md and lg the row has room for the avatar only: the name is there for screen readers (the avatar is not).
+  @include media-breakpoint-only(md) {
+    .jus-user-name {
+      @include visually-hidden;
+    }
+  }
+}
+
+// The brand mark and the avatar: a square of twice the third spacing step, its letters in the middle.
+.jus-brand-mark,
+.jus-avatar {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  inline-size: calc(var(--jus-space-3) * 2);
+  block-size: calc(var(--jus-space-3) * 2);
+  font-weight: var(--jus-font-weight-semibold);
+  line-height: 1;
+}
+
+// The brand: a square mark with the initial, in the primary colour, and the name.
+.jus-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jus-space-2);
+  font-weight: var(--jus-font-weight-semibold);
+}
+
+.jus-brand-mark {
+  border-radius: var(--jus-radius-sm);
+  background-color: var(--jus-color-primary);
+  color: var(--jus-color-on-primary);
+}
+
+// The person signed in: an avatar with the initials (for the eye; the name beside it is what is read) and the name.
+.jus-user {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jus-space-2);
+}
+
+.jus-avatar {
+  border-radius: 50%;
+  background-color: var(--jus-color-info-bg);
+  color: var(--jus-color-info-text);
+  font-size: var(--jus-font-size-small);
+}

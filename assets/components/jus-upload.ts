@@ -18,6 +18,7 @@ const styles = sheet(`
     padding: var(--jus-space-3);
     border: 2px dashed var(--jus-color-muted);
     border-radius: var(--jus-radius-lg);
+    background: var(--jus-color-surface);
   }
 
   /* While files are dragged over the element: a solid primary border and a light fill (the text stays body-coloured, so

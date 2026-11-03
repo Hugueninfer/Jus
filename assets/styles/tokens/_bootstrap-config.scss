@@ -63,7 +63,8 @@ $info-bg-subtle-dark: map.get($jus-dark, 'info-bg');
 $info-text-emphasis-dark: map.get($jus-dark, 'info-text');
 
 // Components that sit on a surface rather than on the page. They name the custom property, not a colour, so the one
-// compiled rule follows the colour mode.
+// compiled rule follows the colour mode. Tables and accordions too: on the page colour their hairlines were all but
+// invisible (about 1.1:1).
 $card-bg: var(--jus-color-surface);
 $input-bg: var(--jus-color-surface);
 $dropdown-bg: var(--jus-color-surface);
@@ -72,6 +73,51 @@ $modal-content-bg: var(--jus-color-surface);
 $offcanvas-bg-color: var(--jus-color-surface);
 $pagination-bg: var(--jus-color-surface);
 $popover-bg: var(--jus-color-surface);
+$table-bg: var(--jus-color-surface);
+$table-color: var(--jus-color-text);
+$accordion-bg: var(--jus-color-surface);
+
+// The current item of a pagination (and of the other "active" components) takes the primary role of the theme, with its
+// label in the on-primary colour: Bootstrap compiles the brand blue, which stays about 2:1 on the dark page.
+$jus-active-bg: var(--jus-color-primary);
+$jus-active-color: var(--jus-color-on-primary);
+$pagination-active-bg: $jus-active-bg;
+$pagination-active-border-color: $jus-active-bg;
+$pagination-active-color: $jus-active-color;
+$nav-pills-link-active-bg: $jus-active-bg;
+$nav-pills-link-active-color: $jus-active-color;
+$list-group-active-bg: $jus-active-bg;
+$list-group-active-border-color: $jus-active-bg;
+$list-group-active-color: $jus-active-color;
+$dropdown-link-active-bg: $jus-active-bg;
+$dropdown-link-active-color: $jus-active-color;
+
+// Page links stand apart, each with its own corners (the gap between them is set in components/_pagination.scss).
+$pagination-margin-start: 0;
+
+// Fields: the boundary of a field identifies the control, so it is the muted text colour (3:1 or more on the page and on
+// a card, in both themes), not the decorative border role (about 1.2:1). The focused field turns primary; the ring
+// around it comes from the focus tokens below. A ticked box is filled with the primary role of the theme
+// (components/_forms.scss draws its tick in the on-primary colour on the dark theme).
+$input-border-color: var(--jus-color-text-muted);
+$form-check-input-border: var(--bs-border-width) solid var(--jus-color-text-muted);
+$input-focus-border-color: var(--jus-color-primary);
+$form-check-input-checked-bg-color: var(--jus-color-primary);
+$form-check-input-checked-border-color: var(--jus-color-primary);
+$form-check-input-indeterminate-bg-color: var(--jus-color-primary);
+$form-check-input-indeterminate-border-color: var(--jus-color-primary);
+$form-range-thumb-bg: var(--jus-color-primary);
+$form-range-thumb-active-bg: var(--jus-color-primary-hover);
+
+// The focused switch's knob is an image, which cannot read a custom property: Bootstrap would paint it from the focused
+// border colour above (a var()), so it gets the light primary value instead.
+$form-switch-focus-color: map.get($jus-light, 'primary');
+
+// The messages of a field that failed (or passed) its check, on the dark theme: the status tones of the tokens.
+$form-invalid-color-dark: map.get($jus-dark, 'danger-text');
+$form-invalid-border-color-dark: map.get($jus-dark, 'danger-text');
+$form-valid-color-dark: map.get($jus-dark, 'success-text');
+$form-valid-border-color-dark: map.get($jus-dark, 'success-text');
 
 // Space, type, radii and shadows.
 $spacers: map.merge((0: 0), t.$spaces);
@@ -81,9 +127,27 @@ $border-radius-sm: map.get(t.$radii, 'sm');
 $border-radius: map.get(t.$radii, 'base');
 $border-radius-lg: map.get(t.$radii, 'lg');
 $card-border-radius: map.get(t.$radii, 'lg');
+
+// A card's edge is the card shadow (a border on the dark theme), set with the surfaces in components/_surfaces.scss.
+$card-border-width: 0;
 $box-shadow-sm: map.get(t.$shadows, 'sm');
 $box-shadow: map.get(t.$shadows, 'base');
 $min-contrast-ratio: 4.5;
+
+// The type scale: page titles (the pages mark them .h2 or .h3) and section titles (.h4) take the sizes of the tokens,
+// and every heading the semibold weight. Buttons are medium, badges semibold.
+$headings-font-weight: map.get(t.$font-weights, 'semibold');
+$h2-font-size: map.get(t.$font-sizes, 'page-title');
+$h3-font-size: map.get(t.$font-sizes, 'page-title');
+$h4-font-size: map.get(t.$font-sizes, 'section-title');
+$btn-font-weight: map.get(t.$font-weights, 'medium');
+$badge-font-weight: map.get(t.$font-weights, 'semibold');
+
+// Buttons and fields: a comfortable height (about 42 px) and room inside; table cells breathe the same way.
+$input-btn-padding-y: map.get(t.$spaces, 2);
+$input-btn-padding-x: map.get(t.$spaces, 3);
+$table-cell-padding-y: map.get(t.$spaces, 2);
+$table-cell-padding-x: map.get(t.$spaces, 3);
 
 // Keyboard focus: Bootstrap's default ring is the primary colour at 25 % (about 1.5:1 on white). Use the solid token ring,
 // by way of --jus-focus-ring: the page sets it to the colour that suits the surface (base/_focus.scss), so inputs, selects,
@@ -93,11 +157,10 @@ $focus-ring-width: map.get(t.$focus, 'width');
 $focus-ring-opacity: 1;
 $focus-ring-color: var(--jus-focus-ring);
 
-// Nav links draw the ring in their own text colour, so it shows on the light page and on the primary navbar alike.
+// Nav links draw the ring in their own text colour, so it shows on the navbar and on the page alike, in both themes.
 $nav-link-focus-box-shadow: 0 0 0 $focus-ring-width currentcolor;
 
-// The navbar sits on the primary colour, in both themes: Bootstrap's translucent defaults (55 %) fall below WCAG AA there.
-// Literal values on purpose, because Bootstrap's own variables ($white) are not loaded yet at this point.
-$navbar-dark-color: rgb(255 255 255 / 85%);
-$navbar-dark-hover-color: #fff;
-$navbar-dark-active-color: #fff;
+// The navbar is the surface colour in both themes; components/_navbar.scss gives it its colours from the tokens. The menu
+// icon is an image, compiled once for each colour mode: it takes the text colour of that theme.
+$navbar-light-icon-color: map.get($jus-light, 'text');
+$navbar-dark-icon-color: map.get($jus-dark, 'text');

@@ -61,6 +61,8 @@ final class CasePageTest extends WebTestCase
         self::assertSame(['Polo ativo', 'Polo passivo'], $crawler->filter('section[aria-labelledby="partes"] h3')->each(static fn (Crawler $h): string => trim($h->text())));
         $parties = $crawler->filter('section[aria-labelledby="partes"] .card');
         self::assertCount(2, $parties);
+        // Every card takes its edge (the card shadow, a border on the dark theme and in forced colours) from .jus-surface.
+        self::assertCount(2, $parties->filter('.jus-surface'));
         self::assertSame('Maria Oliveira', trim($parties->eq(0)->filter('h4')->text()));
         self::assertNotNull($ana->getOabNumber());
         self::assertStringContainsString('Ana Ribeiro ('.$ana->getOabNumber().')', $parties->eq(0)->text());
@@ -277,6 +279,10 @@ final class CasePageTest extends WebTestCase
         $crawler = $this->client->request('GET', self::URL);
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('Sigiloso', $crawler->filter('main header')->text());
+        // A pill in the strong (inverse) tone, which stands out on the light and the dark surfaces alike.
+        $confidential = $crawler->filter('main header .badge')->reduce(static fn (Crawler $badge): bool => str_contains($badge->text(), 'Sigiloso'));
+        self::assertSame(['badge', 'rounded-pill', 'jus-badge', 'jus-badge-inverse'], explode(' ', (string) $confidential->attr('class')));
+        self::assertSame('true', $confidential->filter('i.bi-lock')->attr('aria-hidden'));
     }
 
     public function testAnonymousVisitorsAreSentToTheLoginPage(): void

@@ -31,6 +31,18 @@ final class CaseCardTest extends KernelTestCase
         self::assertCount(1, $card->filter('.badge'));
     }
 
+    public function testIsASurfaceCard(): void
+    {
+        $card = $this->renderTwigComponent('CaseCard', ['case' => Samples::legalCase()])->crawler()->filter('article');
+
+        // The card look of the design (surface, large radius, the card shadow or, in the dark theme, a border) comes from
+        // .jus-surface, the class every card and panel shares.
+        $classes = explode(' ', (string) $card->attr('class'));
+        self::assertContains('card', $classes);
+        self::assertContains('jus-surface', $classes);
+        self::assertContains('jus-case-card', $classes);
+    }
+
     public function testLinksTheNumberAndFlagsConfidentialCases(): void
     {
         $card = $this->renderTwigComponent('CaseCard', [
@@ -43,6 +55,9 @@ final class CaseCardTest extends KernelTestCase
         $confidential = $card->filter('.badge')->first();
         self::assertSame('Sigiloso', trim($confidential->text()));
         self::assertSame('true', $confidential->filter('i')->attr('aria-hidden'));
+        // A pill like the status, in the strong (inverse) tone rather than Bootstrap's solid dark, which disappears on
+        // the dark theme's surfaces.
+        self::assertSame(['badge', 'rounded-pill', 'jus-badge', 'jus-badge-inverse'], explode(' ', (string) $confidential->attr('class')));
     }
 
     public function testPassesTheStatusToTheStatusBadge(): void
@@ -51,7 +66,7 @@ final class CaseCardTest extends KernelTestCase
 
         $badge = $this->statusBadge($card);
         self::assertSame('Suspenso', trim($badge->text()));
-        self::assertStringContainsString('text-bg-warning', (string) $badge->attr('class'));
+        self::assertStringContainsString('jus-badge-warning', (string) $badge->attr('class'));
     }
 
     public function testListsEachPartyInItsOwnDescription(): void

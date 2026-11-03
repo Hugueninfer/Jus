@@ -1,6 +1,8 @@
 {% props status %}
-{% set variant = {active: 'success', suspended: 'warning', archived: 'secondary'}[status.value] %}
+{# A pill in the tinted tone of the status (assets/styles/components/_badges.scss), with an icon and the text: the colour is
+   never the only sign. #}
+{% set tone = {active: 'success', suspended: 'warning', archived: 'neutral'}[status.value] %}
 {% set icon = {active: 'bi-play-circle', suspended: 'bi-pause-circle', archived: 'bi-archive'}[status.value] %}
-<span {{ attributes.defaults({class: 'badge text-bg-' ~ variant}) }}>
+<span {{ attributes.defaults({class: 'badge rounded-pill jus-badge jus-badge-' ~ tone}) }}>
     <i class="bi {{ icon }}" aria-hidden="true"></i> {{ status|label }}
 </span>

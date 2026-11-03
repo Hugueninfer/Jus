@@ -1,0 +1,5 @@
+// Page links stand apart, each rounded ($pagination-margin-start is 0 in _bootstrap-config.scss), with the same room
+// between the lines when they wrap on a narrow screen. The current page is filled with the primary role of the theme.
+.pagination {
+  gap: var(--jus-space-1);
+}

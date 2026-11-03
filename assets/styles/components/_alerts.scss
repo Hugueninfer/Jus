@@ -1,0 +1,6 @@
+// Alerts: the tinted fill of the status and its label in the same hue (set from the tokens in _bootstrap-config.scss).
+// The fill is the shape; the border stays, transparent: invisible normally, it keeps the box in forced colours (Windows
+// contrast themes), which drop the fill and paint borders in the system's colour.
+.alert {
+  --bs-alert-border-color: transparent;
+}

@@ -1,17 +1,16 @@
 // Keyboard focus, drawn from the --jus-focus-* tokens with at least 3:1 against the surrounding colours (WCAG 1.4.11).
 
 // The ring colour for the surface an element sits on: the token colour on a light surface, the inverse one on the dark
-// ones. A light colour mode (the page, or a [data-bs-theme='light'] scope inside a dark page) is light; the dark colour
-// mode, the primary navbar and its off-canvas menu, and the skip link (it appears over the primary navbar) are dark.
+// ones. A light colour mode (the page, or a [data-bs-theme='light'] scope inside a dark page) is light, and so are the
+// navbar and the skip link, which are on the surface and the page colours; the dark colour mode and the areas filled with
+// the brand blue (.text-bg-primary, in both themes) are dark.
 :root,
 [data-bs-theme='light'] {
   --jus-focus-ring: var(--jus-focus-color);
 }
 
 [data-bs-theme='dark'],
-.navbar-dark,
-.text-bg-primary,
-.jus-skip-link {
+.text-bg-primary {
   --jus-focus-ring: var(--jus-focus-color-inverse);
 }
 
@@ -31,6 +30,6 @@
 }
 
 // Inputs and the close button use Bootstrap's ring, set from the tokens in _bootstrap-config.scss; nav links and the
-// navbar toggler draw it in their own text colour. The white close button (.btn-close-white) keeps the ring colour of its
-// surface on purpose: the filter that paints its icon white (invert, grayscale, brightness 200 %) renders that ring white
-// too, which is the inverse colour that surface asks for anyway.
+// navbar toggler draw it in their own text colour. The white close button (.btn-close-white, and every close button on
+// the dark theme) keeps the ring colour of its surface on purpose: the filter that paints its icon white (invert,
+// grayscale, brightness 200 %) renders that ring white too, which is the inverse colour that surface asks for anyway.

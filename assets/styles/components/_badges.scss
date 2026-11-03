@@ -1,0 +1,26 @@
+// The badges of the status, of a deadline and of a confidential case: a pill (the markup adds .rounded-pill) with the
+// tinted fill of its tone and the label in the same hue, 4.5:1 or more in both themes; an icon and the text always go
+// with the colour. The border is transparent: invisible normally, it keeps the pill's outline in forced colours (Windows
+// contrast themes), which drop the fill.
+.jus-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jus-space-1);
+  border: var(--bs-border-width) solid transparent;
+}
+
+@each $tone in 'success', 'warning', 'danger', 'info', 'neutral' {
+  .jus-badge-#{$tone} {
+    --bs-badge-color: var(--jus-color-#{$tone}-text);
+
+    background-color: var(--jus-color-#{$tone}-bg);
+  }
+}
+
+// The strong tone ("Sigiloso"): the text colour as the fill and the surface colour for the label, so the pill stands out
+// on the page and on a card alike (Bootstrap's solid dark badge vanishes on the dark theme's surfaces).
+.jus-badge-inverse {
+  --bs-badge-color: var(--jus-color-surface);
+
+  background-color: var(--jus-color-text);
+}

@@ -5,12 +5,14 @@ import { installTokens, type Theme } from '../../test-support/tokens';
 /** WCAG 2.2 AA: 4.5:1 for text, 3:1 for what identifies a control (1.4.3, 1.4.11). */
 const TEXT = 4.5;
 const CONTROL = 3;
+/** Not a WCAG figure: a hairline that has to be seen (the timeline rail) keeps at least this much against its ground. */
+const SEPARATOR = 1.5;
 
 const THEMES: Theme[] = ['light', 'dark'];
 
 /** The roles every theme defines, as --jus-color-<role>. */
 const ROLES = [
-  'page', 'surface', 'border', 'text', 'text-muted', 'primary', 'on-primary',
+  'page', 'surface', 'border', 'border-strong', 'text', 'text-muted', 'primary', 'primary-hover', 'on-primary',
   'success-bg', 'success-text', 'warning-bg', 'warning-text', 'danger-bg', 'danger-text', 'info-bg', 'info-text',
   'neutral-bg', 'neutral-text',
 ];
@@ -60,6 +62,14 @@ const PAIRS: Pair[] = [
   { foreground: 'primary', background: 'surface', minimum: TEXT, use: 'links on cards' },
   { foreground: 'primary', background: 'neutral-bg', minimum: CONTROL, use: 'the border of a hovered upload area' },
   { foreground: 'on-primary', background: 'primary', minimum: TEXT, use: 'a pressed button' },
+  { foreground: 'on-primary', background: 'primary-hover', minimum: TEXT, use: 'a primary button under the pointer' },
+  { foreground: 'primary', background: 'page', minimum: CONTROL, use: 'the shape of a primary button on the page' },
+  { foreground: 'primary-hover', background: 'page', minimum: CONTROL, use: 'the shape of a hovered primary button on the page' },
+  { foreground: 'primary-hover', background: 'surface', minimum: CONTROL, use: 'the shape of a hovered primary button on a card' },
+  { foreground: 'text', background: 'surface', minimum: CONTROL, use: 'the fill of the confidential badge on a card' },
+  { foreground: 'surface', background: 'text', minimum: TEXT, use: 'the label of the confidential badge' },
+  { foreground: 'border-strong', background: 'page', minimum: SEPARATOR, use: 'the timeline rail on the page' },
+  { foreground: 'border-strong', background: 'surface', minimum: SEPARATOR, use: 'the timeline rail on a card' },
   { foreground: 'success-text', background: 'success-bg', minimum: TEXT, use: 'a success badge or alert' },
   { foreground: 'warning-text', background: 'warning-bg', minimum: TEXT, use: 'a warning badge or alert' },
   { foreground: 'danger-text', background: 'danger-bg', minimum: TEXT, use: 'a danger badge or alert' },

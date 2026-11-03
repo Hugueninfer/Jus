@@ -45,9 +45,15 @@ const baseSheet = sheet(`
     cursor: pointer;
   }
 
+  /* Under the pointer a button that is not pressed takes the neutral fill (the text keeps about 15:1 on it). */
+  .jus-button:hover:not(:disabled, [aria-pressed="true"]) {
+    background: var(--jus-color-neutral-bg);
+  }
+
+  /* The pressed button is filled with the primary role, its label in the colour made for it in each theme. */
   .jus-button[aria-pressed="true"] {
     background: var(--jus-color-primary);
-    color: var(--jus-color-surface);
+    color: var(--jus-color-on-primary);
   }
 
   /* Disabled controls are exempt from the contrast minimums, but the text stays legible (muted on the light fill is
